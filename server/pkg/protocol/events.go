@@ -58,6 +58,14 @@ const (
 	EventSkillUpdated = "skill:updated"
 	EventSkillDeleted = "skill:deleted"
 
+	// Agent communication events
+	EventAgentMessage = "agent:message"
+
+	// Task chain events
+	EventTaskChained  = "task:chained"
+	EventTaskInReview = "task:in_review"
+	EventTaskReviewed = "task:reviewed"
+
 	// Daemon events
 	EventDaemonHeartbeat = "daemon:heartbeat"
 	EventDaemonRegister  = "daemon:register"

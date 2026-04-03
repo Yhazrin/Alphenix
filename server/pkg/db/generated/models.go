@@ -45,6 +45,7 @@ type AgentRuntime struct {
 	ID          pgtype.UUID        `json:"id"`
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`
 	DaemonID    pgtype.Text        `json:"daemon_id"`
+	InstanceID  string             `json:"instance_id"`
 	Name        string             `json:"name"`
 	RuntimeMode string             `json:"runtime_mode"`
 	Provider    string             `json:"provider"`
@@ -63,22 +64,27 @@ type AgentSkill struct {
 }
 
 type AgentTaskQueue struct {
-	ID               pgtype.UUID        `json:"id"`
-	AgentID          pgtype.UUID        `json:"agent_id"`
-	IssueID          pgtype.UUID        `json:"issue_id"`
-	Status           string             `json:"status"`
-	Priority         int32              `json:"priority"`
-	DispatchedAt     pgtype.Timestamptz `json:"dispatched_at"`
-	StartedAt        pgtype.Timestamptz `json:"started_at"`
-	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
-	Result           []byte             `json:"result"`
-	Error            pgtype.Text        `json:"error"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	Context          []byte             `json:"context"`
-	RuntimeID        pgtype.UUID        `json:"runtime_id"`
-	SessionID        pgtype.Text        `json:"session_id"`
-	WorkDir          pgtype.Text        `json:"work_dir"`
-	TriggerCommentID pgtype.UUID        `json:"trigger_comment_id"`
+	ID                 pgtype.UUID        `json:"id"`
+	AgentID            pgtype.UUID        `json:"agent_id"`
+	IssueID            pgtype.UUID        `json:"issue_id"`
+	Status             string             `json:"status"`
+	Priority           int32              `json:"priority"`
+	DispatchedAt       pgtype.Timestamptz `json:"dispatched_at"`
+	StartedAt          pgtype.Timestamptz `json:"started_at"`
+	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
+	Result             []byte             `json:"result"`
+	Error              pgtype.Text        `json:"error"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	Context            []byte             `json:"context"`
+	RuntimeID          pgtype.UUID        `json:"runtime_id"`
+	SessionID          pgtype.Text        `json:"session_id"`
+	WorkDir            pgtype.Text        `json:"work_dir"`
+	TriggerCommentID   pgtype.UUID        `json:"trigger_comment_id"`
+	ReviewStatus       string             `json:"review_status"`
+	ReviewCount        int32              `json:"review_count"`
+	MaxReviews         int32              `json:"max_reviews"`
+	ChainSourceTaskID  pgtype.UUID        `json:"chain_source_task_id"`
+	ChainReason        string             `json:"chain_reason"`
 }
 
 type Attachment struct {
@@ -267,6 +273,17 @@ type SkillFile struct {
 	Content   string             `json:"content"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TaskReview struct {
+	ID           pgtype.UUID        `json:"id"`
+	TaskID       pgtype.UUID        `json:"task_id"`
+	ReviewerType string             `json:"reviewer_type"`
+	ReviewerID   pgtype.UUID        `json:"reviewer_id"`
+	Verdict      string             `json:"verdict"`
+	Score        int32              `json:"score"`
+	Feedback     string             `json:"feedback"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type TaskMessage struct {

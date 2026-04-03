@@ -210,53 +210,88 @@ func (s *TaskService) StartTask(ctx context.Context, taskID pgtype.UUID) (*db.Ag
 }
 
 // CompleteTask marks a task as completed.
+// If the agent has review enabled (max_reviews > 0), the task transitions to
+// in_review instead of directly completing. The ReviewService handles the rest.
 // Issue status is NOT changed here — the agent manages it via the CLI.
-func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, result []byte, sessionID, workDir string) (*db.AgentTaskQueue, error) {
-	task, err := s.Queries.CompleteAgentTask(ctx, db.CompleteAgentTaskParams{
+func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, result []byte, sessionID, workDir string, reviewService *ReviewService) (*db.AgentTaskQueue, error) {
+	// Load the task to check review config.
+	task, err := s.Queries.GetAgentTask(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("load task: %w", err)
+	}
+	if task.Status != "running" {
+		slog.Warn("complete task failed: task not in running state",
+			"task_id", util.UUIDToString(taskID),
+			"current_status", task.Status,
+			"issue_id", util.UUIDToString(task.IssueID),
+			"agent_id", util.UUIDToString(task.AgentID),
+		)
+		return nil, fmt.Errorf("task %s is not running (status: %s)", util.UUIDToString(taskID), task.Status)
+	}
+
+	// If review is enabled, transition to in_review instead of completing.
+	if task.MaxReviews > 0 && reviewService != nil {
+		inReview, err := s.Queries.SetTaskInReview(ctx, taskID)
+		if err != nil {
+			return nil, fmt.Errorf("set task in review: %w", err)
+		}
+		slog.Info("task moved to review", "task_id", util.UUIDToString(taskID))
+
+		// Post agent output as a comment even during review.
+		if !task.TriggerCommentID.Valid {
+			var payload protocol.TaskCompletedPayload
+			if err := json.Unmarshal(result, &payload); err == nil {
+				if payload.Output != "" {
+					s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(payload.Output), "comment", task.TriggerCommentID)
+				}
+			}
+		}
+
+		// Broadcast in_review status
+		s.broadcastTaskEvent(ctx, protocol.EventTaskInReview, inReview)
+
+		// Trigger async review
+		go func() {
+			if _, reviewErr := reviewService.ReviewTask(context.Background(), taskID); reviewErr != nil {
+				slog.Error("automated review failed", "task_id", util.UUIDToString(taskID), "error", reviewErr)
+			}
+		}()
+
+		return &inReview, nil
+	}
+
+	// No review — complete directly (original behavior).
+	completed, err := s.Queries.CompleteAgentTask(ctx, db.CompleteAgentTaskParams{
 		ID:        taskID,
 		Result:    result,
 		SessionID: pgtype.Text{String: sessionID, Valid: sessionID != ""},
 		WorkDir:   pgtype.Text{String: workDir, Valid: workDir != ""},
 	})
 	if err != nil {
-		// Log the current task state to help debug why the update matched no rows.
-		if existing, lookupErr := s.Queries.GetAgentTask(ctx, taskID); lookupErr == nil {
-			slog.Warn("complete task failed: task not in running state",
-				"task_id", util.UUIDToString(taskID),
-				"current_status", existing.Status,
-				"issue_id", util.UUIDToString(existing.IssueID),
-				"agent_id", util.UUIDToString(existing.AgentID),
-			)
-		} else {
-			slog.Warn("complete task failed: task not found",
-				"task_id", util.UUIDToString(taskID),
-				"lookup_error", lookupErr,
-			)
-		}
 		return nil, fmt.Errorf("complete task: %w", err)
 	}
 
-	slog.Info("task completed", "task_id", util.UUIDToString(task.ID), "issue_id", util.UUIDToString(task.IssueID))
+	slog.Info("task completed", "task_id", util.UUIDToString(completed.ID), "issue_id", util.UUIDToString(completed.IssueID))
 
 	// Post agent output as a comment, but only for assignment-triggered tasks.
 	// Comment-triggered tasks: the agent replies via CLI with --parent, so
 	// posting here would create a duplicate.
-	if !task.TriggerCommentID.Valid {
+	if !completed.TriggerCommentID.Valid {
 		var payload protocol.TaskCompletedPayload
 		if err := json.Unmarshal(result, &payload); err == nil {
 			if payload.Output != "" {
-				s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(payload.Output), "comment", task.TriggerCommentID)
+				s.createAgentComment(ctx, completed.IssueID, completed.AgentID, redact.Text(payload.Output), "comment", completed.TriggerCommentID)
 			}
 		}
 	}
 
 	// Reconcile agent status
-	s.ReconcileAgentStatus(ctx, task.AgentID)
+	s.ReconcileAgentStatus(ctx, completed.AgentID)
 
 	// Broadcast
-	s.broadcastTaskEvent(ctx, protocol.EventTaskCompleted, task)
+	s.broadcastTaskEvent(ctx, protocol.EventTaskCompleted, completed)
 
-	return &task, nil
+	return &completed, nil
 }
 
 // FailTask marks a task as failed.
@@ -374,6 +409,48 @@ type AgentSkillData struct {
 type AgentSkillFileData struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
+}
+
+// ChainTask creates a follow-up task for a target agent, linking it to the source task.
+// The source task's result is included as context so the target agent has full background.
+func (s *TaskService) ChainTask(ctx context.Context, sourceTaskID, targetAgentID pgtype.UUID, chainReason string) (*db.AgentTaskQueue, error) {
+	sourceTask, err := s.Queries.GetAgentTask(ctx, sourceTaskID)
+	if err != nil {
+		return nil, fmt.Errorf("load source task: %w", err)
+	}
+
+	agent, err := s.Queries.GetAgent(ctx, targetAgentID)
+	if err != nil {
+		return nil, fmt.Errorf("load target agent: %w", err)
+	}
+	if agent.ArchivedAt.Valid {
+		return nil, fmt.Errorf("target agent is archived")
+	}
+	if !agent.RuntimeID.Valid {
+		return nil, fmt.Errorf("target agent has no runtime")
+	}
+
+	task, err := s.Queries.CreateAgentTask(ctx, db.CreateAgentTaskParams{
+		AgentID:           targetAgentID,
+		RuntimeID:         agent.RuntimeID,
+		IssueID:           sourceTask.IssueID,
+		Priority:          sourceTask.Priority,
+		ChainSourceTaskID: sourceTaskID,
+		ChainReason:       pgtype.Text{String: chainReason, Valid: chainReason != ""},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create chained task: %w", err)
+	}
+
+	slog.Info("task chained",
+		"source_task_id", util.UUIDToString(sourceTaskID),
+		"chained_task_id", util.UUIDToString(task.ID),
+		"target_agent_id", util.UUIDToString(targetAgentID),
+		"chain_reason", chainReason,
+	)
+
+	s.broadcastTaskEvent(ctx, protocol.EventTaskChained, task)
+	return &task, nil
 }
 
 func priorityToInt(p string) int32 {

@@ -205,6 +205,12 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus) chi.Route
 				})
 			})
 
+			// Task review (manual)
+			r.Post("/api/tasks/{taskId}/review", h.SubmitReview)
+
+			// Task chaining
+			r.Post("/api/tasks/{taskId}/chain", h.ChainTask)
+
 			// Skills
 			r.Route("/api/skills", func(r chi.Router) {
 				r.Get("/", h.ListSkills)

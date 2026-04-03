@@ -15,6 +15,7 @@ type AgentRuntimeResponse struct {
 	ID          string  `json:"id"`
 	WorkspaceID string  `json:"workspace_id"`
 	DaemonID    *string `json:"daemon_id"`
+	InstanceID  string  `json:"instance_id"`
 	Name        string  `json:"name"`
 	RuntimeMode string  `json:"runtime_mode"`
 	Provider    string  `json:"provider"`
@@ -39,6 +40,7 @@ func runtimeToResponse(rt db.AgentRuntime) AgentRuntimeResponse {
 		ID:          uuidToString(rt.ID),
 		WorkspaceID: uuidToString(rt.WorkspaceID),
 		DaemonID:    textToPtr(rt.DaemonID),
+		InstanceID:  rt.InstanceID,
 		Name:        rt.Name,
 		RuntimeMode: rt.RuntimeMode,
 		Provider:    rt.Provider,

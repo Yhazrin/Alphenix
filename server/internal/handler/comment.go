@@ -253,10 +253,11 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// If the issue is assigned to an agent with on_comment trigger, enqueue a new task.
 	// Skip when the comment comes from the assigned agent itself to avoid loops.
 	// Also skip when the comment @mentions others but not the assignee agent —
-	// the user is talking to someone else, not requesting work from the assignee.
+	// the author is talking to someone else, not requesting work from the assignee.
 	// Also skip when replying in a member-started thread without mentioning the
-	// assignee — the user is continuing a member-to-member conversation.
-	if authorType == "member" && h.shouldEnqueueOnComment(r.Context(), issue) &&
+	// assignee — the author is continuing a member-to-member conversation.
+	if h.shouldEnqueueOnComment(r.Context(), issue) &&
+		!h.isAgentSelfTrigger(comment, issue) &&
 		!h.commentMentionsOthersButNotAssignee(comment.Content, issue) &&
 		!h.isReplyToMemberThread(parentComment, comment.Content, issue) {
 		// Resolve thread root: if the comment is a reply, agent should reply
@@ -348,6 +349,19 @@ func (h *Handler) isReplyToMemberThread(parent *db.Comment, content string, issu
 		}
 	}
 	return true // Reply to member thread without mentioning agent — suppress
+}
+
+// isAgentSelfTrigger returns true when the comment author is the agent assigned
+// to this issue. This prevents agent-to-self loops: an agent completing work on
+// its own issue would otherwise re-trigger its own on_comment handler.
+func (h *Handler) isAgentSelfTrigger(comment db.Comment, issue db.Issue) bool {
+	if comment.AuthorType != "agent" {
+		return false
+	}
+	if !issue.AssigneeID.Valid {
+		return false
+	}
+	return uuidToString(comment.AuthorID) == uuidToString(issue.AssigneeID)
 }
 
 // enqueueMentionedAgentTasks parses @agent mentions from comment content and

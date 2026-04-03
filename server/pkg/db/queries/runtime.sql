@@ -15,6 +15,7 @@ WHERE id = $1 AND workspace_id = $2;
 INSERT INTO agent_runtime (
     workspace_id,
     daemon_id,
+    instance_id,
     name,
     runtime_mode,
     provider,
@@ -22,9 +23,9 @@ INSERT INTO agent_runtime (
     device_info,
     metadata,
     last_seen_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
-ON CONFLICT (workspace_id, daemon_id, provider)
-DO UPDATE SET
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+ON CONFLICT (workspace_id, daemon_id, instance_id, provider)
+    DO UPDATE SET
     name = EXCLUDED.name,
     runtime_mode = EXCLUDED.runtime_mode,
     status = EXCLUDED.status,

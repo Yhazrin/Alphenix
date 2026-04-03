@@ -58,8 +58,8 @@ WHERE agent_id = $1
 ORDER BY created_at DESC;
 
 -- name: CreateAgentTask :one
-INSERT INTO agent_task_queue (agent_id, runtime_id, issue_id, status, priority, trigger_comment_id)
-VALUES ($1, $2, $3, 'queued', $4, sqlc.narg(trigger_comment_id))
+INSERT INTO agent_task_queue (agent_id, runtime_id, issue_id, status, priority, trigger_comment_id, chain_source_task_id, chain_reason)
+VALUES ($1, $2, $3, 'queued', $4, sqlc.narg(trigger_comment_id), sqlc.narg(chain_source_task_id), sqlc.narg(chain_reason))
 RETURNING *;
 
 -- name: CancelAgentTasksByIssue :exec
@@ -181,3 +181,41 @@ ORDER BY created_at DESC;
 UPDATE agent SET status = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- name: SetTaskInReview :one
+UPDATE agent_task_queue
+SET status = 'in_review', review_status = 'pending'
+WHERE id = $1 AND status = 'running'
+RETURNING *;
+
+-- name: CompleteTaskReview :one
+UPDATE agent_task_queue
+SET status = 'completed', review_status = 'passed', completed_at = now(),
+    result = $2, session_id = $3, work_dir = $4
+WHERE id = $1 AND status = 'in_review'
+RETURNING *;
+
+-- name: RetryTaskReview :one
+UPDATE agent_task_queue
+SET status = 'queued', review_status = 'none',
+    review_count = review_count + 1,
+    dispatched_at = NULL, started_at = NULL
+WHERE id = $1 AND status = 'in_review' AND review_count < max_reviews
+RETURNING *;
+
+-- name: FailTaskReview :one
+UPDATE agent_task_queue
+SET status = 'failed', review_status = 'failed', completed_at = now(),
+    error = 'review failed: ' || $2
+WHERE id = $1 AND status = 'in_review'
+RETURNING *;
+
+-- name: CreateTaskReview :one
+INSERT INTO task_review (task_id, reviewer_type, reviewer_id, verdict, score, feedback)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: ListTaskReviews :many
+SELECT * FROM task_review
+WHERE task_id = $1
+ORDER BY created_at ASC;

@@ -92,6 +92,23 @@ type RepoData struct {
 	Description string `json:"description"`
 }
 
+// ChainContext carries information about a chained task's source, so the
+// daemon can inject the prior task's result as additional context.
+type ChainContext struct {
+	SourceTaskID string `json:"source_task_id"`
+	ChainReason  string `json:"chain_reason"`
+	SourceResult any    `json:"source_result,omitempty"`
+}
+
+// AgentColleague is a lightweight representation of another agent in the same
+// workspace, included in task claim responses so the executing agent knows who
+// it can collaborate with (chain tasks to, mention in comments, etc.).
+type AgentColleague struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 type AgentTaskResponse struct {
 	ID             string         `json:"id"`
 	AgentID        string         `json:"agent_id"`
@@ -111,6 +128,11 @@ type AgentTaskResponse struct {
 	PriorSessionID   string         `json:"prior_session_id,omitempty"`    // session ID from a previous task on same issue
 	PriorWorkDir     string         `json:"prior_work_dir,omitempty"`     // work_dir from a previous task on same issue
 	TriggerCommentID *string        `json:"trigger_comment_id,omitempty"` // comment that triggered this task
+	ChainSourceTaskID *string       `json:"chain_source_task_id,omitempty"` // task that spawned this one via chaining
+	ChainReason       string        `json:"chain_reason,omitempty"`         // why the chain was created
+	ChainContext      *ChainContext     `json:"chain_context,omitempty"`        // source task context for chained tasks
+	Capabilities      []string          `json:"capabilities,omitempty"`         // what this agent is allowed to do
+	Colleagues        []AgentColleague  `json:"colleagues,omitempty"`           // other agents in the workspace
 }
 
 // TaskAgentData holds agent info included in claim responses so the daemon
@@ -138,9 +160,11 @@ func taskToResponse(t db.AgentTaskQueue) AgentTaskResponse {
 		StartedAt:    timestampToPtr(t.StartedAt),
 		CompletedAt:  timestampToPtr(t.CompletedAt),
 		Result:       result,
-		Error:            textToPtr(t.Error),
-		CreatedAt:        timestampToString(t.CreatedAt),
-		TriggerCommentID: uuidToPtr(t.TriggerCommentID),
+		Error:              textToPtr(t.Error),
+		CreatedAt:          timestampToString(t.CreatedAt),
+		TriggerCommentID:   uuidToPtr(t.TriggerCommentID),
+		ChainSourceTaskID:  uuidToPtr(t.ChainSourceTaskID),
+		ChainReason:        t.ChainReason,
 	}
 }
 

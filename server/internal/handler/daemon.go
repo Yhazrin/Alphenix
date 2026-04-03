@@ -22,6 +22,7 @@ import (
 type DaemonRegisterRequest struct {
 	WorkspaceID string `json:"workspace_id"`
 	DaemonID    string `json:"daemon_id"`
+	InstanceID  string `json:"instance_id"` // per-terminal unique ID
 	DeviceName  string `json:"device_name"`
 	CLIVersion  string `json:"cli_version"` // multica CLI version
 	Runtimes    []struct {
@@ -41,6 +42,7 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 
 	req.WorkspaceID = strings.TrimSpace(req.WorkspaceID)
 	req.DaemonID = strings.TrimSpace(req.DaemonID)
+	req.InstanceID = strings.TrimSpace(req.InstanceID)
 	req.DeviceName = strings.TrimSpace(req.DeviceName)
 
 	if req.DaemonID == "" {
@@ -54,6 +56,10 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 	if len(req.Runtimes) == 0 {
 		writeError(w, http.StatusBadRequest, "at least one runtime is required")
 		return
+	}
+	// Default InstanceID to DaemonID for backwards compatibility with older daemons.
+	if req.InstanceID == "" {
+		req.InstanceID = req.DaemonID
 	}
 
 	// Verify the caller is a member of the target workspace.
@@ -98,6 +104,7 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 		registered, err := h.Queries.UpsertAgentRuntime(r.Context(), db.UpsertAgentRuntimeParams{
 			WorkspaceID: parseUUID(req.WorkspaceID),
 			DaemonID:    strToText(req.DaemonID),
+			InstanceID:  req.InstanceID,
 			Name:        name,
 			RuntimeMode: "local",
 			Provider:    provider,
@@ -270,6 +277,53 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("task claimed by runtime", "task_id", uuidToString(task.ID), "runtime_id", runtimeID, "agent_id", uuidToString(task.AgentID), "prior_session", resp.PriorSessionID)
+
+	// If this is a chained task, include the source task's result so the
+	// daemon can inject it as additional context for the agent.
+	if task.ChainSourceTaskID.Valid {
+		if sourceTask, err := h.Queries.GetAgentTask(r.Context(), task.ChainSourceTaskID); err == nil {
+			var sourceResult any
+			if sourceTask.Result != nil {
+				json.Unmarshal(sourceTask.Result, &sourceResult)
+			}
+			resp.ChainContext = &ChainContext{
+				SourceTaskID: uuidToString(sourceTask.ID),
+				ChainReason:  task.ChainReason,
+				SourceResult: sourceResult,
+			}
+		}
+	}
+
+	// Advertise the agent's capabilities so the daemon can inject them into
+	// the system prompt. This is a static list for now — agents can create
+	// issues, leave comments, chain tasks to other agents, and subscribe.
+	resp.Capabilities = []string{
+		"create_issues",
+		"comment",
+		"assign_agents",
+		"chain_tasks",
+		"subscribe",
+	}
+
+	// Include other agents in the same workspace so the executing agent
+	// knows who it can collaborate with (chain to, mention, etc.).
+	if resp.WorkspaceID != "" {
+		if allAgents, err := h.Queries.ListAgents(r.Context(), parseUUID(resp.WorkspaceID)); err == nil {
+			colleagues := make([]AgentColleague, 0, len(allAgents))
+			for _, a := range allAgents {
+				if uuidToString(a.ID) == uuidToString(task.AgentID) {
+					continue
+				}
+				colleagues = append(colleagues, AgentColleague{
+					ID:          uuidToString(a.ID),
+					Name:        a.Name,
+					Description: a.Description,
+				})
+			}
+			resp.Colleagues = colleagues
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"task": resp})
 }
 
@@ -357,7 +411,7 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, _ := json.Marshal(req)
-	task, err := h.TaskService.CompleteTask(r.Context(), parseUUID(taskID), result, req.SessionID, req.WorkDir)
+	task, err := h.TaskService.CompleteTask(r.Context(), parseUUID(taskID), result, req.SessionID, req.WorkDir, h.ReviewService)
 	if err != nil {
 		slog.Warn("complete task failed", "task_id", taskID, "error", err)
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -562,6 +616,54 @@ func (h *Handler) CancelTask(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("task cancelled by user", "task_id", taskID, "issue_id", uuidToString(task.IssueID))
 	writeJSON(w, http.StatusOK, taskToResponse(*task))
+}
+
+// ChainTask creates a follow-up task for a target agent based on a completed task.
+// POST /api/tasks/:taskId/chain
+type ChainTaskRequest struct {
+	TargetAgentID string `json:"target_agent_id"`
+	ChainReason   string `json:"chain_reason"`
+}
+
+func (h *Handler) ChainTask(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "taskId")
+
+	var req ChainTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.TargetAgentID == "" {
+		writeError(w, http.StatusBadRequest, "target_agent_id is required")
+		return
+	}
+
+	// Verify the caller is a member of the workspace.
+	task, err := h.Queries.GetAgentTask(r.Context(), parseUUID(taskID))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+	issue, err := h.Queries.GetIssue(r.Context(), task.IssueID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "issue not found")
+		return
+	}
+	workspaceID := uuidToString(issue.WorkspaceID)
+	if _, ok := h.requireWorkspaceMember(w, r, workspaceID, "workspace not found"); !ok {
+		return
+	}
+
+	chained, err := h.TaskService.ChainTask(r.Context(), parseUUID(taskID), parseUUID(req.TargetAgentID), req.ChainReason)
+	if err != nil {
+		slog.Warn("chain task failed", "task_id", taskID, "error", err)
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	slog.Info("task chained", "source_task_id", taskID, "chained_task_id", uuidToString(chained.ID))
+	writeJSON(w, http.StatusOK, taskToResponse(*chained))
 }
 
 // ListTasksByIssue returns all tasks (any status) for an issue — used for execution history.
