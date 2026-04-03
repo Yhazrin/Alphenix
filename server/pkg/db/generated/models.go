@@ -57,6 +57,32 @@ type AgentRuntime struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AgentMemory struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	AgentID     pgtype.UUID        `json:"agent_id"`
+	Content     string             `json:"content"`
+	Embedding   []byte             `json:"embedding"`
+	Metadata    []byte             `json:"metadata"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	Similarity  float64            `json:"similarity"`
+}
+
+type AgentMessage struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	FromAgentID pgtype.UUID        `json:"from_agent_id"`
+	ToAgentID   pgtype.UUID        `json:"to_agent_id"`
+	TaskID      pgtype.UUID        `json:"task_id"`
+	Content     string             `json:"content"`
+	Metadata    []byte             `json:"metadata"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	MessageType string             `json:"message_type"`
+	ReadAt      pgtype.Timestamptz `json:"read_at"`
+	ReplyToID   pgtype.UUID        `json:"reply_to_id"`
+}
+
 type AgentSkill struct {
 	AgentID   pgtype.UUID        `json:"agent_id"`
 	SkillID   pgtype.UUID        `json:"skill_id"`
@@ -273,6 +299,24 @@ type SkillFile struct {
 	Content   string             `json:"content"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TaskCheckpoint struct {
+	ID          pgtype.UUID        `json:"id"`
+	TaskID      pgtype.UUID        `json:"task_id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	Label       string             `json:"label"`
+	State       []byte             `json:"state"`
+	FilesChanged []byte            `json:"files_changed"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaskDependency struct {
+	ID             pgtype.UUID        `json:"id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	TaskID         pgtype.UUID        `json:"task_id"`
+	DependsOnTaskID pgtype.UUID       `json:"depends_on_task_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type TaskReview struct {
