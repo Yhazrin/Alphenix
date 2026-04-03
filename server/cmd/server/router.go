@@ -205,6 +205,37 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus) chi.Route
 				})
 			})
 
+			// Agent collaboration (messaging, memory)
+			r.Route("/api/agents/{id}/messages", func(r chi.Router) {
+				r.Post("/", h.SendAgentMessage)
+				r.Get("/", h.ListAgentMessages)
+				r.Post("/read", h.MarkAgentMessagesRead)
+			})
+			r.Route("/api/agents/{id}/memory", func(r chi.Router) {
+				r.Post("/", h.StoreAgentMemory)
+				r.Post("/recall", h.RecallAgentMemory)
+				r.Get("/", h.ListAgentMemory)
+				r.Delete("/{memoryId}", h.DeleteAgentMemory)
+			})
+
+			// Task dependencies (DAG) and checkpoints
+			r.Route("/api/tasks/{taskId}/dependencies", func(r chi.Router) {
+				r.Post("/", h.AddTaskDependency)
+				r.Delete("/", h.RemoveTaskDependency)
+				r.Get("/", h.ListTaskDependencies)
+			})
+			r.Route("/api/tasks/{taskId}/checkpoints", func(r chi.Router) {
+				r.Post("/", h.SaveTaskCheckpoint)
+				r.Get("/", h.ListTaskCheckpoints)
+				r.Get("/latest", h.GetLatestCheckpoint)
+			})
+
+			// Ready tasks (all dependencies satisfied)
+			r.Get("/api/tasks/ready", h.GetReadyTasks)
+
+			// Workspace memory recall
+			r.Post("/api/workspace/memory/recall", h.RecallWorkspaceMemory)
+
 			// Task review (manual)
 			r.Post("/api/tasks/{taskId}/review", h.SubmitReview)
 
