@@ -63,3 +63,69 @@ type HeartbeatPayload struct {
 	AgentID      string `json:"agent_id"`
 	CurrentTasks int    `json:"current_tasks"`
 }
+
+// AgentMessagePayload is sent when an agent sends a message to another agent.
+type AgentMessagePayload struct {
+	MessageID   string `json:"message_id"`
+	FromAgentID string `json:"from_agent_id"`
+	ToAgentID   string `json:"to_agent_id"`
+	TaskID      string `json:"task_id,omitempty"`
+	Content     string `json:"content"`
+	MessageType string `json:"message_type"`
+	ReplyToID   string `json:"reply_to_id,omitempty"`
+}
+
+// TaskDependencyPayload is sent when a task dependency is created or removed.
+type TaskDependencyPayload struct {
+	TaskID          string `json:"task_id"`
+	DependsOnTaskID string `json:"depends_on_task_id"`
+}
+
+// TaskCheckpointPayload is sent when an agent saves a checkpoint.
+type TaskCheckpointPayload struct {
+	CheckpointID string `json:"checkpoint_id"`
+	TaskID       string `json:"task_id"`
+	Label        string `json:"label"`
+}
+
+// ColleagueInfo provides agent context for collaborative prompts.
+type ColleagueInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Role        string `json:"role,omitempty"`
+	Status      string `json:"status,omitempty"`
+}
+
+// SharedContext holds workspace-level context injected into collaborative agent prompts.
+type SharedContext struct {
+	Colleagues       []ColleagueInfo        `json:"colleagues,omitempty"`
+	PendingMessages  []AgentMessagePayload  `json:"pending_messages,omitempty"`
+	Dependencies     []TaskDependencyInfo   `json:"dependencies,omitempty"`
+	WorkspaceMemory  []MemoryRecall         `json:"workspace_memory,omitempty"`
+	LastCheckpoint   *CheckpointInfo        `json:"last_checkpoint,omitempty"`
+}
+
+// TaskDependencyInfo describes a dependency relationship for prompt injection.
+type TaskDependencyInfo struct {
+	TaskID         string `json:"task_id"`
+	DependsOnID    string `json:"depends_on_id"`
+	DependencyStatus string `json:"dependency_status"`
+}
+
+// MemoryRecall represents a recalled memory entry for prompt injection.
+type MemoryRecall struct {
+	ID         string  `json:"id"`
+	Content    string  `json:"content"`
+	Similarity float64 `json:"similarity"`
+	AgentName  string  `json:"agent_name,omitempty"`
+}
+
+// CheckpointInfo describes the latest checkpoint for resume context.
+type CheckpointInfo struct {
+	ID           string `json:"id"`
+	Label        string `json:"label"`
+	State        any    `json:"state,omitempty"`
+	FilesChanged any    `json:"files_changed,omitempty"`
+	CreatedAt    string `json:"created_at"`
+}

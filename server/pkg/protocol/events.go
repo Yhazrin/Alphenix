@@ -66,6 +66,13 @@ const (
 	EventTaskInReview = "task:in_review"
 	EventTaskReviewed = "task:reviewed"
 
+	// Collaboration events
+	EventTaskDependencyCreated = "task_dep:created"
+	EventTaskDependencyDeleted = "task_dep:deleted"
+	EventTaskCheckpointCreated = "task:checkpoint"
+	EventMemoryStored          = "memory:stored"
+	EventMemoryRecalled        = "memory:recalled"
+
 	// Daemon events
 	EventDaemonHeartbeat = "daemon:heartbeat"
 	EventDaemonRegister  = "daemon:register"
