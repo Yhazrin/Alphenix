@@ -133,6 +133,7 @@ type AgentTaskResponse struct {
 	ChainContext      *ChainContext     `json:"chain_context,omitempty"`        // source task context for chained tasks
 	Capabilities      []string          `json:"capabilities,omitempty"`         // what this agent is allowed to do
 	Colleagues        []AgentColleague  `json:"colleagues,omitempty"`           // other agents in the workspace
+	SharedContext     *protocol.SharedContext `json:"shared_context,omitempty"` // full collaborative context for prompt injection
 }
 
 // TaskAgentData holds agent info included in claim responses so the daemon
