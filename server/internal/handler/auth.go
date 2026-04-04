@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/auth"
 	"github.com/multica-ai/multica/server/internal/logger"
+	"github.com/multica-ai/multica/server/internal/realtime"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
@@ -329,6 +330,38 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, userToResponse(user))
+}
+
+type WsTicketRequest struct {
+	WorkspaceID string `json:"workspace_id"`
+}
+
+func (h *Handler) WsTicket(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	var req WsTicketRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.WorkspaceID == "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required")
+		return
+	}
+
+	store := realtime.TicketStoreFor()
+	if store == nil {
+		writeError(w, http.StatusServiceUnavailable, "ticket store not available")
+		return
+	}
+
+	ticket := store.Generate(req.WorkspaceID, userID)
+	writeJSON(w, http.StatusOK, map[string]string{"ticket": ticket})
 }
 
 type UpdateMeRequest struct {

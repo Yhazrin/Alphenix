@@ -97,7 +97,27 @@ export class WSClient {
     this.workspaceId = workspaceId;
   }
 
-  connect() {
+  private async _fetchTicket(): Promise<{ ticket: string } | null> {
+    if (!this.token || !this.workspaceId) return null;
+    try {
+      const baseUrl = this.baseUrl.replace(/^ws/, "http").replace(/\/ws$/, "");
+      const res = await fetch(`${baseUrl}/auth/ws-ticket`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.token}`,
+        },
+        body: JSON.stringify({ workspace_id: this.workspaceId }),
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      return res.json() as Promise<{ ticket: string }>;
+    } catch {
+      return null;
+    }
+  }
+
+  async connect() {
     if (this._connectionState === ConnectionState.Connected || this._connectionState === ConnectionState.Connecting) {
       return;
     }
@@ -108,9 +128,23 @@ export class WSClient {
     this._setState(ConnectionState.Connecting);
 
     const url = new URL(this.baseUrl);
-    if (this.token) url.searchParams.set("token", this.token);
-    if (this.workspaceId)
-      url.searchParams.set("workspace_id", this.workspaceId);
+    let usedTicket = false;
+
+    // Try ticket-based auth first (new flow)
+    if (this.token && this.workspaceId) {
+      const ticketResult = await this._fetchTicket();
+      if (ticketResult) {
+        url.searchParams.set("ticket", ticketResult.ticket);
+        url.searchParams.set("workspace_id", this.workspaceId);
+        usedTicket = true;
+      }
+    }
+
+    // Fall back to token-based auth (legacy)
+    if (!usedTicket) {
+      if (this.token) url.searchParams.set("token", this.token);
+      if (this.workspaceId) url.searchParams.set("workspace_id", this.workspaceId);
+    }
 
     this.ws = new WebSocket(url.toString());
 

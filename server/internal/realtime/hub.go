@@ -240,37 +240,53 @@ func (h *Hub) CloseBroadcast() {
 	})
 }
 
-// HandleWebSocket upgrades an HTTP connection to WebSocket with JWT auth.
+// HandleWebSocket upgrades an HTTP connection to WebSocket with JWT or ticket auth.
 func HandleWebSocket(hub *Hub, mc MembershipChecker, w http.ResponseWriter, r *http.Request) {
-	tokenStr := r.URL.Query().Get("token")
 	workspaceID := r.URL.Query().Get("workspace_id")
+	ticketStr := r.URL.Query().Get("ticket")
+	tokenStr := r.URL.Query().Get("token")
 
-	if tokenStr == "" || workspaceID == "" {
-		http.Error(w, `{"error":"token and workspace_id required"}`, http.StatusUnauthorized)
-		return
-	}
+	var userID string
+	var err error
 
-	// Validate JWT
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, jwt.ErrSignatureInvalid
+	if ticketStr != "" && workspaceID != "" {
+		// Ticket-based auth (new flow)
+		store := TicketStoreFor()
+		if store == nil {
+			http.Error(w, `{"error":"ticket store not available"}`, http.StatusServiceUnavailable)
+			return
 		}
-		return auth.JWTSecret(), nil
-	})
-	if err != nil || !token.Valid {
-		http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
-		return
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
-		return
-	}
-
-	userID, ok := claims["sub"].(string)
-	if !ok || strings.TrimSpace(userID) == "" {
-		http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
+		wsID, uid, ok := store.Validate(ticketStr, workspaceID)
+		if !ok {
+			http.Error(w, `{"error":"invalid or expired ticket"}`, http.StatusUnauthorized)
+			return
+		}
+		workspaceID = wsID
+		userID = uid
+	} else if tokenStr != "" && workspaceID != "" {
+		// Token-based auth (legacy fallback)
+		token, parseErr := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return auth.JWTSecret(), nil
+		})
+		if parseErr != nil || !token.Valid {
+			http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+			return
+		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
+			return
+		}
+		userID, ok = claims["sub"].(string)
+		if !ok || strings.TrimSpace(userID) == "" {
+			http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
+			return
+		}
+	} else {
+		http.Error(w, `{"error":"ticket or token and workspace_id required"}`, http.StatusUnauthorized)
 		return
 	}
 
