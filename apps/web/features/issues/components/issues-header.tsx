@@ -302,6 +302,16 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
 
   const counts = useIssueCounts(scopedIssues);
 
+  const scopeCounts = useMemo(() => {
+    let membersCount = 0;
+    let agentsCount = 0;
+    for (const issue of scopedIssues) {
+      if (issue.assignee_type === "member") membersCount++;
+      else if (issue.assignee_type === "agent") agentsCount++;
+    }
+    return { all: scopedIssues.length, members: membersCount, agents: agentsCount };
+  }, [scopedIssues]);
+
   const hasActiveFilters =
     getActiveFilterCount({
       statusFilters,
@@ -318,31 +328,35 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
     <div className="flex h-12 shrink-0 items-center justify-between px-4">
       {/* Left: scope buttons */}
       <div className="flex items-center gap-1">
-        {SCOPES.map((s) => (
-          <Tooltip key={s.value}>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={
-                    scope === s.value
-                      ? "bg-accent text-accent-foreground hover:bg-accent/80"
-                      : "text-muted-foreground"
-                  }
-                  onClick={() => setScope(s.value)}
-                >
-                  {s.label}
-                </Button>
-              }
-            />
-            <TooltipContent side="bottom">{s.description}</TooltipContent>
-          </Tooltip>
-        ))}
+        {SCOPES.map((s) => {
+          const count = scopeCounts[s.value];
+          return (
+            <Tooltip key={s.value}>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={
+                      scope === s.value
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "text-muted-foreground hover:bg-muted"
+                    }
+                    onClick={() => setScope(s.value)}
+                  >
+                    <span>{s.label}</span>
+                    <span className="text-xs opacity-60">{count}</span>
+                  </Button>
+                }
+              />
+              <TooltipContent side="bottom">{s.description}</TooltipContent>
+            </Tooltip>
+          );
+        })}
       </div>
 
       {/* Right: filter + display + view toggle */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 border-l border-border/50 pl-2 ml-1">
         {/* Filter */}
         <DropdownMenu>
           <Tooltip>

@@ -16,6 +16,7 @@ import {
   SquarePen,
   CircleUser,
   Users,
+  Search,
 } from "lucide-react";
 import { WorkspaceAvatar } from "@/features/workspace";
 import { useIssueDraftStore } from "@/features/issues/stores/draft-store";
@@ -24,6 +25,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarFooter,
   SidebarMenu,
@@ -160,6 +162,19 @@ export function AppSidebar() {
             </SidebarMenu>
             <Tooltip>
               <TooltipTrigger
+                className="flex h-7 flex-1 items-center gap-1.5 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => useModalStore.getState().open("search")}
+              >
+                <Search className="size-3" aria-hidden="true" />
+                <span className="flex-1 text-left">Search...</span>
+                <kbd className="pointer-events-none hidden h-4 select-none items-center gap-0.5 rounded border bg-muted px-1 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                  <span className="text-xs">&#x2318;</span>K
+                </kbd>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Search issues, agents, settings</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
                 aria-label="New issue"
                 className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-background text-foreground shadow-sm dark:shadow-none hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => useModalStore.getState().open("create-issue")}
@@ -175,6 +190,7 @@ export function AppSidebar() {
         {/* Navigation */}
         <SidebarContent>
           <SidebarGroup>
+            <SidebarGroupLabel>Personal</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
                 {primaryNav.map((item) => {
@@ -184,7 +200,7 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         isActive={isActive}
                         render={<Link href={item.href} />}
-                        className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
+                        className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground border-l-2 border-l-transparent data-active:border-l-brand"
                       >
                         <item.icon aria-hidden="true" />
                         <span>{item.label}</span>
@@ -202,6 +218,7 @@ export function AppSidebar() {
           </SidebarGroup>
 
           <SidebarGroup>
+            <SidebarGroupLabel>{workspace?.name ?? "Workspace"}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
                 {workspaceNav.map((item) => {
@@ -211,7 +228,7 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         isActive={isActive}
                         render={<Link href={item.href} />}
-                        className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
+                        className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground border-l-2 border-l-transparent data-active:border-l-brand"
                       >
                         <item.icon aria-hidden="true" />
                         <span>{item.label}</span>
@@ -224,7 +241,21 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <div className="h-px" />
+          <div className="flex items-center gap-2.5 px-2 py-1.5">
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-medium text-primary-foreground">
+              {user?.name?.charAt(0)?.toUpperCase() ?? user?.email?.charAt(0)?.toUpperCase() ?? "?"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium leading-tight">
+                {user?.name ?? user?.email ?? "User"}
+              </p>
+              {user?.name && user?.email && (
+                <p className="truncate text-xs text-muted-foreground leading-tight">
+                  {user.email}
+                </p>
+              )}
+            </div>
+          </div>
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>

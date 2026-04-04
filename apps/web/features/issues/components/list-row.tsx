@@ -7,6 +7,7 @@ import { ActorAvatar } from "@/components/common/actor-avatar";
 import { useIssueSelectionStore } from "@/features/issues/stores/selection-store";
 import { shortDate } from "@/shared/utils";
 import { PriorityIcon } from "./priority-icon";
+import { PRIORITY_CONFIG } from "@/features/issues/config";
 
 export const ListRow = memo(function ListRow({ issue }: { issue: Issue }) {
   const selected = useIssueSelectionStore((s) => s.selectedIds.has(issue.id));
@@ -14,7 +15,7 @@ export const ListRow = memo(function ListRow({ issue }: { issue: Issue }) {
 
   return (
     <div
-      className={`group/row flex h-9 items-center gap-2 px-4 text-sm transition-colors hover:bg-accent/50 ${
+      className={`group/row flex h-10 items-center gap-2 border-b border-border/40 px-4 text-sm transition-colors hover:bg-accent/50 ${
         selected ? "bg-accent/30" : ""
       }`}
     >
@@ -41,6 +42,11 @@ export const ListRow = memo(function ListRow({ issue }: { issue: Issue }) {
           {issue.identifier}
         </span>
         <span className="min-w-0 flex-1 truncate">{issue.title}</span>
+        {issue.priority !== "none" && (
+          <span className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_CONFIG[issue.priority].badgeBg} ${PRIORITY_CONFIG[issue.priority].badgeText}`}>
+            {PRIORITY_CONFIG[issue.priority].label}
+          </span>
+        )}
         {issue.due_date && (
           <span className="shrink-0 text-xs text-muted-foreground">
             {shortDate(issue.due_date)}
