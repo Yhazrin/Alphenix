@@ -23,7 +23,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   // The browser sends the HttpOnly "token" cookie automatically.
   initialize: async () => {
     try {
-      const user = await api.getMe();
+      const user = await authApi.getMe();
       set({ user, isLoading: false });
     } catch {
       set({ user: null, isLoading: false });

@@ -25,7 +25,6 @@ export function useDependencyStatuses(dependencies: TaskDependency[]) {
         setDepStatuses((prev) => ({ ...prev, ...updates }));
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dependencies]);
 
   return depStatuses;
