@@ -102,7 +102,7 @@ func main() {
 			os.Exit(1)
 		}
 		for _, s := range statuses {
-			fmt.Printf("%-6s  %s  %s\n", s.State, s.Source.Version, s.Source.Path)
+			fmt.Printf("%-6s  %d  %s\n", s.State, s.Source.Version, s.Source.Path)
 		}
 	default:
 		fmt.Println("Usage: go run ./cmd/migrate <up|down|status|redo>")
