@@ -10,6 +10,7 @@ export const enum ConnectionState {
   Reconnecting = "reconnecting",
   Failed = "failed",
   Unauthorized = "unauthorized",
+  Closed = "closed",
 }
 
 type ConnectionStateChangeHandler = (state: ConnectionState, prevState: ConnectionState) => void;
@@ -243,7 +244,7 @@ export class WSClient {
       this.ws.close();
       this.ws = null;
     }
-    this._setState(ConnectionState.Idle);
+    this._setState(ConnectionState.Closed);
     this.hasConnectedBefore = false;
     this.reconnectAttempt = 0;
     this.handlers.clear();
