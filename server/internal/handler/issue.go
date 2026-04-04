@@ -88,6 +88,12 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 	offset := 0
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil {
+			if v < 0 {
+				v = 0
+			}
+			if v > 200 {
+				v = 200
+			}
 			limit = v
 		}
 	}
@@ -189,6 +195,10 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	if req.Title == "" {
 		writeError(w, http.StatusBadRequest, "title is required")
+		return
+	}
+	if len(req.Title) > 500 {
+		writeError(w, http.StatusBadRequest, "title must be 500 characters or fewer")
 		return
 	}
 
@@ -619,6 +629,10 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "issue_ids is required")
 		return
 	}
+	if len(req.IssueIDs) > 500 {
+		writeError(w, http.StatusBadRequest, "too many issue IDs (max 500)")
+		return
+	}
 
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -759,6 +773,10 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 
 	if len(req.IssueIDs) == 0 {
 		writeError(w, http.StatusBadRequest, "issue_ids is required")
+		return
+	}
+	if len(req.IssueIDs) > 500 {
+		writeError(w, http.StatusBadRequest, "too many issue IDs (max 500)")
 		return
 	}
 

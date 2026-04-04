@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -21,6 +22,7 @@ func JWTSecret() []byte {
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
 			secret = defaultJWTSecret
+			slog.Warn("using default JWT secret; set JWT_SECRET environment variable for production")
 		}
 		jwtSecret = []byte(secret)
 	})

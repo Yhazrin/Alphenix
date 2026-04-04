@@ -75,7 +75,6 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
   });
   const sidebarRef = usePanelRef();
   const [sidebarOpen, setSidebarOpen] = useState(defaultSidebarOpen);
-  const [deleting, setDeleting] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -128,12 +127,16 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
     const el = document.getElementById(`comment-${highlightCommentId}`);
     if (el) {
       didHighlightRef.current = highlightCommentId;
-      requestAnimationFrame(() => {
+      let timer: ReturnType<typeof setTimeout>;
+      const raf = requestAnimationFrame(() => {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         setHighlightedId(highlightCommentId);
-        const timer = setTimeout(() => setHighlightedId(null), 2000);
-        return () => clearTimeout(timer);
+        timer = setTimeout(() => setHighlightedId(null), 2000);
       });
+      return () => {
+        cancelAnimationFrame(raf);
+        if (timer) clearTimeout(timer);
+      };
     }
   }, [highlightCommentId, timeline.length]);
 
@@ -175,17 +178,11 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
   );
 
   const handleDelete = useCallback(async () => {
-    setDeleting(true);
-    try {
-      await api.deleteIssue(issue!.id);
-      useIssueStore.getState().removeIssue(issue!.id);
-      toast.success("Issue deleted");
-      if (onDelete) onDelete();
-      else router.push("/issues");
-    } catch {
-      toast.error("Failed to delete issue");
-      setDeleting(false);
-    }
+    await api.deleteIssue(issue!.id);
+    useIssueStore.getState().removeIssue(issue!.id);
+    toast.success("Issue deleted");
+    if (onDelete) onDelete();
+    else router.push("/issues");
   }, [issue, onDelete, router]);
 
   if (loading) {
