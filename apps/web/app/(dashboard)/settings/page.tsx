@@ -1,6 +1,6 @@
 "use client";
 
-import { User, Palette, Key, Settings, Users, FolderGit2 } from "lucide-react";
+import { User, Palette, Key, Settings, Users, FolderGit2, Server, Sparkles } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWorkspaceStore } from "@/features/workspace";
 import { AccountTab } from "./_components/account-tab";
@@ -9,6 +9,7 @@ import { TokensTab } from "./_components/tokens-tab";
 import { WorkspaceTab } from "./_components/workspace-tab";
 import { MembersTab } from "./_components/members-tab";
 import { RepositoriesTab } from "./_components/repositories-tab";
+import { ServerTab } from "./_components/server-tab";
 
 const accountTabs = [
   { value: "profile", label: "Profile", icon: User },
@@ -20,6 +21,7 @@ const workspaceTabs = [
   { value: "workspace", label: "General", icon: Settings },
   { value: "repositories", label: "Repositories", icon: FolderGit2 },
   { value: "members", label: "Members", icon: Users },
+  { value: "server", label: "Server", icon: Server },
 ];
 
 export default function SettingsPage() {
@@ -64,6 +66,7 @@ export default function SettingsPage() {
           <TabsContent value="workspace"><WorkspaceTab /></TabsContent>
           <TabsContent value="repositories"><RepositoriesTab /></TabsContent>
           <TabsContent value="members"><MembersTab /></TabsContent>
+          <TabsContent value="server"><ServerTab /></TabsContent>
         </div>
       </div>
     </Tabs>

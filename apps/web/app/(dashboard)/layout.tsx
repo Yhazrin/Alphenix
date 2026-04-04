@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
 import { AppSidebar } from "./_components/app-sidebar";
+import { AIAssistant } from "@/components/ai-assistant/ai-assistant";
 
 export default function DashboardLayout({
   children,
@@ -52,6 +53,7 @@ export default function DashboardLayout({
           </div>
         )}
       </SidebarInset>
+      <AIAssistant />
     </SidebarProvider>
   );
 }
