@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -599,15 +600,41 @@ func (h *Handler) PreviewAgentPrompt(w http.ResponseWriter, r *http.Request) {
 }
 
 // extractSections returns the sections from a PromptRegistry for preview purposes.
-// This relies on the daemon package exposing the sections; we reconstruct from the prompt.
 func extractSections(registry *daemon.PromptRegistry) []PromptSectionPreview {
-	// The registry doesn't expose sections directly, so we return nil here
-	// and rely on the full prompt. A future enhancement could add an export method.
-	return nil
+	exported := registry.ExportSections()
+	sections := make([]PromptSectionPreview, len(exported))
+	for i, s := range exported {
+		sections[i] = PromptSectionPreview{
+			Name:    s.Name,
+			Phase:   s.Phase,
+			Content: s.Content,
+			Order:   s.Order,
+		}
+	}
+	return sections
+}
+
+// TaskContextSection represents a single section in the task context preview.
+type TaskContextSection struct {
+	Key     string `json:"key"`
+	Title   string `json:"title"`
+	Source  string `json:"source"`
+	Content string `json:"content"`
+}
+
+// TaskContextPreviewResponse is the response for the task context preview endpoint.
+type TaskContextPreviewResponse struct {
+	Sections    []TaskContextSection `json:"sections"`
+	FinalPrompt string               `json:"final_prompt"`
+	TaskID      string               `json:"task_id"`
+	AgentID     string               `json:"agent_id"`
+	AgentName   string               `json:"agent_name"`
+	IssueID     string               `json:"issue_id"`
+	IssueTitle  string               `json:"issue_title"`
 }
 
 // PreviewTaskContext shows what context would be assembled for a task execution,
-// including collaboration context, task instruction, and skill descriptions.
+// including issue details, comments, attachments, skills, and runtime info.
 func (h *Handler) PreviewTaskContext(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "id")
 
@@ -632,56 +659,158 @@ func (h *Handler) PreviewTaskContext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load skills.
+	// Load issue.
+	issue, err := h.Queries.GetIssue(r.Context(), task.IssueID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "issue not found")
+		return
+	}
+
+	issueID := uuidToString(issue.ID)
+
+	// Build sections.
+	var sections []TaskContextSection
+
+	// Section: issue details.
+	issueContent := buildIssueSection(issue)
+	sections = append(sections, TaskContextSection{
+		Key:     "issue",
+		Title:   "Issue Details",
+		Source:  "issue",
+		Content: issueContent,
+	})
+
+	// Section: recent comments (max 10).
+	comments, _ := h.Queries.ListCommentsPaginated(r.Context(), db.ListCommentsPaginatedParams{
+		IssueID:     issue.ID,
+		WorkspaceID: workspace.ID,
+		Limit:       10,
+		Offset:      0,
+	})
+	if len(comments) > 0 {
+		sections = append(sections, TaskContextSection{
+			Key:     "comments",
+			Title:   "Recent Comments",
+			Source:  "comments",
+			Content: buildCommentsSection(comments),
+		})
+	}
+
+	// Section: attachments metadata.
+	attachments, _ := h.Queries.ListAttachmentsByIssue(r.Context(), db.ListAttachmentsByIssueParams{
+		IssueID:     issue.ID,
+		WorkspaceID: workspace.ID,
+	})
+	if len(attachments) > 0 {
+		sections = append(sections, TaskContextSection{
+			Key:     "attachments",
+			Title:   "Attachments",
+			Source:  "attachments",
+			Content: buildAttachmentsSection(attachments),
+		})
+	}
+
+	// Section: agent instructions.
+	if agent.Instructions != "" {
+		sections = append(sections, TaskContextSection{
+			Key:     "agent",
+			Title:   "Agent Instructions",
+			Source:  "agent.instructions",
+			Content: agent.Instructions,
+		})
+	}
+
+	// Section: agent skills.
 	skills, _ := h.Queries.ListAgentSkills(r.Context(), agent.ID)
-	var skillDescs []string
+	if len(skills) > 0 {
+		sections = append(sections, TaskContextSection{
+			Key:     "skills",
+			Title:   "Agent Skills",
+			Source:  "agent.skills",
+			Content: buildSkillsSection(skills),
+		})
+	}
+
+	// Section: runtime info (if available).
+	if task.RuntimeID.Valid {
+		runtime, err := h.Queries.GetAgentRuntime(r.Context(), task.RuntimeID)
+		if err == nil {
+			sections = append(sections, TaskContextSection{
+				Key:    "runtime",
+				Title:  "Runtime",
+				Source: "runtime",
+				Content: fmt.Sprintf("Name: %s\nProvider: %s\nStatus: %s",
+					runtime.Name, runtime.Provider, runtime.Status),
+			})
+		}
+	}
+
+	// Build final prompt text from sections.
+	var finalBuilder strings.Builder
+	for _, s := range sections {
+		finalBuilder.WriteString("## " + s.Title + "\n\n")
+		finalBuilder.WriteString(s.Content)
+		finalBuilder.WriteString("\n\n")
+	}
+
+	writeJSON(w, http.StatusOK, TaskContextPreviewResponse{
+		Sections:    sections,
+		FinalPrompt: finalBuilder.String(),
+		TaskID:      taskID,
+		AgentID:     uuidToString(agent.ID),
+		AgentName:   agent.Name,
+		IssueID:     issueID,
+		IssueTitle:  issue.Title,
+	})
+}
+
+// buildIssueSection formats the issue details as a readable string.
+func buildIssueSection(issue db.Issue) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Title: %s\n", issue.Title)
+	fmt.Fprintf(&b, "Status: %s\n", issue.Status)
+	fmt.Fprintf(&b, "Priority: %s\n", issue.Priority)
+	if issue.Description.Valid && issue.Description.String != "" {
+		fmt.Fprintf(&b, "\n%s\n", issue.Description.String)
+	}
+	return b.String()
+}
+
+// buildCommentsSection formats recent comments as a readable string.
+func buildCommentsSection(comments []db.Comment) string {
+	var b strings.Builder
+	for i, c := range comments {
+		authorLabel := c.AuthorType
+		timestamp := ""
+		if c.CreatedAt.Valid {
+			timestamp = c.CreatedAt.Time.Format("2006-01-02 15:04")
+		}
+		fmt.Fprintf(&b, "[%d] %s (%s): %s\n", i+1, authorLabel, timestamp, c.Content)
+	}
+	return b.String()
+}
+
+// buildAttachmentsSection formats attachment metadata as a readable string.
+func buildAttachmentsSection(attachments []db.Attachment) string {
+	var b strings.Builder
+	for _, a := range attachments {
+		sizeMB := float64(a.SizeBytes) / (1024 * 1024)
+		fmt.Fprintf(&b, "- %s (%s, %.2f MB)\n", a.Filename, a.ContentType, sizeMB)
+	}
+	return b.String()
+}
+
+// buildSkillsSection formats agent skills as a readable string.
+func buildSkillsSection(skills []db.Skill) string {
+	var b strings.Builder
 	for _, s := range skills {
 		desc := s.Name
 		if s.Description != "" {
 			desc += ": " + s.Description
 		}
-		skillDescs = append(skillDescs, desc)
+		fmt.Fprintf(&b, "- %s\n", desc)
 	}
-
-	// Build prompt config.
-	cfg := daemon.SystemPromptConfig{
-		AgentRole:         agent.RuntimeMode,
-		AgentName:         agent.Name,
-		AgentInstructions: agent.Instructions,
-		WorkspaceName:     workspace.Name,
-		MaxTurns:          int(agent.MaxConcurrentTasks),
-	}
-
-	// Build the full prompt with task context.
-	registry := daemon.NewPromptRegistry()
-	daemon.RegisterDefaultSectionsForPreview(registry, cfg)
-
-	// Add task instruction as a dynamic section.
-	issueID := uuidToString(task.IssueID)
-	registry.Register(daemon.PromptSection{
-		Name:  "task-instruction",
-		Phase: daemon.PhaseDynamic,
-		Order: 100,
-		Compute: func() string {
-			var b strings.Builder
-			b.WriteString("---\n## Current Task\n\n")
-			b.WriteString("Your assigned issue ID is: **" + issueID + "**\n\n")
-			b.WriteString("Start by running `multicode issue get " + issueID + " --output json` to understand your task, then follow the Execution Protocol above.\n")
-			return b.String()
-		},
-	})
-
-	fullPrompt := daemon.AssembleWithRegistry(registry, cfg)
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"full_prompt":  fullPrompt,
-		"task_id":      taskID,
-		"agent_id":     uuidToString(agent.ID),
-		"agent_name":   agent.Name,
-		"issue_id":     issueID,
-		"skills":       skillDescs,
-		"task_status":  task.Status,
-	})
+	return b.String()
 }
 
 // loadAgentForUser resolves an agent by ID, verifying the caller is authenticated

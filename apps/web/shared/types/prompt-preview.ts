@@ -12,12 +12,19 @@ export interface PromptPreviewResponse {
   agent_name: string;
 }
 
+export interface TaskContextSection {
+  key: string;
+  title: string;
+  source: string;
+  content: string;
+}
+
 export interface TaskContextPreviewResponse {
-  full_prompt: string;
-  sections: PromptSection[];
+  sections: TaskContextSection[];
+  final_prompt: string;
+  task_id: string;
   agent_id: string;
   agent_name: string;
-  task_id: string;
   issue_id: string;
   issue_title: string;
 }
