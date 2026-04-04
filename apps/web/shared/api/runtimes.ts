@@ -10,6 +10,9 @@ import type {
   CreateRuntimeJoinTokenResponse,
   RegisterRuntimeWithJoinTokenRequest,
   RegisterRuntimeWithJoinTokenResponse,
+  RuntimePolicy,
+  CreateRuntimePolicyRequest,
+  UpdateRuntimePolicyRequest,
 } from "@/shared/types";
 import type { Logger } from "@/shared/logger";
 import { noopLogger } from "@/shared/logger";
@@ -170,5 +173,36 @@ export const runtimesApi = {
       method: "POST",
       body: JSON.stringify(body),
     });
+  },
+
+  // Runtime Policy
+  async listRuntimePolicies(): Promise<RuntimePolicy[]> {
+    return apiFetch("/api/runtime-policies");
+  },
+
+  async getRuntimePolicy(id: string): Promise<RuntimePolicy> {
+    return apiFetch(`/api/runtime-policies/${id}`);
+  },
+
+  async getRuntimePolicyByAgent(agentId: string): Promise<RuntimePolicy> {
+    return apiFetch(`/api/runtime-policies/by-agent/${agentId}`);
+  },
+
+  async createRuntimePolicy(data: CreateRuntimePolicyRequest): Promise<RuntimePolicy> {
+    return apiFetch("/api/runtime-policies", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateRuntimePolicy(id: string, data: UpdateRuntimePolicyRequest): Promise<RuntimePolicy> {
+    return apiFetch(`/api/runtime-policies/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteRuntimePolicy(id: string): Promise<void> {
+    return apiFetch(`/api/runtime-policies/${id}`, { method: "DELETE" });
   },
 };

@@ -31,6 +31,11 @@ export type {
   CreateRuntimeJoinTokenResponse,
   RegisterRuntimeWithJoinTokenRequest,
   RegisterRuntimeWithJoinTokenResponse,
+  TaskReport,
+  TaskTimelineEvent,
+  RuntimePolicy,
+  CreateRuntimePolicyRequest,
+  UpdateRuntimePolicyRequest,
 } from "./agent";
 export type {
   Team,
@@ -63,3 +68,8 @@ export type {
   TaskDependencyInfo,
 } from "./collaboration";
 export type { Run, RunPhase, RunStep, RunTodo, RunArtifact } from "./run";
+export type {
+  PromptSection,
+  PromptPreviewResponse,
+  TaskContextPreviewResponse,
+} from "./prompt-preview";

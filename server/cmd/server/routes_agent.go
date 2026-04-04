@@ -59,6 +59,10 @@ func registerAgentRoutes(r chi.Router, h *handler.Handler, queries *db.Queries) 
 	// Workspace memory recall
 	r.Post("/api/workspace/memory/recall", h.RecallWorkspaceMemory)
 
+	// Task report and timeline
+	r.Get("/api/tasks/{taskId}/report", h.GetTaskReport)
+	r.Get("/api/tasks/{taskId}/timeline", h.GetTaskTimeline)
+
 	// Task review (manual)
 	r.Post("/api/tasks/{taskId}/review", h.SubmitReview)
 

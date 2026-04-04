@@ -258,3 +258,68 @@ export interface RegisterRuntimeWithJoinTokenResponse {
   approval_status: ApprovalStatus;
   status: string;
 }
+
+export interface TaskReport {
+  id: string;
+  agent_id: string;
+  agent_name: string;
+  issue_id: string;
+  issue_title: string;
+  runtime_id: string;
+  runtime_name: string | null;
+  status: string;
+  priority: number;
+  dispatched_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  result: unknown;
+  error: string | null;
+  created_at: string;
+  review_status: string;
+  message_count: number;
+  checkpoint_count: number;
+}
+
+export interface TaskTimelineEvent {
+  event_type: string;
+  id: string;
+  timestamp: string;
+  title: string;
+  detail: string;
+  meta: unknown;
+}
+
+export interface RuntimePolicy {
+  id: string;
+  workspace_id: string;
+  agent_id: string;
+  team_id?: string;
+  required_tags: string[];
+  forbidden_tags: string[];
+  preferred_runtime_ids: string[];
+  fallback_runtime_ids: string[];
+  max_queue_depth: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRuntimePolicyRequest {
+  agent_id: string;
+  team_id?: string;
+  required_tags?: string[];
+  forbidden_tags?: string[];
+  preferred_runtime_ids?: string[];
+  fallback_runtime_ids?: string[];
+  max_queue_depth?: number;
+  is_active?: boolean;
+}
+
+export interface UpdateRuntimePolicyRequest {
+  required_tags?: string[];
+  forbidden_tags?: string[];
+  preferred_runtime_ids?: string[];
+  fallback_runtime_ids?: string[];
+  max_queue_depth?: number;
+  is_active?: boolean;
+}

@@ -17,15 +17,15 @@ vi.mock("@/shared/api", () => {
 });
 
 vi.mock("@/features/issues", () => ({
-  useIssueStore: { getState: () => ({ fetch: vi.fn().mockResolvedValue(undefined), setIssues: vi.fn() }) },
+  useIssueStore: { getState: () => ({ fetch: vi.fn().mockResolvedValue(undefined), setIssues: vi.fn(), reset: vi.fn() }) },
 }));
 
 vi.mock("@/features/inbox", () => ({
-  useInboxStore: { getState: () => ({ fetch: vi.fn().mockResolvedValue(undefined), setItems: vi.fn() }) },
+  useInboxStore: { getState: () => ({ fetch: vi.fn().mockResolvedValue(undefined), setItems: vi.fn(), reset: vi.fn() }) },
 }));
 
 vi.mock("@/features/runtimes", () => ({
-  useRuntimeStore: { getState: () => ({ setRuntimes: vi.fn() }) },
+  useRuntimeStore: { getState: () => ({ setRuntimes: vi.fn(), reset: vi.fn() }) },
 }));
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));

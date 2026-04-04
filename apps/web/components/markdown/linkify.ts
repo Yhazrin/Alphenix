@@ -53,6 +53,7 @@ function findCodeRanges(text: string): CodeRange[] {
   }
 
   // Find inline math ($...$)
+  // eslint-disable-next-line no-useless-escape
   const inlineMathRegex = /(?<!\$)\$(?!\$)([^\$\n]+)\$(?!\$)/g
   while ((match = inlineMathRegex.exec(text)) !== null) {
     const pos = match.index

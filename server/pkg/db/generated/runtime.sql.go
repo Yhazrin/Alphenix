@@ -50,7 +50,7 @@ func (q *Queries) FailTasksForOfflineRuntimes(ctx context.Context) ([]FailTasksF
 }
 
 const getAgentRuntime = `-- name: GetAgentRuntime :one
-SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id FROM agent_runtime
+SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id, owner_user_id, approval_status, visibility, trust_level, drain_mode, paused, tags, max_concurrent_tasks_override, last_claimed_at, success_count_24h, failure_count_24h, avg_task_duration_ms FROM agent_runtime
 WHERE id = $1
 `
 
@@ -71,12 +71,24 @@ func (q *Queries) GetAgentRuntime(ctx context.Context, id pgtype.UUID) (AgentRun
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.InstanceID,
+		&i.OwnerUserID,
+		&i.ApprovalStatus,
+		&i.Visibility,
+		&i.TrustLevel,
+		&i.DrainMode,
+		&i.Paused,
+		&i.Tags,
+		&i.MaxConcurrentTasksOverride,
+		&i.LastClaimedAt,
+		&i.SuccessCount24h,
+		&i.FailureCount24h,
+		&i.AvgTaskDurationMs,
 	)
 	return i, err
 }
 
 const getAgentRuntimeForWorkspace = `-- name: GetAgentRuntimeForWorkspace :one
-SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id FROM agent_runtime
+SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id, owner_user_id, approval_status, visibility, trust_level, drain_mode, paused, tags, max_concurrent_tasks_override, last_claimed_at, success_count_24h, failure_count_24h, avg_task_duration_ms FROM agent_runtime
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -102,12 +114,24 @@ func (q *Queries) GetAgentRuntimeForWorkspace(ctx context.Context, arg GetAgentR
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.InstanceID,
+		&i.OwnerUserID,
+		&i.ApprovalStatus,
+		&i.Visibility,
+		&i.TrustLevel,
+		&i.DrainMode,
+		&i.Paused,
+		&i.Tags,
+		&i.MaxConcurrentTasksOverride,
+		&i.LastClaimedAt,
+		&i.SuccessCount24h,
+		&i.FailureCount24h,
+		&i.AvgTaskDurationMs,
 	)
 	return i, err
 }
 
 const listAgentRuntimes = `-- name: ListAgentRuntimes :many
-SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id FROM agent_runtime
+SELECT id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id, owner_user_id, approval_status, visibility, trust_level, drain_mode, paused, tags, max_concurrent_tasks_override, last_claimed_at, success_count_24h, failure_count_24h, avg_task_duration_ms FROM agent_runtime
 WHERE workspace_id = $1
 ORDER BY created_at ASC
 `
@@ -135,6 +159,18 @@ func (q *Queries) ListAgentRuntimes(ctx context.Context, workspaceID pgtype.UUID
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.InstanceID,
+			&i.OwnerUserID,
+			&i.ApprovalStatus,
+			&i.Visibility,
+			&i.TrustLevel,
+			&i.DrainMode,
+			&i.Paused,
+			&i.Tags,
+			&i.MaxConcurrentTasksOverride,
+			&i.LastClaimedAt,
+			&i.SuccessCount24h,
+			&i.FailureCount24h,
+			&i.AvgTaskDurationMs,
 		); err != nil {
 			return nil, err
 		}
@@ -194,7 +230,7 @@ const updateAgentRuntimeHeartbeat = `-- name: UpdateAgentRuntimeHeartbeat :one
 UPDATE agent_runtime
 SET status = 'online', last_seen_at = now(), updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id
+RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id, owner_user_id, approval_status, visibility, trust_level, drain_mode, paused, tags, max_concurrent_tasks_override, last_claimed_at, success_count_24h, failure_count_24h, avg_task_duration_ms
 `
 
 func (q *Queries) UpdateAgentRuntimeHeartbeat(ctx context.Context, id pgtype.UUID) (AgentRuntime, error) {
@@ -214,6 +250,18 @@ func (q *Queries) UpdateAgentRuntimeHeartbeat(ctx context.Context, id pgtype.UUI
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.InstanceID,
+		&i.OwnerUserID,
+		&i.ApprovalStatus,
+		&i.Visibility,
+		&i.TrustLevel,
+		&i.DrainMode,
+		&i.Paused,
+		&i.Tags,
+		&i.MaxConcurrentTasksOverride,
+		&i.LastClaimedAt,
+		&i.SuccessCount24h,
+		&i.FailureCount24h,
+		&i.AvgTaskDurationMs,
 	)
 	return i, err
 }
@@ -240,7 +288,7 @@ ON CONFLICT (workspace_id, daemon_id, instance_id, provider)
     metadata = EXCLUDED.metadata,
     last_seen_at = now(),
     updated_at = now()
-RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id
+RETURNING id, workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at, created_at, updated_at, instance_id, owner_user_id, approval_status, visibility, trust_level, drain_mode, paused, tags, max_concurrent_tasks_override, last_claimed_at, success_count_24h, failure_count_24h, avg_task_duration_ms
 `
 
 type UpsertAgentRuntimeParams struct {
@@ -282,6 +330,18 @@ func (q *Queries) UpsertAgentRuntime(ctx context.Context, arg UpsertAgentRuntime
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.InstanceID,
+		&i.OwnerUserID,
+		&i.ApprovalStatus,
+		&i.Visibility,
+		&i.TrustLevel,
+		&i.DrainMode,
+		&i.Paused,
+		&i.Tags,
+		&i.MaxConcurrentTasksOverride,
+		&i.LastClaimedAt,
+		&i.SuccessCount24h,
+		&i.FailureCount24h,
+		&i.AvgTaskDurationMs,
 	)
 	return i, err
 }

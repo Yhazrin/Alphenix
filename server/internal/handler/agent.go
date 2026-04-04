@@ -547,6 +547,7 @@ type PromptSectionPreview struct {
 	Name    string `json:"name"`
 	Phase   string `json:"phase"` // "static" or "dynamic"
 	Content string `json:"content"`
+	Order   int    `json:"order"`
 }
 
 // PromptPreviewResponse is the response for the prompt preview endpoint.

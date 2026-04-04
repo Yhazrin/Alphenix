@@ -10,6 +10,8 @@ import type {
   AgentMemory,
   StoreMemoryRequest,
   RecallMemoryRequest,
+  PromptPreviewResponse,
+  TaskContextPreviewResponse,
 } from "@/shared/types";
 import type { Logger } from "@/shared/logger";
 import { noopLogger } from "@/shared/logger";
@@ -172,5 +174,13 @@ export const agentsApi = {
 
   async deleteMemory(agentId: string, memoryId: string): Promise<{ status: string }> {
     return apiFetch(`/api/agents/${agentId}/memory/${memoryId}`, { method: "DELETE" });
+  },
+
+  async previewPrompt(agentId: string): Promise<PromptPreviewResponse> {
+    return apiFetch(`/api/agents/${agentId}/prompt-preview`);
+  },
+
+  async previewTaskContext(taskId: string): Promise<TaskContextPreviewResponse> {
+    return apiFetch(`/api/tasks/${taskId}/context-preview`);
   },
 };

@@ -126,6 +126,7 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus) chi.Route
 			registerInboxRoutes(r, h, queries)
 			registerRunRoutes(r, h, queries)
 			registerTeamRoutes(r, h, queries)
+			registerRuntimePolicyRoutes(r, h, queries)
 		})
 	})
 

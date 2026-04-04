@@ -4,6 +4,22 @@ import { render, screen, waitFor, act, fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import type { Issue, Comment, TimelineEntry } from "@/shared/types";
 
+// Mock next/dynamic — resolve dynamic() imports synchronously in tests
+// We use vi.hoisted() to create a mutable holder, then populate it after all mocks
+// are defined to avoid circular dependency issues.
+const dynamicHolder = vi.hoisted(() => ({ component: null as any }));
+
+vi.mock("next/dynamic", () => ({
+  default: (_importFn: () => Promise<any>, _options?: { loading?: () => any }) => {
+    // Return a wrapper that delegates to dynamicHolder.component once it's set
+    return (props: any) => {
+      if (!dynamicHolder.component) return null;
+      const Comp = dynamicHolder.component;
+      return <Comp {...props} />;
+    };
+  },
+}));
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -186,6 +202,13 @@ vi.mock("@/shared/api", () => ({
     listTasksByIssue: vi.fn().mockResolvedValue([]),
     listTaskMessages: vi.fn().mockResolvedValue([]),
   },
+  runsApi: {
+    listRunsByIssue: vi.fn().mockResolvedValue([]),
+    getRun: vi.fn(),
+    getRunSteps: vi.fn().mockResolvedValue([]),
+    getRunTodos: vi.fn().mockResolvedValue([]),
+  },
+  configureRunsApi: vi.fn(),
 }));
 
 const mockIssue: Issue = {
@@ -232,6 +255,10 @@ const mockTimeline: TimelineEntry[] = [
     comment_type: "comment",
   },
 ];
+
+// Import IssueDetail AFTER all mocks are set up (avoids circular dependency)
+import { IssueDetail } from "@/features/issues/components";
+dynamicHolder.component = IssueDetail;
 
 import IssueDetailPage from "./page";
 

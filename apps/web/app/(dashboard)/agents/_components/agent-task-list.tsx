@@ -3,19 +3,23 @@
 import { useState, useEffect } from "react";
 import {
   ListTodo,
+  FileText,
 } from "lucide-react";
 import type {
   Agent,
   AgentTask,
 } from "@/shared/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { api } from "@/shared/api";
 import { useIssueStore } from "@/features/issues";
 import { taskStatusConfig } from "./agent-configs";
+import { TaskReportPanel } from "./task-report-panel";
 
 export function TasksTab({ agent }: { agent: Agent }) {
   const [tasks, setTasks] = useState<AgentTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportTask, setReportTask] = useState<AgentTask | null>(null);
   const issues = useIssueStore((s) => s.issues);
 
   useEffect(() => {
@@ -58,6 +62,12 @@ export function TasksTab({ agent }: { agent: Agent }) {
   });
 
   const issueMap = new Map(issues.map((i) => [i.id, i]));
+
+  if (reportTask) {
+    return (
+      <TaskReportPanel task={reportTask} onClose={() => setReportTask(null)} />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -128,6 +138,17 @@ export function TasksTab({ agent }: { agent: Agent }) {
                 <span className={`shrink-0 text-xs font-medium ${config.color}`}>
                   {config.label}
                 </span>
+                {(task.status === "completed" || task.status === "failed" || task.status === "cancelled") && (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="View report"
+                    onClick={() => setReportTask(task)}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             );
           })}

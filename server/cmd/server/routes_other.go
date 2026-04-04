@@ -106,6 +106,20 @@ func registerCommentRoutes(r chi.Router, h *handler.Handler, queries *db.Queries
 	})
 }
 
+// registerRuntimePolicyRoutes registers runtime assignment policy routes.
+func registerRuntimePolicyRoutes(r chi.Router, h *handler.Handler, queries *db.Queries) {
+	r.Route("/api/runtime-policies", func(r chi.Router) {
+		r.Get("/", h.ListRuntimePolicies)
+		r.Post("/", h.CreateRuntimePolicy)
+		r.Get("/by-agent/{agentId}", h.GetRuntimePolicyByAgent)
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", h.GetRuntimePolicy)
+			r.Patch("/", h.UpdateRuntimePolicy)
+			r.Delete("/", h.DeleteRuntimePolicy)
+		})
+	})
+}
+
 // registerRunRoutes registers run lifecycle routes.
 func registerRunRoutes(r chi.Router, h *handler.Handler, queries *db.Queries) {
 	r.Route("/api/runs", func(r chi.Router) {

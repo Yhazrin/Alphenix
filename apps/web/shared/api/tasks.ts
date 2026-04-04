@@ -7,6 +7,8 @@ import type {
   SaveCheckpointRequest,
   ChainTaskRequest,
   SubmitReviewRequest,
+  TaskReport,
+  TaskTimelineEvent,
 } from "@/shared/types";
 import type { Logger } from "@/shared/logger";
 import { noopLogger } from "@/shared/logger";
@@ -180,5 +182,13 @@ export const tasksApi = {
       method: "POST",
       body: JSON.stringify(data),
     });
+  },
+
+  async getReport(taskId: string): Promise<TaskReport> {
+    return apiFetch(`/api/tasks/${taskId}/report`);
+  },
+
+  async getTimeline(taskId: string): Promise<TaskTimelineEvent[]> {
+    return apiFetch(`/api/tasks/${taskId}/timeline`);
   },
 };

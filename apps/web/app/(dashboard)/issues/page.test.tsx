@@ -194,6 +194,7 @@ vi.mock("@dnd-kit/core", () => ({
   DndContext: ({ children }: any) => children,
   DragOverlay: () => null,
   PointerSensor: class {},
+  KeyboardSensor: class {},
   useSensor: () => ({}),
   useSensors: () => [],
   useDroppable: () => ({ setNodeRef: vi.fn(), isOver: false }),

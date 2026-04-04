@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronRight, ChevronUp, Loader2, Clock, CheckCircle2, XCircle } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, ChevronUp, Loader2, Clock, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { api } from "@/shared/api";
 import { useWSEvent } from "@/features/realtime";
 import type { TaskCompletedPayload, TaskFailedPayload, TaskCancelledPayload } from "@/shared/types/events";
@@ -121,6 +122,14 @@ function TaskRunEntry({ task }: { task: AgentTask }) {
         <span className={cn("ml-auto capitalize", task.status === "completed" ? "text-success" : "text-destructive")}>
           {task.status}
         </span>
+        <Link
+          href={`/tasks/${task.id}`}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="View task details"
+        >
+          <ExternalLink className="h-3 w-3" />
+        </Link>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="ml-5 mt-1 max-h-64 overflow-y-auto rounded border bg-muted/30 px-3 py-2 space-y-0.5">
