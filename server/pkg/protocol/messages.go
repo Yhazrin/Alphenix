@@ -119,6 +119,9 @@ type MemoryRecall struct {
 	Content    string  `json:"content"`
 	Similarity float64 `json:"similarity"`
 	AgentName  string  `json:"agent_name,omitempty"`
+	BM25Score  float64 `json:"bm25_score,omitempty"`
+	FusedScore float64 `json:"fused_score,omitempty"`
+	SearchType string  `json:"search_type,omitempty"` // "hybrid", "vector", "bm25", "recent"
 }
 
 // CheckpointInfo describes the latest checkpoint for resume context.

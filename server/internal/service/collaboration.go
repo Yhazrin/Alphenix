@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
+	"github.com/multica-ai/multica/server/internal/memory"
 	"github.com/multica-ai/multica/server/internal/realtime"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -293,6 +294,133 @@ func (s *CollaborationService) CleanupExpiredMemory(ctx context.Context) error {
 	return s.Queries.DeleteExpiredMemory(ctx)
 }
 
+// HybridRecallWorkspaceMemory combines BM25 full-text search and vector
+// semantic search using Reciprocal Rank Fusion. queryText provides the BM25
+// input (e.g. issue title + description), embedding provides the vector input.
+// Falls back to vector-only, BM25-only, or recent-only if a channel is unavailable.
+func (s *CollaborationService) HybridRecallWorkspaceMemory(ctx context.Context, workspaceID pgtype.UUID, queryText string, embedding []byte, limit int32) ([]protocol.MemoryRecall, error) {
+	candidateLimit := limit * 3 // fetch more candidates for fusion
+
+	// BM25 channel.
+	var bm25Results []memory.SearchResult
+	if queryText != "" {
+		expanded := memory.ExpandQuery(queryText)
+		if expanded != "" {
+			rows, err := s.Queries.SearchWorkspaceMemoryBM25(ctx, expanded, workspaceID, candidateLimit)
+			if err == nil {
+				for i, r := range rows {
+					bm25Results = append(bm25Results, memory.SearchResult{
+						Memory: r,
+						Score:  r.Similarity, // BM25 score stored in Similarity field
+						Rank:   i + 1,
+					})
+				}
+			} else {
+				slog.Debug("hybrid memory: BM25 search failed", "error", err)
+			}
+		}
+	}
+
+	// Vector channel.
+	var vectorResults []memory.SearchResult
+	if len(embedding) > 0 {
+		rows, err := s.Queries.SearchWorkspaceMemory(ctx, db.SearchWorkspaceMemoryParams{
+			Embedding:   embedding,
+			WorkspaceID: workspaceID,
+			Limit:       candidateLimit,
+		})
+		if err == nil {
+			vectorResults = memory.RankResults(vectorToSearchResults(rows))
+		} else {
+			slog.Debug("hybrid memory: vector search failed", "error", err)
+		}
+	}
+
+	// Determine search type and fuse results.
+	searchType := "recent"
+	var fused []memory.FusedResult
+	if len(bm25Results) > 0 && len(vectorResults) > 0 {
+		bm25Results = memory.RankResults(bm25Results)
+		fused = memory.RRFusion(bm25Results, vectorResults, int(limit))
+		searchType = "hybrid"
+	} else if len(vectorResults) > 0 {
+		for _, v := range vectorResults {
+			fused = append(fused, memory.FusedResult{
+				Memory:      v.Memory,
+				FusedScore:  v.Score,
+				VectorScore: v.Score,
+			})
+		}
+		if int(limit) < len(fused) {
+			fused = fused[:limit]
+		}
+		searchType = "vector"
+	} else if len(bm25Results) > 0 {
+		for _, b := range bm25Results {
+			fused = append(fused, memory.FusedResult{
+				Memory:    b.Memory,
+				FusedScore: b.Score,
+				BM25Score:  b.Score,
+			})
+		}
+		if int(limit) < len(fused) {
+			fused = fused[:limit]
+		}
+		searchType = "bm25"
+	}
+
+	// Fallback to recent memories when no search channel produced results.
+	if len(fused) == 0 {
+		memories, err := s.Queries.ListRecentWorkspaceMemory(ctx, db.ListRecentWorkspaceMemoryParams{
+			WorkspaceID: workspaceID,
+			Limit:       limit,
+		})
+		if err != nil {
+			return nil, err
+		}
+		recalls := make([]protocol.MemoryRecall, 0, len(memories))
+		for _, m := range memories {
+			recalls = append(recalls, protocol.MemoryRecall{
+				ID:         util.UUIDToString(m.ID),
+				Content:    m.Content,
+				Similarity: 0,
+				SearchType: "recent",
+			})
+		}
+		return recalls, nil
+	}
+
+	// Convert fused results to protocol types, enriching with agent names.
+	recalls := make([]protocol.MemoryRecall, 0, len(fused))
+	for _, f := range fused {
+		agentName := ""
+		if a, err := s.Queries.GetAgent(ctx, f.Memory.AgentID); err == nil {
+			agentName = a.Name
+		}
+		recalls = append(recalls, protocol.MemoryRecall{
+			ID:         util.UUIDToString(f.Memory.ID),
+			Content:    f.Memory.Content,
+			Similarity: f.VectorScore,
+			AgentName:  agentName,
+			BM25Score:  f.BM25Score,
+			FusedScore: f.FusedScore,
+			SearchType: searchType,
+		})
+	}
+	return recalls, nil
+}
+
+func vectorToSearchResults(rows []db.AgentMemory) []memory.SearchResult {
+	results := make([]memory.SearchResult, 0, len(rows))
+	for _, r := range rows {
+		results = append(results, memory.SearchResult{
+			Memory: r,
+			Score:  r.Similarity,
+		})
+	}
+	return results
+}
+
 // --- Task Checkpoints ---
 
 // SaveCheckpoint persists an agent's intermediate execution state.
@@ -363,9 +491,9 @@ func (s *CollaborationService) GetLatestCheckpoint(ctx context.Context, taskID p
 
 // BuildSharedContext assembles the full collaborative context for an agent's
 // prompt: colleagues, pending messages, dependencies, workspace memory, and
-// the last checkpoint. This is the key integration point that enriches agent
-// prompts with multi-agent awareness.
-func (s *CollaborationService) BuildSharedContext(ctx context.Context, workspaceID, agentID, taskID pgtype.UUID, embedding []byte) (*protocol.SharedContext, error) {
+// the last checkpoint. queryText (e.g. issue title + description) enables
+// hybrid BM25+vector memory search; pass empty string to fall back.
+func (s *CollaborationService) BuildSharedContext(ctx context.Context, workspaceID, agentID, taskID pgtype.UUID, embedding []byte, queryText string) (*protocol.SharedContext, error) {
 	sc := &protocol.SharedContext{}
 
 	// 1. Load colleagues (other active agents in workspace).
@@ -414,27 +542,10 @@ func (s *CollaborationService) BuildSharedContext(ctx context.Context, workspace
 		}
 	}
 
-	// 5. Recall workspace memories.
-	var memories []db.AgentMemory
-	if len(embedding) > 0 {
-		memories, err = s.RecallWorkspaceMemory(ctx, workspaceID, embedding, 5)
-	} else {
-		// Fallback: load recent memories when no embedding is available (e.g. at claim time).
-		memories, err = s.RecentWorkspaceMemory(ctx, workspaceID, 5)
-	}
+	// 5. Hybrid recall: BM25 + vector + RRF, falling back to recent.
+	recalls, err := s.HybridRecallWorkspaceMemory(ctx, workspaceID, queryText, embedding, 5)
 	if err == nil {
-		for _, m := range memories {
-			agentName := ""
-			if a, err := s.Queries.GetAgent(ctx, m.AgentID); err == nil {
-				agentName = a.Name
-			}
-			sc.WorkspaceMemory = append(sc.WorkspaceMemory, protocol.MemoryRecall{
-				ID:         util.UUIDToString(m.ID),
-				Content:    m.Content,
-				Similarity: m.Similarity,
-				AgentName:  agentName,
-			})
-		}
+		sc.WorkspaceMemory = recalls
 	}
 
 	return sc, nil

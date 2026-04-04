@@ -247,3 +247,69 @@ func (q *Queries) DeleteExpiredMemory(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteExpiredMemory)
 	return err
 }
+
+// SearchAgentMemoryBM25 performs BM25 full-text search for a specific agent.
+func (q *Queries) SearchAgentMemoryBM25(ctx context.Context, searchQuery string, agentID pgtype.UUID, limitCount int32) ([]AgentMemory, error) {
+	const query = `SELECT id, workspace_id, agent_id, content, embedding, metadata, created_at, expires_at,
+	       ts_rank(tsv_content, to_tsquery('english', $1)) AS bm25_score
+	FROM agent_memory
+	WHERE agent_id = $2
+	  AND tsv_content @@ to_tsquery('english', $1)
+	  AND (expires_at IS NULL OR expires_at > now())
+	ORDER BY ts_rank(tsv_content, to_tsquery('english', $1)) DESC
+	LIMIT $3`
+	rows, err := q.db.Query(ctx, query, searchQuery, agentID, limitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AgentMemory{}
+	for rows.Next() {
+		var i AgentMemory
+		if err := rows.Scan(
+			&i.ID, &i.WorkspaceID, &i.AgentID, &i.Content,
+			&i.Embedding, &i.Metadata, &i.CreatedAt, &i.ExpiresAt,
+			&i.Similarity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// SearchWorkspaceMemoryBM25 performs BM25 full-text search across all agents in a workspace.
+func (q *Queries) SearchWorkspaceMemoryBM25(ctx context.Context, searchQuery string, workspaceID pgtype.UUID, limitCount int32) ([]AgentMemory, error) {
+	const query = `SELECT id, workspace_id, agent_id, content, embedding, metadata, created_at, expires_at,
+	       ts_rank(tsv_content, to_tsquery('english', $1)) AS bm25_score
+	FROM agent_memory
+	WHERE workspace_id = $2
+	  AND tsv_content @@ to_tsquery('english', $1)
+	  AND (expires_at IS NULL OR expires_at > now())
+	ORDER BY ts_rank(tsv_content, to_tsquery('english', $1)) DESC
+	LIMIT $3`
+	rows, err := q.db.Query(ctx, query, searchQuery, workspaceID, limitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AgentMemory{}
+	for rows.Next() {
+		var i AgentMemory
+		if err := rows.Scan(
+			&i.ID, &i.WorkspaceID, &i.AgentID, &i.Content,
+			&i.Embedding, &i.Metadata, &i.CreatedAt, &i.ExpiresAt,
+			&i.Similarity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

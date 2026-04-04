@@ -47,3 +47,29 @@ WHERE id = $1;
 -- name: DeleteExpiredMemory :exec
 DELETE FROM agent_memory
 WHERE expires_at IS NOT NULL AND expires_at < now();
+
+-- NOTE: BM25 queries are implemented manually in generated/agent_memory.sql.go
+-- because sqlc v1.30.0 cannot parse to_tsquery syntax. Uncomment after sqlc upgrade.
+
+-- -- name: SearchAgentMemoryBM25 :many
+-- -- BM25 full-text search for a specific agent.
+-- SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at,
+--        ts_rank(am.tsv_content, q) AS bm25_score
+-- FROM agent_memory am, to_tsquery('english', sqlc.arg(search_query)) q
+-- WHERE am.agent_id = sqlc.arg(agent_id)
+--   AND am.tsv_content @@ q
+--   AND (am.expires_at IS NULL OR am.expires_at > now())
+-- ORDER BY ts_rank(am.tsv_content, q) DESC
+-- LIMIT sqlc.arg(limit_count);
+
+-- -- name: SearchWorkspaceMemoryBM25 :many
+-- -- BM25 full-text search across all agents in a workspace.
+-- SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at,
+--        ts_rank(am.tsv_content, q) AS bm25_score
+-- FROM agent_memory am, to_tsquery('english', sqlc.arg(search_query)) q
+-- WHERE am.workspace_id = sqlc.arg(workspace_id)
+--   AND am.tsv_content @@ q
+--   AND (am.expires_at IS NULL OR am.expires_at > now())
+-- ORDER BY ts_rank(am.tsv_content, q) DESC
+-- LIMIT sqlc.arg(limit_count);
+
