@@ -245,11 +245,6 @@ func buildMigrations(fsys fs.FS) ([]*goose.Migration, error) {
 		}
 
 		m := goose.NewGoMigration(v, upFn, downFn)
-		base := filepath.Base(p.upPath)
-		if base == "" && p.downPath != "" {
-			base = filepath.Base(p.downPath)
-		}
-		m.Source = filepath.Join("migrations", base)
 		result = append(result, m)
 	}
 
