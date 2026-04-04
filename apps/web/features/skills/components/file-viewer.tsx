@@ -114,9 +114,9 @@ export function FileViewer({
                     className="text-muted-foreground"
                   >
                     {editing ? (
-                      <Eye className="h-3.5 w-3.5" />
+                      <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     ) : (
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                     )}
                   </Button>
                 }

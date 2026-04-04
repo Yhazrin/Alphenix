@@ -99,11 +99,12 @@ function TreeNodeItem({
       <div>
         <button
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
           className="flex w-full items-center gap-1.5 py-1 text-left text-xs hover:bg-accent/50 rounded-sm"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
-          <ChevronIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
-          <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <ChevronIcon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="truncate">{node.name}</span>
         </button>
         {expanded && (
@@ -136,7 +137,7 @@ function TreeNodeItem({
       )}
       style={{ paddingLeft: `${depth * 12 + 8 + 16}px` }}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="truncate">{node.name}</span>
     </button>
   );
@@ -160,7 +161,7 @@ export function FileTree({
   if (tree.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-        <FolderOpen className="h-5 w-5 text-muted-foreground/40" />
+        <FolderOpen className="h-5 w-5 text-muted-foreground/40" aria-hidden="true" />
         <p className="mt-2 text-xs">No files</p>
       </div>
     );

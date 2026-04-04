@@ -408,7 +408,7 @@ export default function InboxPage() {
           <Empty className="border-0 py-16">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <Inbox />
+                <Inbox aria-hidden="true" />
               </EmptyMedia>
               <EmptyTitle>No notifications</EmptyTitle>
             </EmptyHeader>
@@ -488,7 +488,7 @@ export default function InboxPage() {
           <Empty className="border-0">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <Inbox />
+                <Inbox aria-hidden="true" />
               </EmptyMedia>
               <EmptyTitle>
                 {items.length === 0

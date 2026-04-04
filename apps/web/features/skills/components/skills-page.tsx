@@ -103,19 +103,20 @@ function CreateSkillDialog({
         <Tabs value={tab} onValueChange={(v) => setTab(v as "create" | "import")}>
           <TabsList className="w-full">
             <TabsTrigger value="create" className="flex-1">
-              <Plus className="mr-1.5 h-3 w-3" />
+              <Plus className="mr-1.5 h-3 w-3" aria-hidden="true" />
               Create
             </TabsTrigger>
             <TabsTrigger value="import" className="flex-1">
-              <Download className="mr-1.5 h-3 w-3" />
+              <Download className="mr-1.5 h-3 w-3" aria-hidden="true" />
               Import
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="create" className="space-y-4 mt-4 min-h-[180px]">
             <div>
-              <Label className="text-xs text-muted-foreground">Name</Label>
+              <Label htmlFor="skill-name" className="text-xs text-muted-foreground">Name</Label>
               <Input
+                id="skill-name"
                 autoFocus
                 type="text"
                 value={name}
@@ -126,8 +127,9 @@ function CreateSkillDialog({
               />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Description</Label>
+              <Label htmlFor="skill-description" className="text-xs text-muted-foreground">Description</Label>
               <Input
+                id="skill-description"
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -139,8 +141,9 @@ function CreateSkillDialog({
 
           <TabsContent value="import" className="space-y-4 mt-4 min-h-[180px]">
             <div>
-              <Label className="text-xs text-muted-foreground">Skill URL</Label>
+              <Label htmlFor="skill-url" className="text-xs text-muted-foreground">Skill URL</Label>
               <Input
+                id="skill-url"
                 autoFocus
                 type="text"
                 value={importUrl}
@@ -180,7 +183,7 @@ function CreateSkillDialog({
 
             {importError && (
               <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 {importError}
               </div>
             )}
@@ -203,7 +206,7 @@ function CreateSkillDialog({
                     : "Importing..."
               ) : (
                 <>
-                  <Download className="mr-1.5 h-3 w-3" />
+                  <Download className="mr-1.5 h-3 w-3" aria-hidden="true" />
                   Import
                 </>
               )}
@@ -236,7 +239,7 @@ function SkillListItem({
       }`}
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-        <Sparkles className="h-4 w-4 text-muted-foreground" />
+        <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{skill.name}</div>
@@ -300,8 +303,9 @@ function AddFileDialog({
           </DialogDescription>
         </DialogHeader>
         <div>
-          <Label className="text-xs text-muted-foreground">File Path</Label>
+          <Label htmlFor="file-path" className="text-xs text-muted-foreground">File Path</Label>
           <Input
+            id="file-path"
             autoFocus
             type="text"
             value={path}
@@ -434,7 +438,7 @@ function SkillDetail({
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </div>
           <div className="grid grid-cols-2 gap-3 flex-1 min-w-0">
             <Input
@@ -456,7 +460,7 @@ function SkillDetail({
         <div className="flex items-center gap-2 ml-3">
           {isDirty && (
             <Button onClick={handleSave} disabled={saving || !name.trim()} size="xs">
-              <Save className="h-3 w-3" />
+              <Save className="h-3 w-3" aria-hidden="true" />
               {saving ? "Saving..." : "Save"}
             </Button>
           )}
@@ -468,8 +472,9 @@ function SkillDetail({
                   size="xs"
                   onClick={() => setConfirmDelete(true)}
                   className="text-muted-foreground hover:text-destructive"
+                  aria-label="Delete skill"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3" aria-hidden="true" />
                 </Button>
               }
             />
@@ -495,8 +500,9 @@ function SkillDetail({
                       size="icon-xs"
                       onClick={() => setShowAddFile(true)}
                       className="text-muted-foreground"
+                      aria-label="Add file"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                     </Button>
                   }
                 />
@@ -511,8 +517,9 @@ function SkillDetail({
                         size="icon-xs"
                         onClick={handleDeleteFile}
                         className="text-muted-foreground hover:text-destructive"
+                        aria-label="Delete file"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </Button>
                     }
                   />
@@ -574,7 +581,7 @@ function SkillDetail({
           <DialogContent className="max-w-sm" showCloseButton={false}>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-                <AlertCircle className="h-5 w-5 text-destructive" />
+                <AlertCircle className="h-5 w-5 text-destructive" aria-hidden="true" />
               </div>
               <DialogHeader className="flex-1 gap-1">
                 <DialogTitle className="text-sm font-semibold">Delete skill?</DialogTitle>
@@ -731,7 +738,7 @@ export default function SkillsPage() {
                     size="icon-xs"
                     onClick={() => setShowCreate(true)}
                   >
-                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <Plus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   </Button>
                 }
               />
@@ -740,7 +747,7 @@ export default function SkillsPage() {
           </div>
           {skills.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-4 py-12">
-              <Sparkles className="h-8 w-8 text-muted-foreground/40" />
+              <Sparkles className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
               <p className="mt-3 text-sm text-muted-foreground">No skills yet</p>
               <p className="mt-1 text-xs text-muted-foreground text-center">
                 Skills define reusable instructions for agents.
@@ -750,7 +757,7 @@ export default function SkillsPage() {
                 size="xs"
                 className="mt-3"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className="h-3 w-3" aria-hidden="true" />
                 Create Skill
               </Button>
             </div>
@@ -783,14 +790,14 @@ export default function SkillsPage() {
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-              <Sparkles className="h-10 w-10 text-muted-foreground/30" />
+              <Sparkles className="h-10 w-10 text-muted-foreground/30" aria-hidden="true" />
               <p className="mt-3 text-sm">Select a skill to view details</p>
               <Button
                 onClick={() => setShowCreate(true)}
                 size="xs"
                 className="mt-3"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className="h-3 w-3" aria-hidden="true" />
                 Create Skill
               </Button>
             </div>
