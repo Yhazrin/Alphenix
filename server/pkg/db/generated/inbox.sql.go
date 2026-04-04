@@ -264,12 +264,15 @@ FROM inbox_item i
 LEFT JOIN issue iss ON iss.id = i.issue_id
 WHERE i.workspace_id = $1 AND i.recipient_type = $2 AND i.recipient_id = $3 AND i.archived = false
 ORDER BY i.created_at DESC
+LIMIT $4 OFFSET $5
 `
 
 type ListInboxItemsParams struct {
 	WorkspaceID   pgtype.UUID `json:"workspace_id"`
 	RecipientType string      `json:"recipient_type"`
 	RecipientID   pgtype.UUID `json:"recipient_id"`
+	Limit         int32       `json:"limit"`
+	Offset        int32       `json:"offset"`
 }
 
 type ListInboxItemsRow struct {
@@ -292,7 +295,7 @@ type ListInboxItemsRow struct {
 }
 
 func (q *Queries) ListInboxItems(ctx context.Context, arg ListInboxItemsParams) ([]ListInboxItemsRow, error) {
-	rows, err := q.db.Query(ctx, listInboxItems, arg.WorkspaceID, arg.RecipientType, arg.RecipientID)
+	rows, err := q.db.Query(ctx, listInboxItems, arg.WorkspaceID, arg.RecipientType, arg.RecipientID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

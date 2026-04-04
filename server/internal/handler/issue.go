@@ -677,6 +677,16 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 
 	updated := 0
 	prefix := h.getIssuePrefix(r.Context(), parseUUID(workspaceID))
+
+	// Wrap batch updates in a transaction for atomicity.
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	txQueries := h.Queries.WithTx(tx)
+
 	for _, issueID := range req.IssueIDs {
 		prevIssue, ok := prevByID[issueID]
 		if !ok {
@@ -738,7 +748,7 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		issue, err := h.Queries.UpdateIssue(r.Context(), params)
+		issue, err := txQueries.UpdateIssue(r.Context(), params)
 		if err != nil {
 			slog.Warn("batch update issue failed", "issue_id", issueID, "error", err)
 			continue
@@ -767,6 +777,11 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updated++
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit transaction")
+		return
 	}
 
 	slog.Info("batch update issues", append(logger.RequestAttrs(r), "count", updated)...)

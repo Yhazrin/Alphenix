@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -92,10 +93,25 @@ func (h *Handler) ListInbox(w http.ResponseWriter, r *http.Request) {
 	}
 	workspaceID := r.Header.Get("X-Workspace-ID")
 
+	limit := int32(50)
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 {
+			limit = int32(n)
+		}
+	}
+	offset := int32(0)
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = int32(n)
+		}
+	}
+
 	items, err := h.Queries.ListInboxItems(r.Context(), db.ListInboxItemsParams{
 		WorkspaceID:   parseUUID(workspaceID),
 		RecipientType: "member",
 		RecipientID:   parseUUID(userID),
+		Limit:         limit,
+		Offset:        offset,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list inbox")
