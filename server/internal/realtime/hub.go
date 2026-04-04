@@ -54,13 +54,14 @@ type Hub struct {
 	unregister     chan *Client
 	mu             sync.RWMutex
 	allowedOrigins []string
+	closeOnce      sync.Once // protects broadcast channel close
 }
 
 // NewHub creates a new Hub instance.
 func NewHub(allowedOrigins []string) *Hub {
 	return &Hub{
 		rooms:          make(map[string]map[*Client]bool),
-		broadcast:      make(chan []byte),
+		broadcast:      make(chan []byte, 64),
 		register:       make(chan *Client),
 		unregister:     make(chan *Client),
 		allowedOrigins: allowedOrigins,
@@ -104,7 +105,10 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 			slog.Info("ws client disconnected", "workspace_id", room, "total_clients", total)
 
-		case message := <-h.broadcast:
+		case message, ok := <-h.broadcast:
+			if !ok {
+				return // broadcast channel closed
+			}
 			// Global broadcast for daemon events (no workspace filtering)
 			h.mu.RLock()
 			var slow []*Client
@@ -227,6 +231,13 @@ func (h *Hub) SendToUser(userID string, message []byte, excludeWorkspace ...stri
 // Broadcast sends a message to all connected clients (used for daemon events).
 func (h *Hub) Broadcast(message []byte) {
 	h.broadcast <- message
+}
+
+// CloseBroadcast safely closes the broadcast channel exactly once.
+func (h *Hub) CloseBroadcast() {
+	h.closeOnce.Do(func() {
+		close(h.broadcast)
+	})
 }
 
 // HandleWebSocket upgrades an HTTP connection to WebSocket with JWT auth.

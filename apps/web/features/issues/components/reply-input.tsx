@@ -35,6 +35,7 @@ function ReplyInput({
 }: ReplyInputProps) {
   const editorRef = useRef<ContentEditorRef>(null);
   const measureRef = useRef<HTMLDivElement>(null);
+  const attachmentIdsRef = useRef<Set<string>>(new Set());
   const [isEmpty, setIsEmpty] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -52,7 +53,9 @@ function ReplyInput({
   }, []);
 
   const handleUpload = async (file: File) => {
-    return await uploadWithToast(file, { issueId });
+    const result = await uploadWithToast(file, { issueId });
+    if (result) attachmentIdsRef.current.add(result.id);
+    return result;
   };
 
   const handleSubmit = async () => {
@@ -60,8 +63,10 @@ function ReplyInput({
     if (!content || submitting) return;
     setSubmitting(true);
     try {
-      await onSubmit(content);
+      const attachmentIds = Array.from(attachmentIdsRef.current);
+      await onSubmit(content, attachmentIds.length > 0 ? attachmentIds : undefined);
       editorRef.current?.clearContent();
+      attachmentIdsRef.current.clear();
       setIsEmpty(true);
     } finally {
       setSubmitting(false);

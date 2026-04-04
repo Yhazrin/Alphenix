@@ -26,6 +26,7 @@ export const ListRow = memo(function ListRow({ issue }: { issue: Issue }) {
         <input
           type="checkbox"
           checked={selected}
+          aria-label={`Select issue ${issue.identifier}`}
           onChange={() => toggle(issue.id)}
           className={`absolute inset-0 cursor-pointer accent-primary ${
             selected ? "" : "hidden group-hover/row:block"

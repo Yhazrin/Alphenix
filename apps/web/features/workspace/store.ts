@@ -199,9 +199,15 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   },
 
   createWorkspace: async (data) => {
-    const ws = await api.createWorkspace(data);
-    set((state) => ({ workspaces: [...state.workspaces, ws] }));
-    return ws;
+    try {
+      const ws = await api.createWorkspace(data);
+      set((state) => ({ workspaces: [...state.workspaces, ws] }));
+      return ws;
+    } catch (e) {
+      logger.error("failed to create workspace", e);
+      toast.error("Failed to create workspace");
+      throw e;
+    }
   },
 
   updateWorkspace: (ws) => {
@@ -214,21 +220,33 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   },
 
   leaveWorkspace: async (workspaceId) => {
-    await api.leaveWorkspace(workspaceId);
-    const { workspace, hydrateWorkspace } = get();
-    const wsList = await api.listWorkspaces();
-    const preferredWorkspaceId =
-      workspace?.id === workspaceId ? null : (workspace?.id ?? null);
-    await hydrateWorkspace(wsList, preferredWorkspaceId);
+    try {
+      await api.leaveWorkspace(workspaceId);
+      const { workspace, hydrateWorkspace } = get();
+      const wsList = await api.listWorkspaces();
+      const preferredWorkspaceId =
+        workspace?.id === workspaceId ? null : (workspace?.id ?? null);
+      await hydrateWorkspace(wsList, preferredWorkspaceId);
+    } catch (e) {
+      logger.error("failed to leave workspace", e);
+      toast.error("Failed to leave workspace");
+      throw e;
+    }
   },
 
   deleteWorkspace: async (workspaceId) => {
-    await api.deleteWorkspace(workspaceId);
-    const { workspace, hydrateWorkspace } = get();
-    const wsList = await api.listWorkspaces();
-    const preferredWorkspaceId =
-      workspace?.id === workspaceId ? null : (workspace?.id ?? null);
-    await hydrateWorkspace(wsList, preferredWorkspaceId);
+    try {
+      await api.deleteWorkspace(workspaceId);
+      const { workspace, hydrateWorkspace } = get();
+      const wsList = await api.listWorkspaces();
+      const preferredWorkspaceId =
+        workspace?.id === workspaceId ? null : (workspace?.id ?? null);
+      await hydrateWorkspace(wsList, preferredWorkspaceId);
+    } catch (e) {
+      logger.error("failed to delete workspace", e);
+      toast.error("Failed to delete workspace");
+      throw e;
+    }
   },
 
   clearWorkspace: () => {

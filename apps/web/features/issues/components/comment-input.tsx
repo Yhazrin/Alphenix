@@ -14,12 +14,15 @@ interface CommentInputProps {
 
 function CommentInput({ issueId, onSubmit }: CommentInputProps) {
   const editorRef = useRef<ContentEditorRef>(null);
+  const attachmentIdsRef = useRef<Set<string>>(new Set());
   const [isEmpty, setIsEmpty] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { uploadWithToast } = useFileUpload();
 
   const handleUpload = async (file: File) => {
-    return await uploadWithToast(file, { issueId });
+    const result = await uploadWithToast(file, { issueId });
+    if (result) attachmentIdsRef.current.add(result.id);
+    return result;
   };
 
   const handleSubmit = async () => {
@@ -27,8 +30,10 @@ function CommentInput({ issueId, onSubmit }: CommentInputProps) {
     if (!content || submitting) return;
     setSubmitting(true);
     try {
-      await onSubmit(content);
+      const attachmentIds = Array.from(attachmentIdsRef.current);
+      await onSubmit(content, attachmentIds.length > 0 ? attachmentIds : undefined);
       editorRef.current?.clearContent();
+      attachmentIdsRef.current.clear();
       setIsEmpty(true);
     } finally {
       setSubmitting(false);

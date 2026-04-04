@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Save, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +51,22 @@ export function WorkspaceTab() {
     setDescription(workspace?.description ?? "");
     setContext(workspace?.context ?? "");
   }, [workspace]);
+
+  const isDirty = useMemo(() => {
+    if (!workspace) return false;
+    return (
+      name !== (workspace.name ?? "") ||
+      description !== (workspace.description ?? "") ||
+      context !== (workspace.context ?? "")
+    );
+  }, [name, description, context, workspace]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   const handleSave = async () => {
     if (!workspace) return;
@@ -160,7 +176,7 @@ export function WorkspaceTab() {
               <Button
                 size="sm"
                 onClick={handleSave}
-                disabled={saving || !name.trim() || !canManageWorkspace}
+                disabled={saving || !name.trim() || !canManageWorkspace || !isDirty}
               >
                 <Save className="h-3 w-3" />
                 {saving ? "Saving..." : "Save"}

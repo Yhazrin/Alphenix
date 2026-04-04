@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useShallow } from "zustand/react/shallow";
 import { useSearchParams } from "next/navigation";
 import { useDefaultLayout } from "react-resizable-panels";
@@ -314,6 +315,14 @@ export default function InboxPage() {
     }
   };
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 5,
+  });
+
   if (loading) {
     return (
       <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0" defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged}>
@@ -394,7 +403,7 @@ export default function InboxPage() {
           </DropdownMenu>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div ref={parentRef} className="flex-1 min-h-0 overflow-y-auto">
         {items.length === 0 ? (
           <Empty className="border-0 py-16">
             <EmptyHeader>
@@ -405,16 +414,34 @@ export default function InboxPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div>
-            {items.map((item) => (
-              <InboxListItem
-                key={item.id}
-                item={item}
-                isSelected={(item.issue_id ?? item.id) === selectedKey}
-                onClick={() => handleSelect(item)}
-                onArchive={() => handleArchive(item.id)}
-              />
-            ))}
+          <div
+            style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const item = items[virtualRow.index];
+              if (!item) return null;
+
+              return (
+                <div
+                  key={virtualRow.key}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <InboxListItem
+                    item={item}
+                    isSelected={(item.issue_id ?? item.id) === selectedKey}
+                    onClick={() => handleSelect(item)}
+                    onArchive={() => handleArchive(item.id)}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
         </div>

@@ -77,6 +77,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
   const clearDraft = useIssueDraftStore((s) => s.clearDraft);
 
   const [title, setTitle] = useState(draft.title);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const descEditorRef = useRef<ContentEditorRef>(null);
   const [status, setStatus] = useState<IssueStatus>((data?.status as IssueStatus) || draft.status);
   const [priority, setPriority] = useState<IssuePriority>(draft.priority);
@@ -109,7 +110,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
   const dueDateObj = dueDate ? new Date(dueDate) : undefined;
 
   // Sync field changes to draft store
-  const updateTitle = (v: string) => { setTitle(v); setDraft({ title: v }); };
+  const updateTitle = (v: string) => { setTitle(v); setTitleError(null); setDraft({ title: v }); };
   const updateStatus = (v: IssueStatus) => { setStatus(v); setDraft({ status: v }); };
   const updatePriority = (v: IssuePriority) => { setPriority(v); setDraft({ priority: v }); };
   const updateAssignee = (type?: IssueAssigneeType, id?: string) => {
@@ -119,7 +120,12 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
   const updateDueDate = (v: string | null) => { setDueDate(v); setDraft({ dueDate: v }); };
 
   const handleSubmit = async () => {
-    if (!title.trim() || submitting) return;
+    if (!title.trim()) {
+      setTitleError("Title is required");
+      return;
+    }
+    if (submitting) return;
+    setTitleError(null);
     setSubmitting(true);
     try {
       const issue = await api.createIssue({
@@ -223,10 +229,15 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
             autoFocus
             defaultValue={draft.title}
             placeholder="Issue title"
-            className="text-lg font-semibold"
+            className={cn("text-lg font-semibold", titleError && "ring-1 ring-destructive rounded-sm")}
             onChange={(v) => updateTitle(v)}
             onSubmit={handleSubmit}
+            aria-invalid={titleError ? "true" : undefined}
+            aria-describedby={titleError ? "title-error" : undefined}
           />
+          {titleError && (
+            <p id="title-error" className="mt-1 text-xs text-destructive">{titleError}</p>
+          )}
         </div>
 
         {/* Description — takes remaining space */}

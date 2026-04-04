@@ -21,6 +21,9 @@ func JWTSecret() []byte {
 	jwtSecretOnce.Do(func() {
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
+			if os.Getenv("ENV") == "production" || os.Getenv("ENV") == "prod" {
+				panic("JWT_SECRET environment variable must be set in production")
+			}
 			secret = defaultJWTSecret
 			slog.Warn("using default JWT secret; set JWT_SECRET environment variable for production")
 		}

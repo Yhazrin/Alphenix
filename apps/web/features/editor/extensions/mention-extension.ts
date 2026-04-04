@@ -1,7 +1,30 @@
 import Mention from "@tiptap/extension-mention";
 import { mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { MentionView } from "./mention-view";
+
+interface MentionTokenAttributes {
+  label: string;
+  type: string;
+  id: string;
+}
+
+interface MentionToken {
+  type: string;
+  raw: string;
+  attributes: MentionTokenAttributes;
+}
+
+interface MarkdownHelpers {
+  createNode: (type: string, attrs: Record<string, unknown>) => ProseMirrorNode;
+}
+
+interface MentionNodeAttrs {
+  id: string;
+  label: string;
+  type?: string;
+}
 
 export const BaseMentionExtension = Mention.extend({
   addNodeView() {
@@ -53,11 +76,11 @@ export const BaseMentionExtension = Mention.extend({
       };
     },
   },
-  parseMarkdown: (token: any, helpers: any) => {
+  parseMarkdown: (token: MentionToken, helpers: MarkdownHelpers) => {
     return helpers.createNode("mention", token.attributes);
   },
-  renderMarkdown: (node: any) => {
-    const { id, label, type = "member" } = node.attrs || {};
+  renderMarkdown: (node: { attrs: MentionNodeAttrs }) => {
+    const { id, label, type = "member" } = node.attrs;
     const prefix = type === "issue" ? "" : "@";
     return `[${prefix}${label ?? id}](mention://${type}/${id})`;
   },

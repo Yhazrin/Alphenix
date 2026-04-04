@@ -676,6 +676,7 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updated := 0
+	prefix := h.getIssuePrefix(r.Context(), parseUUID(workspaceID))
 	for _, issueID := range req.IssueIDs {
 		prevIssue, ok := prevByID[issueID]
 		if !ok {
@@ -743,7 +744,6 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		prefix := h.getIssuePrefix(r.Context(), issue.WorkspaceID)
 		resp := issueToResponse(issue, prefix)
 		actorType, actorID := h.resolveActor(r, userID, workspaceID)
 
