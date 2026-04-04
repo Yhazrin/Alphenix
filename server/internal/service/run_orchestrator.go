@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multicode/server/internal/events"
 	"github.com/multica-ai/multicode/server/internal/realtime"
 	"github.com/multica-ai/multicode/server/internal/util"
+	"github.com/multica-ai/multicode/server/pkg/agent"
 	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 	"github.com/multica-ai/multicode/server/pkg/protocol"
 )
@@ -403,6 +405,248 @@ func (o *RunOrchestrator) GetRunTodos(ctx context.Context, runID string) ([]db.R
 // GetRunArtifacts returns all artifacts for a run.
 func (o *RunOrchestrator) GetRunArtifacts(ctx context.Context, runID string) ([]db.RunArtifact, error) {
 	return o.Queries.ListRunArtifacts(ctx, util.ParseUUID(runID))
+}
+
+// ExecuteRunRequest contains the parameters for autonomous run execution.
+type ExecuteRunRequest struct {
+	RunID          string
+	Cwd            string           // working directory for the agent
+	Model          string           // model override
+	SystemPrompt   string           // system prompt (assembled by caller)
+	Prompt         string           // user/task prompt
+	Backend        agent.Backend    // agent backend to execute with
+	Timeout        time.Duration    // max execution time for the entire run
+	MaxTurns       int              // max agent turns (0 = backend default)
+	ToolPermissions *agent.ToolPermissions
+}
+
+// ExecuteRunResult is the outcome of autonomous run execution.
+type ExecuteRunResult struct {
+	RunID    string
+	Status   string // "completed", "failed", "cancelled"
+	Output   string // final text output from the agent
+	Error    string // error message if failed
+	Steps    int    // total tool steps recorded
+	Duration time.Duration
+}
+
+// ExecuteRun runs an agent autonomously: start → execute → drain messages as
+// steps → check compaction → complete/fail. This is the core orchestration
+// loop that connects the run lifecycle to an agent backend.
+//
+// The caller provides a pre-assembled prompt and an agent.Backend. ExecuteRun
+// handles phase transitions, step recording, compaction checkpointing, and
+// final completion/failure. It does NOT manage the execution environment
+// (workdir, skills injection) — that responsibility belongs to the caller
+// (typically the daemon or a handler).
+func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest) (*ExecuteRunResult, error) {
+	runID := req.RunID
+	log := slog.With("run_id", runID)
+	start := time.Now()
+
+	// 1. Start the run (pending → active/executing).
+	run, err := o.StartRun(ctx, runID)
+	if err != nil {
+		return nil, fmt.Errorf("start run: %w", err)
+	}
+	_ = run
+
+	// 2. Build conversation messages for compaction tracking.
+	var messages []Message
+	mu := sync.Mutex{} // protects messages during concurrent drain
+
+	addMessage := func(role, content string) {
+		mu.Lock()
+		messages = append(messages, Message{Role: role, Content: content})
+		mu.Unlock()
+	}
+
+	// Seed with system + user prompt.
+	if req.SystemPrompt != "" {
+		addMessage("system", req.SystemPrompt)
+	}
+	if req.Prompt != "" {
+		addMessage("user", req.Prompt)
+	}
+
+	// 3. Execute via agent backend.
+	session, err := req.Backend.Execute(ctx, req.Prompt, agent.ExecOptions{
+		Cwd:              req.Cwd,
+		Model:            req.Model,
+		SystemPrompt:     req.SystemPrompt,
+		MaxTurns:         req.MaxTurns,
+		Timeout:          req.Timeout,
+		ToolPermissions:  req.ToolPermissions,
+	})
+	if err != nil {
+		log.Error("agent execute failed", "error", err)
+		o.FailRun(ctx, runID)
+		return &ExecuteRunResult{
+			RunID:    runID,
+			Status:   "failed",
+			Error:    fmt.Sprintf("agent execute: %s", err),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// 4. Drain messages — record each as a run step and track for compaction.
+	var toolCount int
+	var pendingText string
+	var pendingThinking string
+	toolCallIDToName := map[string]string{} // call_id → tool name
+
+	flushPending := func() {
+		mu.Lock()
+		if pendingThinking != "" {
+			addMessage("assistant", pendingThinking)
+			pendingThinking = ""
+		}
+		if pendingText != "" {
+			addMessage("assistant", pendingText)
+			pendingText = ""
+		}
+		mu.Unlock()
+	}
+
+	for msg := range session.Messages {
+		switch msg.Type {
+		case agent.MessageToolUse:
+			toolCount++
+			if msg.CallID != "" {
+				mu.Lock()
+				toolCallIDToName[msg.CallID] = msg.Tool
+				mu.Unlock()
+			}
+
+			// Record step start (no output yet).
+			inputJSON, _ := json.Marshal(msg.Input)
+			_, stepErr := o.RecordStep(ctx, runID, msg.Tool, inputJSON, "", false)
+			if stepErr != nil {
+				log.Warn("record step failed", "error", stepErr)
+			}
+
+			// Add tool_use to conversation for compaction.
+			inputStr := string(inputJSON)
+			if len(inputStr) > 500 {
+				inputStr = inputStr[:500] + "..."
+			}
+			addMessage("assistant", fmt.Sprintf("[tool_use:%s] %s", msg.Tool, inputStr))
+
+		case agent.MessageToolResult:
+			toolName := msg.Tool
+			if toolName == "" && msg.CallID != "" {
+				mu.Lock()
+				toolName = toolCallIDToName[msg.CallID]
+				mu.Unlock()
+			}
+
+			output := msg.Output
+			if len(output) > 8192 {
+				output = output[:8192]
+			}
+
+			// Record step completion.
+			inputJSON, _ := json.Marshal(map[string]any{"call_id": msg.CallID, "tool": toolName})
+			_, stepErr := o.RecordStep(ctx, runID, toolName, inputJSON, output, false)
+			if stepErr != nil {
+				log.Warn("record step result failed", "error", stepErr)
+			}
+
+			// Add tool_result to conversation for compaction.
+			resultPreview := output
+			if len(resultPreview) > 500 {
+				resultPreview = resultPreview[:500] + "..."
+			}
+			addMessage("tool", fmt.Sprintf("[tool_result:%s] %s", toolName, resultPreview))
+
+		case agent.MessageText:
+			if msg.Content != "" {
+				mu.Lock()
+				pendingText += msg.Content
+				mu.Unlock()
+			}
+
+		case agent.MessageThinking:
+			if msg.Content != "" {
+				mu.Lock()
+				pendingThinking += msg.Content
+				mu.Unlock()
+			}
+
+		case agent.MessageError:
+			log.Error("agent error", "content", msg.Content)
+			addMessage("system", fmt.Sprintf("[error] %s", msg.Content))
+		}
+
+		// Check compaction after each message batch.
+		if o.Compactor != nil && o.Compactor.NeedsCompaction(messages) {
+			flushPending()
+			result, compErr := o.Compactor.Compact(ctx, messages, AutoCompact)
+			if compErr != nil {
+				log.Warn("compaction failed", "error", compErr)
+			} else {
+				mu.Lock()
+				messages = result.Messages
+				mu.Unlock()
+				log.Info("compacted run context",
+					"original_chars", result.OriginalLen,
+					"compacted_chars", result.CompactedLen,
+					"summary_len", len(result.Summary),
+				)
+			}
+		}
+	}
+
+	// Flush any remaining pending text/thinking.
+	flushPending()
+
+	// 5. Wait for the final result.
+	result := <-session.Result
+	elapsed := time.Since(start)
+
+	log.Info("agent finished",
+		"status", result.Status,
+		"duration", elapsed.String(),
+		"tools", toolCount,
+	)
+
+	// 6. Complete or fail the run based on agent result.
+	switch result.Status {
+	case "completed":
+		if _, err := o.CompleteRun(ctx, runID); err != nil {
+			return nil, fmt.Errorf("complete run: %w", err)
+		}
+		return &ExecuteRunResult{
+			RunID:    runID,
+			Status:   "completed",
+			Output:   result.Output,
+			Steps:    toolCount,
+			Duration: elapsed,
+		}, nil
+	case "timeout":
+		errMsg := fmt.Sprintf("agent timed out after %s", elapsed)
+		o.FailRun(ctx, runID)
+		return &ExecuteRunResult{
+			RunID:    runID,
+			Status:   "failed",
+			Error:    errMsg,
+			Steps:    toolCount,
+			Duration: elapsed,
+		}, nil
+	default:
+		errMsg := result.Error
+		if errMsg == "" {
+			errMsg = fmt.Sprintf("agent %s", result.Status)
+		}
+		o.FailRun(ctx, runID)
+		return &ExecuteRunResult{
+			RunID:    runID,
+			Status:   "failed",
+			Error:    errMsg,
+			Steps:    toolCount,
+			Duration: elapsed,
+		}, nil
+	}
 }
 
 // broadcast sends a run event through the event bus with the run's workspace ID.

@@ -19,9 +19,9 @@ ORDER BY archived_at DESC;
 -- name: UpdateTeam :one
 UPDATE team
 SET name = COALESCE(sqlc.narg('name'), name),
-    description = CASE WHEN sqlc.arg('description')::text IS NOT NULL THEN sqlc.arg('description')::text ELSE description END,
-    avatar_url = CASE WHEN sqlc.arg('avatar_url')::text IS NOT NULL THEN sqlc.arg('avatar_url')::text ELSE avatar_url END,
-    lead_agent_id = CASE WHEN sqlc.arg('lead_agent_id')::uuid IS NOT NULL THEN sqlc.arg('lead_agent_id')::uuid ELSE lead_agent_id END,
+    description = COALESCE(sqlc.narg('description'), description),
+    avatar_url = COALESCE(sqlc.narg('avatar_url'), avatar_url),
+    lead_agent_id = COALESCE(sqlc.narg('lead_agent_id'), lead_agent_id),
     updated_at = now()
 WHERE id = $1
 RETURNING *;

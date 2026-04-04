@@ -254,6 +254,70 @@ func (q *Queries) SearchAgentMemory(ctx context.Context, arg SearchAgentMemoryPa
 	return items, nil
 }
 
+const searchAgentMemoryBM25 = `-- name: SearchAgentMemoryBM25 :many
+
+SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at, am.tsv_content,
+       ts_rank(am.tsv_content, plainto_tsquery('english', $1)) AS bm25_score
+FROM agent_memory am
+WHERE am.agent_id = $2
+  AND am.tsv_content @@ plainto_tsquery('english', $1)
+  AND (am.expires_at IS NULL OR am.expires_at > now())
+ORDER BY ts_rank(am.tsv_content, plainto_tsquery('english', $1)) DESC
+LIMIT $3
+`
+
+type SearchAgentMemoryBM25Params struct {
+	SearchQuery string      `json:"search_query"`
+	AgentID     pgtype.UUID `json:"agent_id"`
+	LimitCount  int32       `json:"limit_count"`
+}
+
+type SearchAgentMemoryBM25Row struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	AgentID     pgtype.UUID        `json:"agent_id"`
+	Content     string             `json:"content"`
+	Embedding   pgvector_go.Vector `json:"embedding"`
+	Metadata    []byte             `json:"metadata"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	TsvContent  interface{}        `json:"tsv_content"`
+	Bm25Score   float32            `json:"bm25_score"`
+}
+
+// NOTE: BM25 queries use plainto_tsquery for sqlc compatibility.
+// BM25 full-text search for a specific agent.
+func (q *Queries) SearchAgentMemoryBM25(ctx context.Context, arg SearchAgentMemoryBM25Params) ([]SearchAgentMemoryBM25Row, error) {
+	rows, err := q.db.Query(ctx, searchAgentMemoryBM25, arg.SearchQuery, arg.AgentID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchAgentMemoryBM25Row{}
+	for rows.Next() {
+		var i SearchAgentMemoryBM25Row
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.AgentID,
+			&i.Content,
+			&i.Embedding,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.ExpiresAt,
+			&i.TsvContent,
+			&i.Bm25Score,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchWorkspaceMemory = `-- name: SearchWorkspaceMemory :many
 SELECT id, workspace_id, agent_id, content, embedding, metadata, created_at, expires_at, tsv_content, 1 - (embedding <=> $1) AS similarity
 FROM agent_memory
@@ -314,17 +378,14 @@ func (q *Queries) SearchWorkspaceMemory(ctx context.Context, arg SearchWorkspace
 	return items, nil
 }
 
-// Manually added: BM25 full-text search across all agents in a workspace.
-// sqlc v1.30.0 cannot parse to_tsquery syntax, so this is hand-written.
-
 const searchWorkspaceMemoryBM25 = `-- name: SearchWorkspaceMemoryBM25 :many
 SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at, am.tsv_content,
-       ts_rank(am.tsv_content, q) AS bm25_score
-FROM agent_memory am, to_tsquery('english', $1) q
+       ts_rank(am.tsv_content, plainto_tsquery('english', $1)) AS bm25_score
+FROM agent_memory am
 WHERE am.workspace_id = $2
-  AND am.tsv_content @@ q
+  AND am.tsv_content @@ plainto_tsquery('english', $1)
   AND (am.expires_at IS NULL OR am.expires_at > now())
-ORDER BY ts_rank(am.tsv_content, q) DESC
+ORDER BY ts_rank(am.tsv_content, plainto_tsquery('english', $1)) DESC
 LIMIT $3
 `
 
@@ -344,9 +405,10 @@ type SearchWorkspaceMemoryBM25Row struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	TsvContent  interface{}        `json:"tsv_content"`
-	BM25Score   float32            `json:"bm25_score"`
+	Bm25Score   float32            `json:"bm25_score"`
 }
 
+// BM25 full-text search across all agents in a workspace.
 func (q *Queries) SearchWorkspaceMemoryBM25(ctx context.Context, arg SearchWorkspaceMemoryBM25Params) ([]SearchWorkspaceMemoryBM25Row, error) {
 	rows, err := q.db.Query(ctx, searchWorkspaceMemoryBM25, arg.SearchQuery, arg.WorkspaceID, arg.LimitCount)
 	if err != nil {
@@ -366,7 +428,7 @@ func (q *Queries) SearchWorkspaceMemoryBM25(ctx context.Context, arg SearchWorks
 			&i.CreatedAt,
 			&i.ExpiresAt,
 			&i.TsvContent,
-			&i.BM25Score,
+			&i.Bm25Score,
 		); err != nil {
 			return nil, err
 		}

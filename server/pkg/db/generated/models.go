@@ -389,39 +389,6 @@ type RuntimeUsage struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
-type Team struct {
-	ID          pgtype.UUID        `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	Name        string             `json:"name"`
-	Description pgtype.Text        `json:"description"`
-	AvatarUrl   pgtype.Text        `json:"avatar_url"`
-	LeadAgentID pgtype.UUID        `json:"lead_agent_id"`
-	CreatedBy   pgtype.UUID        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	ArchivedAt  pgtype.Timestamptz `json:"archived_at"`
-	ArchivedBy  pgtype.UUID        `json:"archived_by"`
-}
-
-type TeamMember struct {
-	ID       pgtype.UUID        `json:"id"`
-	TeamID   pgtype.UUID        `json:"team_id"`
-	AgentID  pgtype.UUID        `json:"agent_id"`
-	Role     string             `json:"role"`
-	JoinedAt pgtype.Timestamptz `json:"joined_at"`
-}
-
-type TeamTaskQueue struct {
-	ID                 pgtype.UUID `json:"id"`
-	TeamID             pgtype.UUID `json:"team_id"`
-	IssueID            pgtype.UUID `json:"issue_id"`
-	AssignedBy         pgtype.UUID `json:"assigned_by"`
-	Status             string      `json:"status"`
-	DelegatedToAgentID pgtype.UUID `json:"delegated_to_agent_id"`
-	Priority           int32       `json:"priority"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-}
 
 type RuntimeJoinToken struct {
 	ID          pgtype.UUID        `json:"id"`
@@ -505,6 +472,44 @@ type TaskReview struct {
 	Score        pgtype.Int4        `json:"score"`
 	Feedback     string             `json:"feedback"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type Team struct {
+	ID             pgtype.UUID        `json:"id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	Name           string             `json:"name"`
+	Description    pgtype.Text        `json:"description"`
+	AvatarUrl      pgtype.Text        `json:"avatar_url"`
+	LeadAgentID    pgtype.UUID        `json:"lead_agent_id"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt     pgtype.Timestamptz `json:"archived_at"`
+	ArchivedBy     pgtype.UUID        `json:"archived_by"`
+	QueuePolicy    []byte             `json:"queue_policy"`
+	CapabilityTags []string           `json:"capability_tags"`
+	MaxRunDuration pgtype.Interval    `json:"max_run_duration"`
+	MaxConcurrent  pgtype.Int4        `json:"max_concurrent"`
+}
+
+type TeamMember struct {
+	ID       pgtype.UUID        `json:"id"`
+	TeamID   pgtype.UUID        `json:"team_id"`
+	AgentID  pgtype.UUID        `json:"agent_id"`
+	Role     string             `json:"role"`
+	JoinedAt pgtype.Timestamptz `json:"joined_at"`
+}
+
+type TeamTaskQueue struct {
+	ID                 pgtype.UUID        `json:"id"`
+	TeamID             pgtype.UUID        `json:"team_id"`
+	IssueID            pgtype.UUID        `json:"issue_id"`
+	AssignedBy         pgtype.UUID        `json:"assigned_by"`
+	Status             string             `json:"status"`
+	DelegatedToAgentID pgtype.UUID        `json:"delegated_to_agent_id"`
+	Priority           int32              `json:"priority"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {

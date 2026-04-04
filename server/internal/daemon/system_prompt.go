@@ -226,6 +226,12 @@ func AssembleWithRegistry(registry *PromptRegistry, cfg SystemPromptConfig) stri
 	return prompt
 }
 
+// RegisterDefaultSectionsForPreview populates the registry with standard prompt sections.
+// This is the exported version of registerDefaultSections for use by handler preview endpoints.
+func RegisterDefaultSectionsForPreview(registry *PromptRegistry, cfg SystemPromptConfig) {
+	registerDefaultSections(registry, cfg)
+}
+
 // registerDefaultSections populates the registry with standard prompt sections.
 func registerDefaultSections(registry *PromptRegistry, cfg SystemPromptConfig) {
 	agentName := cfg.AgentName

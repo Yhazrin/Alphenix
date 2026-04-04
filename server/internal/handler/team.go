@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multicode/server/internal/logger"
-	"github.com/multica-ai/multicode/server/internal/util"
 	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 	"github.com/multica-ai/multicode/server/pkg/protocol"
 )
@@ -256,10 +255,10 @@ func (h *Handler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 		updates.Name = pgtype.Text{String: *req.Name, Valid: true}
 	}
 	if req.Description != nil {
-		updates.Description = *req.Description
+		updates.Description = pgtype.Text{String: *req.Description, Valid: true}
 	}
 	if req.AvatarURL != nil {
-		updates.AvatarUrl = *req.AvatarURL
+		updates.AvatarUrl = ptrToText(req.AvatarURL)
 	}
 	if req.LeadAgentID != nil {
 		updates.LeadAgentID = parseUUID(*req.LeadAgentID)
@@ -289,7 +288,7 @@ func (h *Handler) ArchiveTeam(w http.ResponseWriter, r *http.Request) {
 
 	archived, err := h.Queries.ArchiveTeam(r.Context(), db.ArchiveTeamParams{
 		ID:         team.ID,
-		ArchivedBy: util.ParseUUID(userID),
+		ArchivedBy: parseUUID(userID),
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to archive team")
@@ -367,7 +366,7 @@ func (h *Handler) SetTeamLead(w http.ResponseWriter, r *http.Request) {
 	// Update all members to "member" first
 	members, _ := h.Queries.ListTeamMembers(r.Context(), parseUUID(teamID))
 	for _, m := range members {
-		h.Queries.UpdateTeamMemberRole(r.Context(), db.UpdateTeamMemberRoleParams{
+		_, _ = h.Queries.UpdateTeamMemberRole(r.Context(), db.UpdateTeamMemberRoleParams{
 			TeamID:  m.TeamID,
 			AgentID: m.AgentID,
 			Role:    "member",

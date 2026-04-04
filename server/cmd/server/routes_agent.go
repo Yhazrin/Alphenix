@@ -22,6 +22,7 @@ func registerAgentRoutes(r chi.Router, h *handler.Handler, queries *db.Queries) 
 			r.Get("/tasks", h.ListAgentTasks)
 			r.Get("/skills", h.ListAgentSkills)
 			r.Put("/skills", h.SetAgentSkills)
+			r.Get("/prompt-preview", h.PreviewAgentPrompt)
 		})
 	})
 
@@ -40,6 +41,7 @@ func registerAgentRoutes(r chi.Router, h *handler.Handler, queries *db.Queries) 
 
 	// Task dependencies and checkpoints
 	r.Get("/api/tasks/{taskId}", h.GetTask)
+	r.Get("/api/tasks/{taskId}/context-preview", h.PreviewTaskContext)
 	r.Route("/api/tasks/{taskId}/dependencies", func(r chi.Router) {
 		r.Post("/", h.AddTaskDependency)
 		r.Delete("/", h.RemoveTaskDependency)

@@ -41,7 +41,7 @@ const archiveTeam = `-- name: ArchiveTeam :one
 UPDATE team
 SET archived_at = now(), archived_by = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by
+RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent
 `
 
 type ArchiveTeamParams struct {
@@ -64,6 +64,10 @@ func (q *Queries) ArchiveTeam(ctx context.Context, arg ArchiveTeamParams) (Team,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.QueuePolicy,
+		&i.CapabilityTags,
+		&i.MaxRunDuration,
+		&i.MaxConcurrent,
 	)
 	return i, err
 }
@@ -71,7 +75,7 @@ func (q *Queries) ArchiveTeam(ctx context.Context, arg ArchiveTeamParams) (Team,
 const createTeam = `-- name: CreateTeam :one
 INSERT INTO team (workspace_id, name, description, avatar_url, lead_agent_id, created_by)
 VALUES ($1, $2, $4, $5, $6, $3)
-RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by
+RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent
 `
 
 type CreateTeamParams struct {
@@ -105,6 +109,10 @@ func (q *Queries) CreateTeam(ctx context.Context, arg CreateTeamParams) (Team, e
 		&i.UpdatedAt,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.QueuePolicy,
+		&i.CapabilityTags,
+		&i.MaxRunDuration,
+		&i.MaxConcurrent,
 	)
 	return i, err
 }
@@ -154,7 +162,7 @@ func (q *Queries) DeleteTeam(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getTeam = `-- name: GetTeam :one
-SELECT id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by FROM team WHERE id = $1
+SELECT id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent FROM team WHERE id = $1
 `
 
 func (q *Queries) GetTeam(ctx context.Context, id pgtype.UUID) (Team, error) {
@@ -172,6 +180,10 @@ func (q *Queries) GetTeam(ctx context.Context, id pgtype.UUID) (Team, error) {
 		&i.UpdatedAt,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.QueuePolicy,
+		&i.CapabilityTags,
+		&i.MaxRunDuration,
+		&i.MaxConcurrent,
 	)
 	return i, err
 }
@@ -220,7 +232,7 @@ func (q *Queries) GetTeamTask(ctx context.Context, id pgtype.UUID) (TeamTaskQueu
 }
 
 const listArchivedTeams = `-- name: ListArchivedTeams :many
-SELECT id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by FROM team
+SELECT id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent FROM team
 WHERE workspace_id = $1 AND archived_at IS NOT NULL
 ORDER BY archived_at DESC
 `
@@ -246,6 +258,10 @@ func (q *Queries) ListArchivedTeams(ctx context.Context, workspaceID pgtype.UUID
 			&i.UpdatedAt,
 			&i.ArchivedAt,
 			&i.ArchivedBy,
+			&i.QueuePolicy,
+			&i.CapabilityTags,
+			&i.MaxRunDuration,
+			&i.MaxConcurrent,
 		); err != nil {
 			return nil, err
 		}
@@ -391,7 +407,7 @@ func (q *Queries) ListTeamTasksByIssue(ctx context.Context, issueID pgtype.UUID)
 }
 
 const listTeams = `-- name: ListTeams :many
-SELECT id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by FROM team
+SELECT id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent FROM team
 WHERE workspace_id = $1 AND archived_at IS NULL
 ORDER BY created_at DESC
 `
@@ -417,6 +433,10 @@ func (q *Queries) ListTeams(ctx context.Context, workspaceID pgtype.UUID) ([]Tea
 			&i.UpdatedAt,
 			&i.ArchivedAt,
 			&i.ArchivedBy,
+			&i.QueuePolicy,
+			&i.CapabilityTags,
+			&i.MaxRunDuration,
+			&i.MaxConcurrent,
 		); err != nil {
 			return nil, err
 		}
@@ -446,7 +466,7 @@ const restoreTeam = `-- name: RestoreTeam :one
 UPDATE team
 SET archived_at = NULL, archived_by = NULL, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by
+RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent
 `
 
 func (q *Queries) RestoreTeam(ctx context.Context, id pgtype.UUID) (Team, error) {
@@ -464,6 +484,10 @@ func (q *Queries) RestoreTeam(ctx context.Context, id pgtype.UUID) (Team, error)
 		&i.UpdatedAt,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.QueuePolicy,
+		&i.CapabilityTags,
+		&i.MaxRunDuration,
+		&i.MaxConcurrent,
 	)
 	return i, err
 }
@@ -471,19 +495,19 @@ func (q *Queries) RestoreTeam(ctx context.Context, id pgtype.UUID) (Team, error)
 const updateTeam = `-- name: UpdateTeam :one
 UPDATE team
 SET name = COALESCE($2, name),
-    description = CASE WHEN $3::text IS NOT NULL THEN $3::text ELSE description END,
-    avatar_url = CASE WHEN $4::text IS NOT NULL THEN $4::text ELSE avatar_url END,
-    lead_agent_id = CASE WHEN $5::uuid IS NOT NULL THEN $5::uuid ELSE lead_agent_id END,
+    description = COALESCE($3, description),
+    avatar_url = COALESCE($4, avatar_url),
+    lead_agent_id = COALESCE($5, lead_agent_id),
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by
+RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent
 `
 
 type UpdateTeamParams struct {
 	ID          pgtype.UUID `json:"id"`
 	Name        pgtype.Text `json:"name"`
-	Description string      `json:"description"`
-	AvatarUrl   string      `json:"avatar_url"`
+	Description pgtype.Text `json:"description"`
+	AvatarUrl   pgtype.Text `json:"avatar_url"`
 	LeadAgentID pgtype.UUID `json:"lead_agent_id"`
 }
 
@@ -508,6 +532,10 @@ func (q *Queries) UpdateTeam(ctx context.Context, arg UpdateTeamParams) (Team, e
 		&i.UpdatedAt,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.QueuePolicy,
+		&i.CapabilityTags,
+		&i.MaxRunDuration,
+		&i.MaxConcurrent,
 	)
 	return i, err
 }
@@ -516,7 +544,7 @@ const updateTeamLead = `-- name: UpdateTeamLead :one
 UPDATE team
 SET lead_agent_id = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by
+RETURNING id, workspace_id, name, description, avatar_url, lead_agent_id, created_by, created_at, updated_at, archived_at, archived_by, queue_policy, capability_tags, max_run_duration, max_concurrent
 `
 
 type UpdateTeamLeadParams struct {
@@ -539,6 +567,10 @@ func (q *Queries) UpdateTeamLead(ctx context.Context, arg UpdateTeamLeadParams) 
 		&i.UpdatedAt,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.QueuePolicy,
+		&i.CapabilityTags,
+		&i.MaxRunDuration,
+		&i.MaxConcurrent,
 	)
 	return i, err
 }

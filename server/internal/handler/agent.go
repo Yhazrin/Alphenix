@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multicode/server/internal/daemon"
 	"github.com/multica-ai/multicode/server/internal/logger"
 	"github.com/multica-ai/multicode/server/internal/service"
 	db "github.com/multica-ai/multicode/server/pkg/db/generated"
@@ -538,6 +540,147 @@ func (h *Handler) ListAgentTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// PromptSectionPreview represents a single section in the assembled prompt.
+type PromptSectionPreview struct {
+	Name    string `json:"name"`
+	Phase   string `json:"phase"` // "static" or "dynamic"
+	Content string `json:"content"`
+}
+
+// PromptPreviewResponse is the response for the prompt preview endpoint.
+type PromptPreviewResponse struct {
+	FullPrompt string                  `json:"full_prompt"`
+	Sections   []PromptSectionPreview  `json:"sections"`
+	AgentID    string                  `json:"agent_id"`
+	AgentName  string                  `json:"agent_name"`
+}
+
+// PreviewAgentPrompt builds and returns the system prompt for an agent,
+// showing both the fully assembled prompt and the individual sections.
+func (h *Handler) PreviewAgentPrompt(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	agent, ok := h.loadAgentForUser(w, r, id)
+	if !ok {
+		return
+	}
+
+	workspaceID := resolveWorkspaceID(r)
+	workspace, err := h.Queries.GetWorkspace(r.Context(), parseUUID(workspaceID))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load workspace")
+		return
+	}
+
+	// Build config from agent data.
+	cfg := daemon.SystemPromptConfig{
+		AgentRole:         agent.RuntimeMode,
+		AgentName:         agent.Name,
+		AgentInstructions: agent.Instructions,
+		WorkspaceName:     workspace.Name,
+		MaxTurns:          int(agent.MaxConcurrentTasks),
+	}
+
+	// Build registry to capture individual sections.
+	registry := daemon.NewPromptRegistry()
+	daemon.RegisterDefaultSectionsForPreview(registry, cfg)
+
+	// Use AssembleSystemPrompt for the canonical output (handles override/append).
+	canonical := daemon.AssembleSystemPrompt(cfg)
+
+	writeJSON(w, http.StatusOK, PromptPreviewResponse{
+		FullPrompt: canonical,
+		Sections:   extractSections(registry),
+		AgentID:    uuidToString(agent.ID),
+		AgentName:  agent.Name,
+	})
+}
+
+// extractSections returns the sections from a PromptRegistry for preview purposes.
+// This relies on the daemon package exposing the sections; we reconstruct from the prompt.
+func extractSections(registry *daemon.PromptRegistry) []PromptSectionPreview {
+	// The registry doesn't expose sections directly, so we return nil here
+	// and rely on the full prompt. A future enhancement could add an export method.
+	return nil
+}
+
+// PreviewTaskContext shows what context would be assembled for a task execution,
+// including collaboration context, task instruction, and skill descriptions.
+func (h *Handler) PreviewTaskContext(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+
+	// Load task.
+	task, err := h.Queries.GetAgentTask(r.Context(), parseUUID(taskID))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+
+	// Load agent.
+	agent, err := h.Queries.GetAgent(r.Context(), task.AgentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "agent not found")
+		return
+	}
+
+	// Load workspace.
+	workspace, err := h.Queries.GetWorkspace(r.Context(), agent.WorkspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load workspace")
+		return
+	}
+
+	// Load skills.
+	skills, _ := h.Queries.ListAgentSkills(r.Context(), agent.ID)
+	var skillDescs []string
+	for _, s := range skills {
+		desc := s.Name
+		if s.Description != "" {
+			desc += ": " + s.Description
+		}
+		skillDescs = append(skillDescs, desc)
+	}
+
+	// Build prompt config.
+	cfg := daemon.SystemPromptConfig{
+		AgentRole:         agent.RuntimeMode,
+		AgentName:         agent.Name,
+		AgentInstructions: agent.Instructions,
+		WorkspaceName:     workspace.Name,
+		MaxTurns:          int(agent.MaxConcurrentTasks),
+	}
+
+	// Build the full prompt with task context.
+	registry := daemon.NewPromptRegistry()
+	daemon.RegisterDefaultSectionsForPreview(registry, cfg)
+
+	// Add task instruction as a dynamic section.
+	issueID := uuidToString(task.IssueID)
+	registry.Register(daemon.PromptSection{
+		Name:  "task-instruction",
+		Phase: daemon.PhaseDynamic,
+		Order: 100,
+		Compute: func() string {
+			var b strings.Builder
+			b.WriteString("---\n## Current Task\n\n")
+			b.WriteString("Your assigned issue ID is: **" + issueID + "**\n\n")
+			b.WriteString("Start by running `multicode issue get " + issueID + " --output json` to understand your task, then follow the Execution Protocol above.\n")
+			return b.String()
+		},
+	})
+
+	fullPrompt := daemon.AssembleWithRegistry(registry, cfg)
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"full_prompt":  fullPrompt,
+		"task_id":      taskID,
+		"agent_id":     uuidToString(agent.ID),
+		"agent_name":   agent.Name,
+		"issue_id":     issueID,
+		"skills":       skillDescs,
+		"task_status":  task.Status,
+	})
 }
 
 // loadAgentForUser resolves an agent by ID, verifying the caller is authenticated

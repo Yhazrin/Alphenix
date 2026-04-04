@@ -48,28 +48,27 @@ WHERE id = $1;
 DELETE FROM agent_memory
 WHERE expires_at IS NOT NULL AND expires_at < now();
 
--- NOTE: BM25 queries are implemented manually in generated/agent_memory.sql.go
--- because sqlc v1.30.0 cannot parse to_tsquery syntax. Uncomment after sqlc upgrade.
+-- NOTE: BM25 queries use plainto_tsquery for sqlc compatibility.
 
--- -- name: SearchAgentMemoryBM25 :many
--- -- BM25 full-text search for a specific agent.
--- SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at,
---        ts_rank(am.tsv_content, q) AS bm25_score
--- FROM agent_memory am, to_tsquery('english', sqlc.arg(search_query)) q
--- WHERE am.agent_id = sqlc.arg(agent_id)
---   AND am.tsv_content @@ q
---   AND (am.expires_at IS NULL OR am.expires_at > now())
--- ORDER BY ts_rank(am.tsv_content, q) DESC
--- LIMIT sqlc.arg(limit_count);
+-- name: SearchAgentMemoryBM25 :many
+-- BM25 full-text search for a specific agent.
+SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at, am.tsv_content,
+       ts_rank(am.tsv_content, plainto_tsquery('english', sqlc.arg(search_query))) AS bm25_score
+FROM agent_memory am
+WHERE am.agent_id = sqlc.arg(agent_id)
+  AND am.tsv_content @@ plainto_tsquery('english', sqlc.arg(search_query))
+  AND (am.expires_at IS NULL OR am.expires_at > now())
+ORDER BY ts_rank(am.tsv_content, plainto_tsquery('english', sqlc.arg(search_query))) DESC
+LIMIT sqlc.arg(limit_count);
 
--- -- name: SearchWorkspaceMemoryBM25 :many
--- -- BM25 full-text search across all agents in a workspace.
--- SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at,
---        ts_rank(am.tsv_content, q) AS bm25_score
--- FROM agent_memory am, to_tsquery('english', sqlc.arg(search_query)) q
--- WHERE am.workspace_id = sqlc.arg(workspace_id)
---   AND am.tsv_content @@ q
---   AND (am.expires_at IS NULL OR am.expires_at > now())
--- ORDER BY ts_rank(am.tsv_content, q) DESC
--- LIMIT sqlc.arg(limit_count);
+-- name: SearchWorkspaceMemoryBM25 :many
+-- BM25 full-text search across all agents in a workspace.
+SELECT am.id, am.workspace_id, am.agent_id, am.content, am.embedding, am.metadata, am.created_at, am.expires_at, am.tsv_content,
+       ts_rank(am.tsv_content, plainto_tsquery('english', sqlc.arg(search_query))) AS bm25_score
+FROM agent_memory am
+WHERE am.workspace_id = sqlc.arg(workspace_id)
+  AND am.tsv_content @@ plainto_tsquery('english', sqlc.arg(search_query))
+  AND (am.expires_at IS NULL OR am.expires_at > now())
+ORDER BY ts_rank(am.tsv_content, plainto_tsquery('english', sqlc.arg(search_query))) DESC
+LIMIT sqlc.arg(limit_count);
 

@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/multica-ai/multicode/server/internal/service"
+	"github.com/multica-ai/multicode/server/pkg/agent"
 )
 
 // CreateRunRequest is the HTTP request body for creating a run.
@@ -260,4 +262,69 @@ func (h *Handler) UpdateRunTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, todo)
+}
+
+// ExecuteRunRequest is the HTTP request body for executing a run autonomously.
+type ExecuteRunRequest struct {
+	Provider       string `json:"provider"`        // agent type: "claude", "codex", "opencode"
+	ExecutablePath string `json:"executable_path"` // path to agent CLI binary
+	Cwd            string `json:"cwd"`             // working directory
+	Model          string `json:"model,omitempty"`
+	SystemPrompt   string `json:"system_prompt"`
+	Prompt         string `json:"prompt"`
+	TimeoutSeconds int    `json:"timeout_seconds,omitempty"`
+	MaxTurns       int    `json:"max_turns,omitempty"`
+}
+
+// ExecuteRun starts autonomous execution of a run via an agent backend.
+func (h *Handler) ExecuteRun(w http.ResponseWriter, r *http.Request) {
+	runID := chi.URLParam(r, "runId")
+
+	var req ExecuteRunRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Validate the run exists and belongs to the workspace.
+	run, err := h.RunOrchestrator.GetRun(r.Context(), runID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "run not found")
+		return
+	}
+	if uuidToString(run.WorkspaceID) != ctxWorkspaceID(r.Context()) {
+		writeError(w, http.StatusNotFound, "run not found")
+		return
+	}
+
+	// Create agent backend.
+	backend, err := agent.New(req.Provider, agent.Config{
+		ExecutablePath: req.ExecutablePath,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid agent provider: "+err.Error())
+		return
+	}
+
+	timeout := 10 * time.Minute
+	if req.TimeoutSeconds > 0 {
+		timeout = time.Duration(req.TimeoutSeconds) * time.Second
+	}
+
+	result, err := h.RunOrchestrator.ExecuteRun(r.Context(), service.ExecuteRunRequest{
+		RunID:        runID,
+		Cwd:          req.Cwd,
+		Model:        req.Model,
+		SystemPrompt: req.SystemPrompt,
+		Prompt:       req.Prompt,
+		Backend:      backend,
+		Timeout:      timeout,
+		MaxTurns:     req.MaxTurns,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
 }

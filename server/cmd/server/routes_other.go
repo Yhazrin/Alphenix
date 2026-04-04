@@ -116,6 +116,7 @@ func registerRunRoutes(r chi.Router, h *handler.Handler, queries *db.Queries) {
 			r.Post("/start", h.StartRun)
 			r.Post("/cancel", h.CancelRun)
 			r.Post("/complete", h.CompleteRun)
+			r.Post("/execute", h.ExecuteRun)
 			r.Get("/steps", h.GetRunSteps)
 			r.Post("/steps", h.RecordStep)
 			r.Get("/todos", h.GetRunTodos)

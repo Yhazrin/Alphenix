@@ -10,15 +10,6 @@ CREATE TABLE IF NOT EXISTS outbox_messages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS teams (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-    name TEXT NOT NULL DEFAULT '',
-    description TEXT NOT NULL DEFAULT '',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 -- 1. runs: top-level execution lifecycle
 CREATE TABLE IF NOT EXISTS runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,7 +18,7 @@ CREATE TABLE IF NOT EXISTS runs (
     task_id UUID REFERENCES agent_task_queue(id) ON DELETE SET NULL,
     agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
     parent_run_id UUID REFERENCES runs(id) ON DELETE SET NULL,
-    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+    team_id UUID REFERENCES team(id) ON DELETE SET NULL,
 
     -- Lifecycle
     phase TEXT NOT NULL DEFAULT 'pending',   -- pending | planning | executing | reviewing | completed | failed | cancelled
@@ -139,7 +130,7 @@ CREATE TABLE IF NOT EXISTS run_handoffs (
     target_run_id UUID REFERENCES runs(id) ON DELETE SET NULL,
 
     handoff_type TEXT NOT NULL DEFAULT 'delegate', -- delegate | escalate | chain
-    target_team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+    target_team_id UUID REFERENCES team(id) ON DELETE SET NULL,
     target_agent_id UUID REFERENCES agent(id) ON DELETE SET NULL,
     reason TEXT NOT NULL DEFAULT '',
     context_packet JSONB,
@@ -161,8 +152,8 @@ CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt
     ON outbox_messages(next_attempt_at)
     WHERE dead_lettered_at IS NULL AND processed_at IS NULL;
 
--- 8. Upgrade teams for Run Orchestrator scheduling
-ALTER TABLE teams ADD COLUMN IF NOT EXISTS queue_policy JSONB DEFAULT '{"strategy":"round_robin","max_queue":100}';
-ALTER TABLE teams ADD COLUMN IF NOT EXISTS capability_tags TEXT[] DEFAULT '{}';
-ALTER TABLE teams ADD COLUMN IF NOT EXISTS max_run_duration INTERVAL DEFAULT '2 hours';
-ALTER TABLE teams ADD COLUMN IF NOT EXISTS max_concurrent INT DEFAULT 3;
+-- 8. Upgrade team for Run Orchestrator scheduling
+ALTER TABLE team ADD COLUMN IF NOT EXISTS queue_policy JSONB DEFAULT '{"strategy":"round_robin","max_queue":100}';
+ALTER TABLE team ADD COLUMN IF NOT EXISTS capability_tags TEXT[] DEFAULT '{}';
+ALTER TABLE team ADD COLUMN IF NOT EXISTS max_run_duration INTERVAL DEFAULT '2 hours';
+ALTER TABLE team ADD COLUMN IF NOT EXISTS max_concurrent INT DEFAULT 3;

@@ -328,7 +328,7 @@ func (s *CollaborationService) HybridRecallWorkspaceMemory(ctx context.Context, 
 				for i, r := range rows {
 					bm25Results = append(bm25Results, memory.SearchResult{
 						Memory: bm25RowToAgentMemory(r),
-						Score:  float64(r.BM25Score),
+						Score:  float64(r.Bm25Score),
 						Rank:   i + 1,
 					})
 				}
