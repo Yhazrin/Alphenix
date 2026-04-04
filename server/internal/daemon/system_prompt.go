@@ -360,6 +360,30 @@ func registerDefaultSections(registry *PromptRegistry, cfg SystemPromptConfig) {
 			return "### Agent Instructions\n\n" + cfg.AgentInstructions + "\n\n"
 		},
 	})
+
+	// Coordinator agents get fork guidance — directive-style prompts for sub-agents.
+	if cfg.AgentRole == "coordinator" {
+		registry.Register(PromptSection{
+			Name:  "coordinator-fork-guidance",
+			Phase: PhaseDynamic,
+			Order: 15,
+			Compute: func() string {
+				return "### Sub-Agent Delegation\n\n" +
+					"You are a coordinator. You can delegate work to sub-agents using `multica task fork`.\n\n" +
+					"When delegating:\n" +
+					"- Use directive-style prompts: describe the exact file, change, and expected outcome.\n" +
+					"- Each sub-agent inherits your working directory and codebase context.\n" +
+					"- Do NOT read the sub-agent's output file while it is running (\"Don't peek\" rule).\n" +
+					"- Wait for the fork result channel before using sub-agent output.\n" +
+					"- Combine sub-agent results and synthesize a final answer.\n\n" +
+					"Example fork prompt:\n" +
+					"```\n" +
+					"Edit server/internal/handler/issue.go — add a 'priority' field to the createIssue\n" +
+					"handler. Follow the existing pattern for the 'status' field. Run go vet after.\n" +
+					"```\n\n"
+			},
+		})
+	}
 }
 
 // DefaultToolPermissions returns role-based tool permissions.

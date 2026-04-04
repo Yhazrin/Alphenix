@@ -936,9 +936,8 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	}
 
 	// Determine tool permissions based on agent role.
-	// Currently all agents are executors (full access).
-	// Future: task.Agent.Role could drive coordinator/reviewer restrictions.
 	var toolPerms *agent.ToolPermissions
+	isCoordinator := task.Agent != nil && task.Agent.Role == "coordinator"
 	if task.Agent != nil && task.Agent.Role != "" {
 		toolPerms = DefaultToolPermissions(task.Agent.Role)
 	}
@@ -949,6 +948,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		"workdir", env.WorkDir,
 		"model", entry.Model,
 		"reused", reused,
+		"coordinator", isCoordinator,
 	)
 	if task.PriorSessionID != "" {
 		taskLog.Info("resuming session", "session_id", task.PriorSessionID)
@@ -956,15 +956,63 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 
 	taskStart := time.Now()
 
-	session, err := backend.Execute(ctx, prompt, agent.ExecOptions{
-		Cwd:             env.WorkDir,
-		Model:           entry.Model,
-		Timeout:         d.cfg.AgentTimeout,
-		ResumeSessionID: task.PriorSessionID,
-		ToolPermissions: toolPerms,
-	})
-	if err != nil {
-		return TaskResult{}, err
+	// Coordinator agents use Fork mode: a lightweight sub-agent that inherits
+	// the parent's codebase context and writes results to an output file.
+	// The "Don't peek" rule applies — we wait for ForkSession.Result before reading.
+	var session *agent.Session
+	if isCoordinator {
+		forkOutput := filepath.Join(env.WorkDir, ".multica", "fork_result.txt")
+		if mkErr := os.MkdirAll(filepath.Dir(forkOutput), 0o755); mkErr != nil {
+			return TaskResult{}, fmt.Errorf("create fork output dir: %w", mkErr)
+		}
+
+		forkSession, forkErr := backend.Fork(ctx, prompt, agent.ForkOptions{
+			Cwd:             env.WorkDir,
+			Model:           entry.Model,
+			Timeout:         d.cfg.AgentTimeout,
+			ToolPermissions: toolPerms,
+			ParentSessionID: task.PriorSessionID,
+			OutputFile:      forkOutput,
+		})
+		if forkErr != nil {
+			return TaskResult{}, fmt.Errorf("fork agent: %w", forkErr)
+		}
+
+		// Convert ForkSession into a Session-compatible interface by draining
+		// the fork result and synthesizing a Session with empty messages.
+		msgCh := make(chan agent.Message)
+		resCh := make(chan agent.Result, 1)
+		go func() {
+			defer close(msgCh)
+			defer close(resCh)
+			fr := <-forkSession.Result
+			// Read the output file after fork completes ("Don't peek" until done).
+			output := fr.Output
+			if output == "" && forkSession.OutputFile != "" {
+				if data, readErr := os.ReadFile(forkSession.OutputFile); readErr == nil {
+					output = string(data)
+				}
+			}
+			resCh <- agent.Result{
+				Status:     fr.Status,
+				Output:     output,
+				Error:      fr.Error,
+				DurationMs: fr.DurationMs,
+			}
+		}()
+		session = &agent.Session{Messages: msgCh, Result: resCh}
+	} else {
+		var execErr error
+		session, execErr = backend.Execute(ctx, prompt, agent.ExecOptions{
+			Cwd:             env.WorkDir,
+			Model:           entry.Model,
+			Timeout:         d.cfg.AgentTimeout,
+			ResumeSessionID: task.PriorSessionID,
+			ToolPermissions: toolPerms,
+		})
+		if execErr != nil {
+			return TaskResult{}, execErr
+		}
 	}
 
 	// Drain message channel — forward to server for live output + log locally.
@@ -1044,10 +1092,11 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 				s := seq.Add(1)
 				mu.Lock()
 				batch = append(batch, TaskMessageData{
-					Seq:   int(s),
-					Type:  "tool_use",
-					Tool:  msg.Tool,
-					Input: msg.Input,
+					Seq:    int(s),
+					Type:   "tool_use",
+					CallID: msg.CallID,
+					Tool:   msg.Tool,
+					Input:  msg.Input,
 				})
 				mu.Unlock()
 			case agent.MessageToolResult:
@@ -1067,6 +1116,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 				batch = append(batch, TaskMessageData{
 					Seq:    int(s),
 					Type:   "tool_result",
+					CallID: msg.CallID,
 					Tool:   toolName,
 					Output: output,
 				})

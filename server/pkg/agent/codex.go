@@ -14,10 +14,12 @@ import (
 // codexBackend implements Backend by spawning `codex app-server --listen stdio://`
 // and communicating via JSON-RPC 2.0 over stdin/stdout.
 type codexBackend struct {
-	cfg Config
+	cfg  Config
+	opts ExecOptions // populated per-Execute call
 }
 
 func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOptions) (*Session, error) {
+	b.opts = opts // store for handleServerRequest
 	execPath := b.cfg.ExecutablePath
 	if execPath == "" {
 		execPath = "codex"
@@ -72,6 +74,8 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		stdin:                stdin,
 		pending:              make(map[int]*pendingRPC),
 		notificationProtocol: "unknown",
+		toolPerms:            opts.ToolPermissions,
+		toolHooks:            opts.ToolHooks,
 		onMessage: func(msg Message) {
 			if msg.Type == MessageText {
 				outputMu.Lock()
@@ -231,6 +235,37 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	return &Session{Messages: msgCh, Result: resCh}, nil
 }
 
+func (b *codexBackend) Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error) {
+	// Codex doesn't have native fork support — delegate to Execute with
+	// the parent's session context inherited via environment.
+	execOpts := ExecOptions{
+		Cwd:             opts.Cwd,
+		Model:           opts.Model,
+		MaxTurns:        opts.MaxTurns,
+		Timeout:         opts.Timeout,
+		ResumeSessionID: opts.ParentSessionID,
+		ToolPermissions: opts.ToolPermissions,
+	}
+
+	session, err := b.Execute(ctx, prompt, execOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	resCh := make(chan ForkResult, 1)
+	go func() {
+		result := <-session.Result
+		resCh <- ForkResult{
+			Status:     result.Status,
+			Output:     result.Output,
+			Error:      result.Error,
+			DurationMs: result.DurationMs,
+		}
+	}()
+
+	return &ForkSession{Result: resCh, OutputFile: opts.OutputFile}, nil
+}
+
 // ── codexClient: JSON-RPC 2.0 transport ──
 
 type codexClient struct {
@@ -247,6 +282,9 @@ type codexClient struct {
 	notificationProtocol string // "unknown", "legacy", "raw"
 	turnStarted          bool
 	completedTurnIDs     map[string]bool
+
+	toolPerms *ToolPermissions
+	toolHooks ToolHooks
 }
 
 type pendingRPC struct {
@@ -394,15 +432,48 @@ func (c *codexClient) handleServerRequest(raw map[string]json.RawMessage) {
 	var method string
 	_ = json.Unmarshal(raw["method"], &method)
 
-	// Auto-approve all exec/patch requests in daemon mode
+	// Map codex tool names to our unified tool names for permission checks.
+	var toolName string
+	var input map[string]any
 	switch method {
 	case "item/commandExecution/requestApproval", "execCommandApproval":
-		c.respond(id, map[string]any{"decision": "accept"})
+		toolName = "Bash"
+		if params, ok := raw["params"]; ok {
+			var p map[string]any
+			_ = json.Unmarshal(params, &p)
+			input = p
+		}
 	case "item/fileChange/requestApproval", "applyPatchApproval":
-		c.respond(id, map[string]any{"decision": "accept"})
+		toolName = "Write"
+		if params, ok := raw["params"]; ok {
+			var p map[string]any
+			_ = json.Unmarshal(params, &p)
+			input = p
+		}
 	default:
 		c.respond(id, map[string]any{})
+		return
 	}
+
+	// Step 1: Check ToolPermissions.
+	if c.toolPerms != nil && !c.toolPerms.IsToolAllowed(toolName) {
+		c.cfg.Logger.Info("codex: tool denied by permissions", "tool", toolName)
+		c.respond(id, map[string]any{"decision": "deny", "message": fmt.Sprintf("tool %q is not allowed for this agent role", toolName)})
+		return
+	}
+
+	// Step 2: Run PreToolUse hook if configured.
+	if c.toolHooks.PreToolUse != nil {
+		result := c.toolHooks.PreToolUse(context.Background(), toolName, input)
+		if result.Deny {
+			c.cfg.Logger.Info("codex: tool denied by hook", "tool", toolName, "reason", result.DenyReason)
+			c.respond(id, map[string]any{"decision": "deny", "message": result.DenyReason})
+			return
+		}
+	}
+
+	// Step 3: Allow the tool call.
+	c.respond(id, map[string]any{"decision": "accept"})
 }
 
 func (c *codexClient) handleNotification(raw map[string]json.RawMessage) {

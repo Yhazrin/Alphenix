@@ -16,6 +16,14 @@ type Backend interface {
 	// The caller should read from Session.Messages (optional) and wait on
 	// Session.Result for the final outcome.
 	Execute(ctx context.Context, prompt string, opts ExecOptions) (*Session, error)
+
+	// Fork creates a lightweight sub-agent that inherits the parent's context.
+	// Inspired by Claude Code's fork mode: the sub-agent shares the parent's
+	// working directory and session cache but runs a focused, directive-style prompt.
+	//
+	// The parent should NOT read ForkSession.OutputFile mid-flight ("Don't peek").
+	// Results arrive via ForkSession.Result once the fork completes.
+	Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error)
 }
 
 // ExecOptions configures a single execution.
@@ -30,6 +38,10 @@ type ExecOptions struct {
 	// ToolPermissions controls which tools the agent may use.
 	// Nil means all tools allowed (default behavior).
 	ToolPermissions *ToolPermissions
+
+	// ToolHooks, if set, receive pre/post notifications for each tool call.
+	// Pre-hooks can deny or modify a tool call; post-hooks can observe results.
+	ToolHooks ToolHooks
 }
 
 // ToolPermissions defines role-based tool restrictions for an agent session.
@@ -89,6 +101,28 @@ const (
 	AgentRoleReviewer AgentRole = "reviewer"
 )
 
+// ToolHooks provides pre/post interception for tool calls.
+// Inspired by Claude Code's hook system (pre-tool-use, post-tool-use).
+type ToolHooks struct {
+	// PreToolUse is called before a tool executes. Return Deny to block it.
+	PreToolUse func(ctx context.Context, tool string, input map[string]any) ToolHookResult
+
+	// PostToolUse is called after a tool executes with its result.
+	PostToolUse func(ctx context.Context, tool string, input map[string]any, output string)
+}
+
+// ToolHookResult is the outcome of a PreToolUse hook.
+type ToolHookResult struct {
+	// Deny, if true, blocks the tool call. The agent receives an error result.
+	Deny bool
+
+	// DenyReason is the error message shown to the agent when Deny is true.
+	DenyReason string
+
+	// UpdatedInput, if non-nil, replaces the tool's input parameters.
+	UpdatedInput map[string]any
+}
+
 // Session represents a running agent execution.
 type Session struct {
 	// Messages streams events as the agent works. The channel is closed
@@ -130,6 +164,40 @@ type Result struct {
 	Error      string // error message if failed
 	DurationMs int64
 	SessionID  string
+}
+
+// ForkOptions configures a fork (lightweight sub-agent with inherited context).
+// Inspired by Claude Code's fork mode where omitting subagent_type creates
+// a context-sharing child that uses a directive-style prompt.
+type ForkOptions struct {
+	Cwd             string           // working directory (should match parent's)
+	Model           string           // model override
+	MaxTurns        int              // turn budget for the fork
+	Timeout         time.Duration    // max execution time
+	ToolPermissions *ToolPermissions // inherited from parent if nil
+	ParentSessionID string           // parent's session ID for context sharing
+
+	// OutputFile is the path where the fork writes its final result.
+	// The parent must NOT read this file mid-flight ("Don't peek" rule).
+	OutputFile string
+}
+
+// ForkSession represents a running fork (lightweight sub-agent).
+type ForkSession struct {
+	// Result receives the fork's outcome when it completes.
+	Result <-chan ForkResult
+
+	// OutputFile is the path where the fork will write its result.
+	// Do NOT read this while the fork is running ("Don't peek").
+	OutputFile string
+}
+
+// ForkResult is the outcome of a fork execution.
+type ForkResult struct {
+	Status     string // "completed", "failed", "aborted", "timeout"
+	Output     string // fork's text output
+	Error      string // error message if failed
+	DurationMs int64
 }
 
 // Config configures a Backend instance.

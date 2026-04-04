@@ -14,10 +14,12 @@ import (
 // opencodeBackend implements Backend by spawning `opencode run --format json`
 // and reading streaming JSON events from stdout — the same pattern as Claude.
 type opencodeBackend struct {
-	cfg Config
+	cfg  Config
+	opts ExecOptions // populated per-Execute call
 }
 
 func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecOptions) (*Session, error) {
+	b.opts = opts // store for permission building
 	execPath := b.cfg.ExecutablePath
 	if execPath == "" {
 		execPath = "opencode"
@@ -53,8 +55,7 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 	}
 
 	env := buildEnv(b.cfg.Env)
-	// Auto-approve all tool use in daemon mode.
-	env = append(env, `OPENCODE_PERMISSION={"*":"allow"}`)
+	env = append(env, `OPENCODE_PERMISSION=`+buildOpenCodePerms(opts.ToolPermissions))
 	cmd.Env = env
 
 	stdout, err := cmd.StdoutPipe()
@@ -109,6 +110,37 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 	}()
 
 	return &Session{Messages: msgCh, Result: resCh}, nil
+}
+
+func (b *opencodeBackend) Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error) {
+	// OpenCode doesn't have native fork support — delegate to Execute with
+	// the parent's session context inherited via --session flag.
+	execOpts := ExecOptions{
+		Cwd:             opts.Cwd,
+		Model:           opts.Model,
+		MaxTurns:        opts.MaxTurns,
+		Timeout:         opts.Timeout,
+		ResumeSessionID: opts.ParentSessionID,
+		ToolPermissions: opts.ToolPermissions,
+	}
+
+	session, err := b.Execute(ctx, prompt, execOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	resCh := make(chan ForkResult, 1)
+	go func() {
+		result := <-session.Result
+		resCh <- ForkResult{
+			Status:     result.Status,
+			Output:     result.Output,
+			Error:      result.Error,
+			DurationMs: result.DurationMs,
+		}
+	}()
+
+	return &ForkSession{Result: resCh, OutputFile: opts.OutputFile}, nil
 }
 
 // ── Event handlers ──
@@ -309,4 +341,37 @@ func (e *opencodeError) Message() string {
 
 type opencodeErrData struct {
 	Message string `json:"message,omitempty"`
+}
+
+// buildOpenCodePerms builds the OPENCODE_PERMISSION env var value from ToolPermissions.
+// OpenCode uses a JSON map of tool name → "allow"|"deny" with "*" as wildcard.
+func buildOpenCodePerms(tp *ToolPermissions) string {
+	if tp == nil {
+		return `{"*":"allow"}`
+	}
+
+	perms := map[string]string{}
+
+	// If ReadOnly, deny write tools explicitly.
+	if tp.ReadOnly {
+		perms["edit"] = "deny"
+		perms["write"] = "deny"
+		perms["patch"] = "deny"
+	}
+
+	// Denied tools override everything.
+	for _, d := range tp.DeniedTools {
+		perms[strings.ToLower(d)] = "deny"
+	}
+
+	// If AllowedTools is set, deny all by default and allow listed tools.
+	if len(tp.AllowedTools) > 0 {
+		perms["*"] = "deny"
+		for _, a := range tp.AllowedTools {
+			perms[strings.ToLower(a)] = "allow"
+		}
+	}
+
+	data, _ := json.Marshal(perms)
+	return string(data)
 }
