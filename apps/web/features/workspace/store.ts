@@ -198,7 +198,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   createWorkspace: async (data) => {
     try {
-      const ws = await api.createWorkspace(data);
+      const ws = await workspaceApi.createWorkspace(data);
       set((state) => ({ workspaces: [...state.workspaces, ws] }));
       return ws;
     } catch (e) {
@@ -219,7 +219,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   leaveWorkspace: async (workspaceId) => {
     try {
-      await api.leaveWorkspace(workspaceId);
+      await workspaceApi.leaveWorkspace(workspaceId);
       const { workspace, hydrateWorkspace } = get();
       const wsList = await api.listWorkspaces();
       const preferredWorkspaceId =
@@ -234,7 +234,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   deleteWorkspace: async (workspaceId) => {
     try {
-      await api.deleteWorkspace(workspaceId);
+      await workspaceApi.deleteWorkspace(workspaceId);
       const { workspace, hydrateWorkspace } = get();
       const wsList = await api.listWorkspaces();
       const preferredWorkspaceId =
