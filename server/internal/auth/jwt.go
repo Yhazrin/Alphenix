@@ -17,11 +17,15 @@ var (
 	jwtSecretOnce sync.Once
 )
 
+func IsProduction() bool {
+	return os.Getenv("APP_ENV") == "production"
+}
+
 func JWTSecret() []byte {
 	jwtSecretOnce.Do(func() {
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
-			if os.Getenv("ENV") == "production" || os.Getenv("ENV") == "prod" {
+			if IsProduction() {
 				panic("JWT_SECRET environment variable must be set in production")
 			}
 			secret = defaultJWTSecret

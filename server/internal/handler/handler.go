@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/go-chi/chi/v5"
@@ -280,6 +281,8 @@ func (h *Handler) loadIssueForUser(w http.ResponseWriter, r *http.Request, issue
 }
 
 // resolveIssueByIdentifier tries to look up an issue by "PREFIX-NUMBER" format.
+// The prefix must match the workspace's actual issue_prefix, preventing ambiguous
+// resolution (e.g. MUL-42 vs XXX-42 both resolving to number 42).
 func (h *Handler) resolveIssueByIdentifier(ctx context.Context, id, workspaceID string) (db.Issue, bool) {
 	parts := splitIdentifier(id)
 	if parts == nil {
@@ -288,8 +291,13 @@ func (h *Handler) resolveIssueByIdentifier(ctx context.Context, id, workspaceID 
 	if workspaceID == "" {
 		return db.Issue{}, false
 	}
+	wsUUID := parseUUID(workspaceID)
+	expectedPrefix := h.getIssuePrefix(ctx, wsUUID)
+	if expectedPrefix != "" && !strings.EqualFold(parts.prefix, expectedPrefix) {
+		return db.Issue{}, false
+	}
 	issue, err := h.Queries.GetIssueByNumber(ctx, db.GetIssueByNumberParams{
-		WorkspaceID: parseUUID(workspaceID),
+		WorkspaceID: wsUUID,
 		Number:      parts.number,
 	})
 	if err != nil {

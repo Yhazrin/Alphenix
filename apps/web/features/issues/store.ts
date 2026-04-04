@@ -14,6 +14,7 @@ interface IssueState {
   error: string | null;
   activeIssueId: string | null;
   fetch: () => Promise<void>;
+  reset: () => void;
   setIssues: (issues: Issue[]) => void;
   addIssue: (issue: Issue) => void;
   updateIssue: (id: string, updates: Partial<Issue>) => void;
@@ -44,6 +45,9 @@ export const useIssueStore = create<IssueState>((set, get) => ({
   },
 
   setIssues: (issues) => set({ issues }),
+
+  reset: () => set({ issues: [], loading: false, error: null, activeIssueId: null }),
+
   addIssue: (issue) =>
     set((s) => ({
       issues: s.issues.some((i) => i.id === issue.id)

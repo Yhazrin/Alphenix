@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import type { User } from "@/shared/types";
-import { api } from "@/shared/api";
+import { api, authApi } from "@/shared/api";
 import { setLoggedInCookie, clearLoggedInCookie } from "./auth-cookie";
 
 interface AuthState {
@@ -30,7 +30,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     api.setToken(token);
 
     try {
-      const user = await api.getMe();
+      const user = await authApi.getMe();
       set({ user, isLoading: false });
     } catch {
       api.setToken(null);
@@ -42,11 +42,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   sendCode: async (email: string) => {
-    await api.sendCode(email);
+    await authApi.sendCode(email);
   },
 
   verifyCode: async (email: string, code: string) => {
-    const { token, user } = await api.verifyCode(email, code);
+    const { token, user } = await authApi.verifyCode(email, code);
     localStorage.setItem("multica_token", token);
     api.setToken(token);
     setLoggedInCookie();

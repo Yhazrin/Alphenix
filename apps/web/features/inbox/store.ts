@@ -47,6 +47,7 @@ interface InboxState {
   dedupedItems: InboxItem[];
   unreadCount: number;
   fetch: () => Promise<void>;
+  reset: () => void;
   setItems: (items: InboxItem[]) => void;
   addItem: (item: InboxItem) => void;
   markRead: (id: string) => void;
@@ -81,6 +82,9 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   setItems: (items) => {
     set({ items, ...deriveInboxState(items) });
   },
+
+  reset: () => set({ items: [], loading: true, dedupedItems: [], unreadCount: 0 }),
+
   addItem: (item) =>
     set((s) => {
       const items = s.items.some((i) => i.id === item.id)

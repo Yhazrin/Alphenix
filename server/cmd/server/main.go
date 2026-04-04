@@ -17,6 +17,9 @@ import (
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
+// outboxPollInterval defines how often the outbox worker checks for new events.
+const outboxPollInterval = 5 * time.Second
+
 func main() {
 	logger.Init()
 
@@ -57,11 +60,22 @@ func main() {
 	slog.Info("connected to database")
 
 	bus := events.New()
+	realtime.InitTicketStore()
 	hub := realtime.NewHub(allowedOrigins())
 	go hub.Run()
 	registerListeners(bus, hub)
 
 	queries := db.New(pool)
+
+	// Set up outbox for reliable event delivery
+	outboxRepo := events.NewOutboxRepository(pool)
+	bus.WithOutbox(outboxRepo)
+
+	// Start outbox worker for async external event delivery
+	outboxWorker := events.NewOutboxWorker(outboxRepo, events.NoOpPublisher{}, outboxPollInterval)
+	outboxCtx, outboxCancel := context.WithCancel(context.Background())
+	go outboxWorker.Start(outboxCtx)
+
 	// Order matters: subscriber listeners must register BEFORE notification listeners.
 	// The notification listener queries the subscriber table to determine recipients,
 	// so subscribers must be written first within the same synchronous event dispatch.
@@ -96,6 +110,7 @@ func main() {
 
 	slog.Info("shutting down server")
 	sweepCancel()
+	outboxCancel()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
