@@ -100,10 +100,10 @@ export function PickerItem({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm ${disabled ? "opacity-50 cursor-not-allowed" : hoverClassName ?? "hover:bg-accent"} transition-colors`}
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm ${disabled ? "opacity-50 cursor-not-allowed" : hoverClassName ?? "hover:bg-accent"} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
     >
       <span className="flex flex-1 items-center gap-2">{children}</span>
-      {selected && <Check className="h-3.5 w-3.5 text-muted-foreground" />}
+      {selected && <Check className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />}
     </button>
   );
 }

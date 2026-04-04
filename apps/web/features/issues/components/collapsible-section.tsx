@@ -33,14 +33,14 @@ export const CollapsibleSection = memo(function CollapsibleSection({
   return (
     <div className="rounded-lg border bg-card">
       <button
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors"
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={handleToggle}
         aria-expanded={open}
       >
         {open ? (
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
         )}
         {icon}
         <span className="flex-1 text-left">{title}</span>

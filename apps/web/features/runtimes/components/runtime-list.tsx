@@ -60,7 +60,7 @@ export function RuntimeList({
       </div>
       {runtimes.length === 0 ? (
         <div className="flex flex-col items-center justify-center px-4 py-12">
-          <Server className="h-8 w-8 text-muted-foreground/40" />
+          <Server className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
           <p className="mt-3 text-sm text-muted-foreground">
             No runtimes registered
           </p>

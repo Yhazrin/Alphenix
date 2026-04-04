@@ -26,10 +26,10 @@ export function DueDatePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-accent/30 transition-colors">
+      <PopoverTrigger className="flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-accent/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {customTrigger ?? (
           <>
-            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             {date ? (
               <span className={isOverdue ? "text-destructive" : ""}>
                 {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}

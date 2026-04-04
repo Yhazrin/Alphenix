@@ -107,7 +107,7 @@ export default function RuntimesPage() {
           <RuntimeDetail key={selected.id} runtime={selected} />
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-            <Server className="h-10 w-10 text-muted-foreground/30" />
+            <Server className="h-10 w-10 text-muted-foreground/30" aria-hidden="true" />
             <p className="mt-3 text-sm">Select a runtime to view details</p>
           </div>
         )}
