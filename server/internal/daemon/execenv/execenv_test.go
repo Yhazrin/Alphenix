@@ -167,7 +167,7 @@ func TestPrepareWithRepoContext(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"multica repo checkout",
+		"multicode repo checkout",
 		"https://github.com/org/backend",
 		"Go backend",
 		"https://github.com/org/frontend",
@@ -377,9 +377,9 @@ func TestInjectRuntimeConfigClaude(t *testing.T) {
 
 	s := string(content)
 	for _, want := range []string{
-		"Multica Agent Runtime",
-		"multica issue get",
-		"multica issue comment list",
+		"Multicode Agent Runtime",
+		"multicode issue get",
+		"multicode issue comment list",
 		"Go Conventions",
 		"PR Review",
 		"discovered automatically",
@@ -409,7 +409,7 @@ func TestInjectRuntimeConfigCodex(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "Multica Agent Runtime") {
+	if !strings.Contains(s, "Multicode Agent Runtime") {
 		t.Error("AGENTS.md missing meta skill header")
 	}
 	if !strings.Contains(s, "Coding") {
@@ -433,8 +433,8 @@ func TestInjectRuntimeConfigNoSkills(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "multica issue get") {
-		t.Error("should reference multica CLI even without skills")
+	if !strings.Contains(s, "multicode issue get") {
+		t.Error("should reference multicode CLI even without skills")
 	}
 	if strings.Contains(s, "## Skills") {
 		t.Error("should not have Skills section when there are no skills")
@@ -511,7 +511,7 @@ func TestInjectRuntimeConfigOpencode(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "Multica Agent Runtime") {
+	if !strings.Contains(s, "Multicode Agent Runtime") {
 		t.Error("AGENTS.md missing meta skill header")
 	}
 	if !strings.Contains(s, "Coding") {
@@ -573,7 +573,7 @@ func TestPrepareWithRepoContextOpencode(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"multica repo checkout",
+		"multicode repo checkout",
 		"https://github.com/org/backend",
 		"Go backend",
 	} {

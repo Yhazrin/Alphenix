@@ -24,7 +24,7 @@ export function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "你好！我是 Multica AI 助手。我可以帮你：\n\n• 启动和配置多个 Claude 实例\n• 连接到远程服务器\n• 配置内网穿透\n• 创建和管理任务\n\n有什么我可以帮你的吗？",
+      content: "你好！我是 Multicode AI 助手。我可以帮你：\n\n• 启动和配置多个 Claude 实例\n• 连接到远程服务器\n• 配置内网穿透\n• 创建和管理任务\n\n有什么我可以帮你的吗？",
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +57,7 @@ export function AIAssistant() {
     setTimeout(() => {
       const responses = [
         "根据你的需求，我建议使用 `start-claude-cluster.sh` 脚本来启动多个实例。这个脚本会自动配置 MiniMax API 并管理端口。",
-        "要连接到远程服务器，你需要在其他设备上运行 `connect-to-server.sh` 脚本，然后配置 `MULTICA_SERVER_URL` 环境变量。",
+        "要连接到远程服务器，你需要在其他设备上运行 `connect-to-server.sh` 脚本，然后配置 `MULTICODE_SERVER_URL` 环境变量。",
         "对于内网穿透，我推荐使用 ngrok。你可以在服务器上运行 `ngrok http 8080` 来创建公网访问地址。",
         "创建任务的流程是：1) 在 Issues 页面创建 issue，2) 分配给 agent，3) agent 会自动接收并执行任务。",
       ];
@@ -109,7 +109,7 @@ export function AIAssistant() {
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-500/10 to-pink-500/10">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
-            <span className="font-semibold">Multica AI 助手</span>
+            <span className="font-semibold">Multicode AI 助手</span>
           </div>
           <Button
             variant="ghost"

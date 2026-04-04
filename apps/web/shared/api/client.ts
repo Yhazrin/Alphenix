@@ -85,8 +85,8 @@ export class ApiClient {
 
   private handleUnauthorized() {
     if (typeof window !== "undefined") {
-      localStorage.removeItem("multica_token");
-      localStorage.removeItem("multica_workspace_id");
+      localStorage.removeItem("multicode_token");
+      localStorage.removeItem("multicode_workspace_id");
       this.token = null;
       this.workspaceId = null;
       if (window.location.pathname !== "/") {

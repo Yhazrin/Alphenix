@@ -1,12 +1,12 @@
 version: 2
 
-project_name: multica
+project_name: multicode
 
 builds:
-  - id: multica
-    main: ./cmd/multica
+  - id: multicode
+    main: ./cmd/multicode
     dir: server
-    binary: multica
+    binary: multicode
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -38,17 +38,17 @@ changelog:
       - "^chore:"
 
 brews:
-  - name: multica
+  - name: multicode
     repository:
       owner: multica-ai
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/multica-ai/multica"
-    description: "Multica CLI — local agent runtime and management tool for the Multica platform"
+    homepage: "https://github.com/multica-ai/multicode"
+    description: "Multicode CLI — local agent runtime and management tool for the Multicode platform"
     license: "Apache-2.0"
     install: |
-      bin.install "multica"
+      bin.install "multicode"
     test: |
-      system "#{bin}/multica", "version"
+      system "#{bin}/multicode", "version"

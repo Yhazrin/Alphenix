@@ -11,12 +11,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/multica-ai/multica/server/internal/cli"
-	"github.com/multica-ai/multica/server/internal/daemon/execenv"
-	"github.com/multica-ai/multica/server/internal/daemon/repocache"
-	"github.com/multica-ai/multica/server/internal/daemon/usage"
-	"github.com/multica-ai/multica/server/internal/events"
-	"github.com/multica-ai/multica/server/pkg/agent"
+	"github.com/multica-ai/multicode/server/internal/cli"
+	"github.com/multica-ai/multicode/server/internal/daemon/execenv"
+	"github.com/multica-ai/multicode/server/internal/daemon/repocache"
+	"github.com/multica-ai/multicode/server/internal/daemon/usage"
+	"github.com/multica-ai/multicode/server/internal/events"
+	"github.com/multica-ai/multicode/server/pkg/agent"
 )
 
 // workspaceState tracks registered runtimes for a single workspace.
@@ -142,9 +142,9 @@ func (d *Daemon) resolveAuth() error {
 		return fmt.Errorf("load CLI config: %w", err)
 	}
 	if cfg.Token == "" {
-		loginHint := "'multica login'"
+		loginHint := "'multicode login'"
 		if d.cfg.Profile != "" {
-			loginHint = fmt.Sprintf("'multica login --profile %s'", d.cfg.Profile)
+			loginHint = fmt.Sprintf("'multicode login --profile %s'", d.cfg.Profile)
 		}
 		d.logger.Warn("not authenticated — run " + loginHint + " to authenticate, then restart the daemon")
 		return fmt.Errorf("not authenticated: run %s first", loginHint)
@@ -162,7 +162,7 @@ func (d *Daemon) loadWatchedWorkspaces(ctx context.Context) error {
 	}
 
 	if len(cfg.WatchedWorkspaces) == 0 {
-		return fmt.Errorf("no watched workspaces configured: run 'multica workspace watch <id>' to add one")
+		return fmt.Errorf("no watched workspaces configured: run 'multicode workspace watch <id>' to add one")
 	}
 
 	var registered int
@@ -600,7 +600,7 @@ func (d *Daemon) handleUpdate(ctx context.Context, runtimeID string, update *Pen
 }
 
 // triggerRestart initiates a graceful daemon restart after a successful CLI update.
-// For brew installs, it keeps the symlink path (e.g. /opt/homebrew/bin/multica)
+// For brew installs, it keeps the symlink path (e.g. /opt/homebrew/bin/multicode)
 // so the restarted daemon picks up the new Cellar version automatically.
 // For non-brew installs, it resolves to the absolute path of the replaced binary.
 // The caller (cmd_daemon.go) checks RestartBinary() and launches the new process.
@@ -876,7 +876,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 
 	// Prepare isolated execution environment.
 	// Repos are passed as metadata only — the agent checks them out on demand
-	// via `multica repo checkout <url>`.
+	// via `multicode repo checkout <url>`.
 	taskCtx := execenv.TaskContextForEnv{
 		IssueID:           task.IssueID,
 		TriggerCommentID:  task.TriggerCommentID,
@@ -918,15 +918,15 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	prompt := BuildPrompt(task)
 
 	// Pass the daemon's auth credentials and context so the spawned agent CLI
-	// can call the Multica API and the local daemon (e.g. `multica repo checkout`).
+	// can call the Multicode API and the local daemon (e.g. `multicode repo checkout`).
 	agentEnv := map[string]string{
-		"MULTICA_TOKEN":        d.client.Token(),
-		"MULTICA_SERVER_URL":   d.cfg.ServerBaseURL,
-		"MULTICA_DAEMON_PORT":  fmt.Sprintf("%d", d.cfg.HealthPort),
-		"MULTICA_WORKSPACE_ID": task.WorkspaceID,
-		"MULTICA_AGENT_NAME":   agentName,
-		"MULTICA_AGENT_ID":     task.AgentID,
-		"MULTICA_TASK_ID":      task.ID,
+		"MULTICODE_TOKEN":        d.client.Token(),
+		"MULTICODE_SERVER_URL":   d.cfg.ServerBaseURL,
+		"MULTICODE_DAEMON_PORT":  fmt.Sprintf("%d", d.cfg.HealthPort),
+		"MULTICODE_WORKSPACE_ID": task.WorkspaceID,
+		"MULTICODE_AGENT_NAME":   agentName,
+		"MULTICODE_AGENT_ID":     task.AgentID,
+		"MULTICODE_TASK_ID":      task.ID,
 	}
 	// Point Codex to the per-task CODEX_HOME so it discovers skills natively
 	// without polluting the system ~/.codex/skills/.
@@ -982,7 +982,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	// The "Don't peek" rule applies — we wait for ForkSession.Result before reading.
 	var session *agent.Session
 	if isCoordinator {
-		forkOutput := filepath.Join(env.WorkDir, ".multica", "fork_result.txt")
+		forkOutput := filepath.Join(env.WorkDir, ".multicode", "fork_result.txt")
 		if mkErr := os.MkdirAll(filepath.Dir(forkOutput), 0o755); mkErr != nil {
 			return TaskResult{}, fmt.Errorf("create fork output dir: %w", mkErr)
 		}

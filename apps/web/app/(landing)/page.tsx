@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { MulticaLanding } from "@/features/landing/components/multica-landing";
+import { MulticodeLanding } from "@/features/landing/components/multicode-landing";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Multica — AI-Native Task Management",
+    absolute: "Multicode — AI-Native Task Management",
   },
   description:
     "Open-source platform that turns coding agents into real teammates. Assign tasks, track progress, compound skills.",
   openGraph: {
-    title: "Multica — AI-Native Task Management",
+    title: "Multicode — AI-Native Task Management",
     description:
       "Manage your human + agent workforce in one place.",
     url: "/",
@@ -19,5 +19,5 @@ export const metadata: Metadata = {
 };
 
 export default function LandingPage() {
-  return <MulticaLanding />;
+  return <MulticodeLanding />;
 }

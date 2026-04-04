@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 )
 
 const (

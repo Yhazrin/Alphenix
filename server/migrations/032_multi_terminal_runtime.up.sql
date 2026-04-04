@@ -1,5 +1,5 @@
 -- Add instance_id to support multiple terminal instances per daemon.
--- Each terminal running `multica daemon` gets its own runtime record.
+-- Each terminal running `multicode daemon` gets its own runtime record.
 ALTER TABLE agent_runtime ADD COLUMN instance_id TEXT NOT NULL DEFAULT '';
 
 -- Drop the old unique constraint and replace with one that includes instance_id.

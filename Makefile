@@ -1,4 +1,4 @@
-.PHONY: dev daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
+.PHONY: dev daemon cli multicode build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
 
 MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
@@ -8,23 +8,23 @@ ifneq ($(wildcard $(ENV_FILE)),)
 include $(ENV_FILE)
 endif
 
-POSTGRES_DB ?= multica
-POSTGRES_USER ?= multica
-POSTGRES_PASSWORD ?= multica
+POSTGRES_DB ?= multicode
+POSTGRES_USER ?= multicode
+POSTGRES_PASSWORD ?= multicode
 POSTGRES_PORT ?= 5432
 PORT ?= 8080
 FRONTEND_PORT ?= 3000
 FRONTEND_ORIGIN ?= http://localhost:$(FRONTEND_PORT)
-MULTICA_APP_URL ?= $(FRONTEND_ORIGIN)
+MULTICODE_APP_URL ?= $(FRONTEND_ORIGIN)
 DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 NEXT_PUBLIC_API_URL ?= http://localhost:$(PORT)
 NEXT_PUBLIC_WS_URL ?= ws://localhost:$(PORT)/ws
 GOOGLE_REDIRECT_URI ?= $(FRONTEND_ORIGIN)/auth/callback
-MULTICA_SERVER_URL ?= ws://localhost:$(PORT)/ws
+MULTICODE_SERVER_URL ?= ws://localhost:$(PORT)/ws
 
 export
 
-MULTICA_ARGS ?= $(ARGS)
+MULTICODE_ARGS ?= $(ARGS)
 
 COMPOSE := docker compose
 
@@ -120,20 +120,20 @@ dev:
 	cd server && go run ./cmd/server
 
 daemon:
-	@$(MAKE) multica MULTICA_ARGS="daemon"
+	@$(MAKE) multicode MULTICODE_ARGS="daemon"
 
 cli:
-	@$(MAKE) multica MULTICA_ARGS="$(MULTICA_ARGS)"
+	@$(MAKE) multicode MULTICODE_ARGS="$(MULTICODE_ARGS)"
 
-multica:
-	cd server && go run ./cmd/multica $(MULTICA_ARGS)
+multicode:
+	cd server && go run ./cmd/multicode $$(MULTICODE_ARGS)
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
 build:
 	cd server && go build -o bin/server ./cmd/server
-	cd server && go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o bin/multica ./cmd/multica
+	cd server && go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o bin/multicode ./cmd/multicode
 
 test:
 	$(REQUIRE_ENV)

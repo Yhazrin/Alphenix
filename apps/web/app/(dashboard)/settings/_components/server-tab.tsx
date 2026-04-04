@@ -12,7 +12,7 @@ import { useWorkspaceStore } from "@/features/workspace";
 export function ServerTab() {
   const workspace = useWorkspaceStore((s) => s.workspace);
   const [serverUrl, setServerUrl] = useState(
-    process.env.NEXT_PUBLIC_MULTICA_SERVER_URL || "http://localhost:8080"
+    process.env.NEXT_PUBLIC_MULTICODE_SERVER_URL || "http://localhost:8080"
   );
   const [useTunnel, setUseTunnel] = useState(false);
   const [tunnelUrl, setTunnelUrl] = useState("");
@@ -25,11 +25,11 @@ export function ServerTab() {
   };
 
   const localCommands = {
-    connect: `export MULTICA_SERVER_URL="${serverUrl}"
-multica daemon start`,
-    deploy: `cd /path/to/multica
-export DATABASE_URL="postgres://user:pass@host:5432/multica"
-./multica-server`,
+    connect: `export MULTICODE_SERVER_URL="${serverUrl}"
+multicode daemon start`,
+    deploy: `cd /path/to/multicode
+export DATABASE_URL="postgres://user:pass@host:5432/multicode"
+./multicode-server`,
   };
 
   return (
@@ -54,7 +54,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multica"
               <Button variant="outline">测试连接</Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              填写你的 multica 服务器地址。如果是本地开发，默认为 localhost:8080
+              填写你的 multicode 服务器地址。如果是本地开发，默认为 localhost:8080
             </p>
           </div>
         </div>
@@ -76,7 +76,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multica"
         {useTunnel && (
           <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
             <p className="text-sm text-muted-foreground">
-              开启内网穿透后，你可以从任何设备访问你的 multica 服务器。
+              开启内网穿透后，你可以从任何设备访问你的 multicode 服务器。
               推荐使用 ngrok 或 Cloudflare Tunnel。
             </p>
 
@@ -105,16 +105,16 @@ export DATABASE_URL="postgres://user:pass@host:5432/multica"
                 <Label>客户端连接命令</Label>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-black/5 dark:bg-white/5 p-2 rounded text-xs overflow-x-auto">
-                    export MULTICA_SERVER_URL="{tunnelUrl}"
+                    export MULTICODE_SERVER_URL="{tunnelUrl}"
                     <br />
-                    multica daemon start
+                    multicode daemon start
                   </code>
                   <Button
                     size="icon"
                     variant="outline"
                     onClick={() =>
                       handleCopyCommand(
-                        `export MULTICA_SERVER_URL="${tunnelUrl}"\nmultica daemon start`
+                        `export MULTICODE_SERVER_URL="${tunnelUrl}"\nmulticode daemon start`
                       )
                     }
                   >
@@ -147,11 +147,11 @@ export DATABASE_URL="postgres://user:pass@host:5432/multica"
             </h3>
             <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg font-mono text-xs space-y-1">
               <p># 编译 server</p>
-              <p>cd server && go build -o ../multica-server ./cmd/server</p>
+              <p>cd server && go build -o ../multicode-server ./cmd/server</p>
               <p className="pt-2"># 启动服务</p>
               <p>export PORT=8080</p>
               <p>export DATABASE_URL="postgres://..."</p>
-              <p>./multica-server</p>
+              <p>./multicode-server</p>
             </div>
             <Button
               variant="outline"
@@ -173,9 +173,9 @@ export DATABASE_URL="postgres://user:pass@host:5432/multica"
               在其他设备上运行以下命令连接到服务器：
             </p>
             <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg font-mono text-xs space-y-1">
-              <p>export MULTICA_SERVER_URL="{serverUrl}"</p>
-              <p>multica login</p>
-              <p>multica daemon start</p>
+              <p>export MULTICODE_SERVER_URL="{serverUrl}"</p>
+              <p>multicode login</p>
+              <p>multicode daemon start</p>
             </div>
             <Button
               variant="outline"

@@ -8,7 +8,7 @@ import { OpenSourceSection } from "./open-source-section";
 import { FAQSection } from "./faq-section";
 import { LandingFooter } from "./landing-footer";
 
-export function MulticaLanding() {
+export function MulticodeLanding() {
   return (
     <>
       <div className="relative">

@@ -28,12 +28,12 @@ func InjectRuntimeConfig(workDir, provider string, ctx TaskContextForEnv) error 
 }
 
 // buildMetaSkillContent generates the meta skill markdown that teaches the agent
-// about the Multica runtime environment and available CLI tools.
+// about the Multicode runtime environment and available CLI tools.
 func buildMetaSkillContent(provider string, ctx TaskContextForEnv) string {
 	var b strings.Builder
 
-	b.WriteString("# Multica Agent Runtime\n\n")
-	b.WriteString("You are a coding agent in the Multica platform. Use the `multica` CLI to interact with the platform.\n\n")
+	b.WriteString("# Multicode Agent Runtime\n\n")
+	b.WriteString("You are a coding agent in the Multicode platform. Use the `multicode` CLI to interact with the platform.\n\n")
 
 	// Inject agent identity instructions before workflow commands.
 	if ctx.AgentInstructions != "" {
@@ -45,25 +45,25 @@ func buildMetaSkillContent(provider string, ctx TaskContextForEnv) string {
 	b.WriteString("## Available Commands\n\n")
 	b.WriteString("**Always use `--output json` for all read commands** to get structured data with full IDs.\n\n")
 	b.WriteString("### Read\n")
-	b.WriteString("- `multica issue get <id> --output json` — Get full issue details (title, description, status, priority, assignee)\n")
-	b.WriteString("- `multica issue list [--status X] [--priority X] [--assignee X] --output json` — List issues in workspace\n")
-	b.WriteString("- `multica issue comment list <issue-id> [--limit N] [--offset N] [--since <RFC3339>] --output json` — List comments on an issue (supports pagination; includes id, parent_id for threading)\n")
-	b.WriteString("- `multica workspace get --output json` — Get workspace details and context\n")
-	b.WriteString("- `multica agent list --output json` — List agents in workspace\n")
-	b.WriteString("- `multica issue runs <issue-id> --output json` — List all execution runs for an issue (status, timestamps, errors)\n")
-	b.WriteString("- `multica issue run-messages <task-id> [--since <seq>] --output json` — List messages for a specific execution run (supports incremental fetch)\n")
-	b.WriteString("- `multica attachment download <id> [-o <dir>]` — Download an attachment file locally by ID\n\n")
+	b.WriteString("- `multicode issue get <id> --output json` — Get full issue details (title, description, status, priority, assignee)\n")
+	b.WriteString("- `multicode issue list [--status X] [--priority X] [--assignee X] --output json` — List issues in workspace\n")
+	b.WriteString("- `multicode issue comment list <issue-id> [--limit N] [--offset N] [--since <RFC3339>] --output json` — List comments on an issue (supports pagination; includes id, parent_id for threading)\n")
+	b.WriteString("- `multicode workspace get --output json` — Get workspace details and context\n")
+	b.WriteString("- `multicode agent list --output json` — List agents in workspace\n")
+	b.WriteString("- `multicode issue runs <issue-id> --output json` — List all execution runs for an issue (status, timestamps, errors)\n")
+	b.WriteString("- `multicode issue run-messages <task-id> [--since <seq>] --output json` — List messages for a specific execution run (supports incremental fetch)\n")
+	b.WriteString("- `multicode attachment download <id> [-o <dir>]` — Download an attachment file locally by ID\n\n")
 
 	b.WriteString("### Write\n")
-	b.WriteString("- `multica issue comment add <issue-id> --content \"...\" [--parent <comment-id>]` — Post a comment (use --parent to reply to a specific comment)\n")
-	b.WriteString("- `multica issue status <id> <status>` — Update issue status (todo, in_progress, in_review, done, blocked)\n")
-	b.WriteString("- `multica issue update <id> [--title X] [--description X] [--priority X]` — Update issue fields\n\n")
+	b.WriteString("- `multicode issue comment add <issue-id> --content \"...\" [--parent <comment-id>]` — Post a comment (use --parent to reply to a specific comment)\n")
+	b.WriteString("- `multicode issue status <id> <status>` — Update issue status (todo, in_progress, in_review, done, blocked)\n")
+	b.WriteString("- `multicode issue update <id> [--title X] [--description X] [--priority X]` — Update issue fields\n\n")
 
 	// Inject available repositories section.
 	if len(ctx.Repos) > 0 {
 		b.WriteString("## Repositories\n\n")
 		b.WriteString("The following code repositories are available in this workspace.\n")
-		b.WriteString("Use `multica repo checkout <url>` to check out a repository into your working directory.\n\n")
+		b.WriteString("Use `multicode repo checkout <url>` to check out a repository into your working directory.\n\n")
 		b.WriteString("| URL | Description |\n")
 		b.WriteString("|-----|-------------|\n")
 		for _, repo := range ctx.Repos {
@@ -85,22 +85,22 @@ func buildMetaSkillContent(provider string, ctx TaskContextForEnv) string {
 	if ctx.TriggerCommentID != "" {
 		// Comment-triggered: focus on reading and replying
 		b.WriteString("**This task was triggered by a comment.** Your primary job is to respond.\n\n")
-		fmt.Fprintf(&b, "1. Run `multica issue get %s --output json` to understand the issue context\n", ctx.IssueID)
-		fmt.Fprintf(&b, "2. Run `multica issue comment list %s --output json` to read the conversation\n", ctx.IssueID)
+		fmt.Fprintf(&b, "1. Run `multicode issue get %s --output json` to understand the issue context\n", ctx.IssueID)
+		fmt.Fprintf(&b, "2. Run `multicode issue comment list %s --output json` to read the conversation\n", ctx.IssueID)
 		b.WriteString("   - If the output is very large or truncated, use pagination: `--limit 30` to get the latest 30 comments, or `--since <timestamp>` to fetch only recent ones\n")
 		fmt.Fprintf(&b, "3. Find the triggering comment (ID: `%s`) and understand what is being asked\n", ctx.TriggerCommentID)
-		fmt.Fprintf(&b, "4. Reply: `multica issue comment add %s --parent %s --content \"...\"`\n", ctx.IssueID, ctx.TriggerCommentID)
+		fmt.Fprintf(&b, "4. Reply: `multicode issue comment add %s --parent %s --content \"...\"`\n", ctx.IssueID, ctx.TriggerCommentID)
 		b.WriteString("5. If the comment requests code changes or further work, do the work first, then reply with your results\n")
 		b.WriteString("6. Do NOT change the issue status unless the comment explicitly asks for it\n\n")
 	} else {
 		// Assignment-triggered: full workflow
 		b.WriteString("You are responsible for managing the issue status throughout your work.\n\n")
-		fmt.Fprintf(&b, "1. Run `multica issue get %s --output json` to understand your task\n", ctx.IssueID)
-		fmt.Fprintf(&b, "2. Run `multica issue status %s in_progress`\n", ctx.IssueID)
+		fmt.Fprintf(&b, "1. Run `multicode issue get %s --output json` to understand your task\n", ctx.IssueID)
+		fmt.Fprintf(&b, "2. Run `multicode issue status %s in_progress`\n", ctx.IssueID)
 		b.WriteString("3. Read comments for additional context or human instructions\n")
 		b.WriteString("4. If the task requires code changes:\n")
 		if len(ctx.Repos) > 0 {
-			b.WriteString("   a. Run `multica repo checkout <url>` to check out the appropriate repository\n")
+			b.WriteString("   a. Run `multicode repo checkout <url>` to check out the appropriate repository\n")
 			b.WriteString("   b. `cd` into the checked-out directory\n")
 			b.WriteString("   c. Implement the changes and commit\n")
 		} else {
@@ -109,10 +109,10 @@ func buildMetaSkillContent(provider string, ctx TaskContextForEnv) string {
 		}
 		b.WriteString("   c. Push the branch to the remote\n")
 		b.WriteString("   d. Create a pull request (decide the target branch based on the repo's conventions)\n")
-		fmt.Fprintf(&b, "   e. Post the PR link as a comment: `multica issue comment add %s --content \"PR: <url>\"`\n", ctx.IssueID)
+		fmt.Fprintf(&b, "   e. Post the PR link as a comment: `multicode issue comment add %s --content \"PR: <url>\"`\n", ctx.IssueID)
 		b.WriteString("5. If the task does not require code (e.g. research, documentation), post your findings as a comment\n")
-		fmt.Fprintf(&b, "6. Run `multica issue status %s in_review`\n", ctx.IssueID)
-		fmt.Fprintf(&b, "7. If blocked, run `multica issue status %s blocked` and post a comment explaining why\n\n", ctx.IssueID)
+		fmt.Fprintf(&b, "6. Run `multicode issue status %s in_review`\n", ctx.IssueID)
+		fmt.Fprintf(&b, "7. If blocked, run `multicode issue status %s blocked` and post a comment explaining why\n\n", ctx.IssueID)
 	}
 
 	if len(ctx.AgentSkills) > 0 {
@@ -138,12 +138,12 @@ func buildMetaSkillContent(provider string, ctx TaskContextForEnv) string {
 	b.WriteString("- **Issue**: `[MUL-123](mention://issue/<issue-id>)` — renders as a clickable link to the issue\n")
 	b.WriteString("- **Member**: `[@Name](mention://member/<user-id>)` — renders as a styled mention and sends a notification\n")
 	b.WriteString("- **Agent**: `[@Name](mention://agent/<agent-id>)` — renders as a styled mention\n\n")
-	b.WriteString("Use `multica issue list --output json` to look up issue IDs, and `multica workspace members --output json` for member IDs.\n\n")
+	b.WriteString("Use `multicode issue list --output json` to look up issue IDs, and `multicode workspace members --output json` for member IDs.\n\n")
 
 	b.WriteString("## Attachments\n\n")
 	b.WriteString("Issues and comments may include file attachments (images, documents, etc.).\n")
 	b.WriteString("Use the download command to fetch attachment files locally:\n\n")
-	b.WriteString("```\nmultica attachment download <attachment-id>\n```\n\n")
+	b.WriteString("```\nmulticode attachment download <attachment-id>\n```\n\n")
 	b.WriteString("This downloads the file to the current directory and prints the local path. Use `-o <dir>` to save elsewhere.\n")
 	b.WriteString("After downloading, you can read the file directly (e.g. view an image, read a document).\n\n")
 

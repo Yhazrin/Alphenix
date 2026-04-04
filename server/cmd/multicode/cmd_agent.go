@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/multica-ai/multica/server/internal/cli"
-	"github.com/multica-ai/multica/server/internal/daemon"
+	"github.com/multica-ai/multicode/server/internal/cli"
+	"github.com/multica-ai/multicode/server/internal/daemon"
 )
 
 var agentCmd = &cobra.Command{
@@ -158,34 +158,34 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 	token := resolveToken(cmd)
 
 	if serverURL == "" {
-		return nil, fmt.Errorf("server URL not set: use --server-url flag, MULTICA_SERVER_URL env, or 'multica config set server_url <url>'")
+		return nil, fmt.Errorf("server URL not set: use --server-url flag, MULTICODE_SERVER_URL env, or 'multicode config set server_url <url>'")
 	}
 
 	client := cli.NewAPIClient(serverURL, workspaceID, token)
 	// When running inside a daemon task, attribute actions to the agent.
-	if agentID := os.Getenv("MULTICA_AGENT_ID"); agentID != "" {
+	if agentID := os.Getenv("MULTICODE_AGENT_ID"); agentID != "" {
 		client.AgentID = agentID
 	}
-	if taskID := os.Getenv("MULTICA_TASK_ID"); taskID != "" {
+	if taskID := os.Getenv("MULTICODE_TASK_ID"); taskID != "" {
 		client.TaskID = taskID
 	}
 	return client, nil
 }
 
 func resolveServerURL(cmd *cobra.Command) string {
-	val := cli.FlagOrEnv(cmd, "server-url", "MULTICA_SERVER_URL", "")
+	val := cli.FlagOrEnv(cmd, "server-url", "MULTICODE_SERVER_URL", "")
 	if val != "" {
 		return normalizeAPIBaseURL(val)
 	}
 	profile := resolveProfile(cmd)
 	cfg, err := cli.LoadCLIConfigForProfile(profile)
 	if err != nil {
-		return "https://api.multica.ai"
+		return "https://api.multicode.ai"
 	}
 	if cfg.ServerURL != "" {
 		return normalizeAPIBaseURL(cfg.ServerURL)
 	}
-	return "https://api.multica.ai"
+	return "https://api.multicode.ai"
 }
 
 func normalizeAPIBaseURL(raw string) string {
@@ -197,7 +197,7 @@ func normalizeAPIBaseURL(raw string) string {
 }
 
 func resolveWorkspaceID(cmd *cobra.Command) string {
-	val := cli.FlagOrEnv(cmd, "workspace-id", "MULTICA_WORKSPACE_ID", "")
+	val := cli.FlagOrEnv(cmd, "workspace-id", "MULTICODE_WORKSPACE_ID", "")
 	if val != "" {
 		return val
 	}

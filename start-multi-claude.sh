@@ -11,13 +11,13 @@ for i in $(seq 1 $COUNT); do
     
     echo "Starting instance $INSTANCE_NAME on port $PORT..."
     
-    # 每个实例有不同的 MULTICA_DAEMON_ID 和 instance_id
+    # 每个实例有不同的 MULTICODE_DAEMON_ID 和 instance_id
     INSTANCE_ID="$INSTANCE_NAME" zsh -l -c "
-        export MULTICA_DAEMON_ID='daemon-$i'
-        export MULTICA_INSTANCE_ID='$INSTANCE_NAME'
-        multica daemon start --foreground --health-port $PORT &
-    " &> ~/.multica/daemon-$i.log &
+        export MULTICODE_DAEMON_ID='daemon-$i'
+        export MULTICODE_INSTANCE_ID='$INSTANCE_NAME'
+        multicode daemon start --foreground --health-port $PORT &
+    " &> ~/.multicode/daemon-$i.log &
 done
 
 echo "Started $COUNT Claude instances"
-echo "Check logs at: ~/.multica/daemon-*.log"
+echo "Check logs at: ~/.multicode/daemon-*.log"

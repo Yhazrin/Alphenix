@@ -20,13 +20,13 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
-      name: "Multica",
-      url: "https://www.multica.ai",
+      name: "Multicode",
+      url: "https://www.multicode.ai",
       sameAs: ["https://github.com/multica-ai/multica"],
     },
     {
       "@type": "SoftwareApplication",
-      name: "Multica",
+      name: "Multicode",
       applicationCategory: "ProjectManagement",
       operatingSystem: "Web",
       description:
@@ -43,7 +43,7 @@ const jsonLd = {
 async function getInitialLocale(): Promise<Locale> {
   // 1. User's explicit preference (cookie set when they switch language)
   const cookieStore = await cookies();
-  const stored = cookieStore.get("multica-locale")?.value;
+  const stored = cookieStore.get("multicode-locale")?.value;
   if (stored === "en" || stored === "zh") return stored;
 
   // 2. Detect from Accept-Language header

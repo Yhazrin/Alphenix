@@ -21,7 +21,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   initialize: async () => {
-    const token = localStorage.getItem("multica_token");
+    const token = localStorage.getItem("multicode_token");
     if (!token) {
       set({ isLoading: false });
       return;
@@ -35,8 +35,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       api.setToken(null);
       api.setWorkspaceId(null);
-      localStorage.removeItem("multica_token");
-      localStorage.removeItem("multica_workspace_id");
+      localStorage.removeItem("multicode_token");
+      localStorage.removeItem("multicode_workspace_id");
       set({ user: null, isLoading: false });
     }
   },
@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   verifyCode: async (email: string, code: string) => {
     const { token, user } = await authApi.verifyCode(email, code);
-    localStorage.setItem("multica_token", token);
+    localStorage.setItem("multicode_token", token);
     api.setToken(token);
     setLoggedInCookie();
     set({ user });
@@ -55,8 +55,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem("multica_token");
-    localStorage.removeItem("multica_workspace_id");
+    localStorage.removeItem("multicode_token");
+    localStorage.removeItem("multicode_workspace_id");
     api.setToken(null);
     api.setWorkspaceId(null);
     clearLoggedInCookie();

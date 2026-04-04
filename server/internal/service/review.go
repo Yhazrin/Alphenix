@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multica/server/internal/events"
-	"github.com/multica-ai/multica/server/internal/realtime"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multicode/server/internal/events"
+	"github.com/multica-ai/multicode/server/internal/realtime"
+	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 )
 
 // ReviewService orchestrates task review after agent completion.

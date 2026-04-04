@@ -39,7 +39,7 @@ describe("auth store", () => {
     });
 
     it("loads user when token exists", async () => {
-      localStorage.setItem("multica_token", "existing-token");
+      localStorage.setItem("multicode_token", "existing-token");
       const mockUser = { id: "u-1", email: "test@example.com", name: "Test" };
       vi.mocked(api.getMe).mockResolvedValueOnce(mockUser as any);
 
@@ -51,14 +51,14 @@ describe("auth store", () => {
     });
 
     it("clears token on failed getMe", async () => {
-      localStorage.setItem("multica_token", "bad-token");
+      localStorage.setItem("multicode_token", "bad-token");
       vi.mocked(api.getMe).mockRejectedValueOnce(new Error("unauthorized"));
 
       await useAuthStore.getState().initialize();
 
       expect(api.setToken).toHaveBeenCalledWith(null);
       expect(api.setWorkspaceId).toHaveBeenCalledWith(null);
-      expect(localStorage.getItem("multica_token")).toBeNull();
+      expect(localStorage.getItem("multicode_token")).toBeNull();
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().isLoading).toBe(false);
     });
@@ -72,7 +72,7 @@ describe("auth store", () => {
       const user = await useAuthStore.getState().verifyCode("test@example.com", "123456");
 
       expect(api.verifyCode).toHaveBeenCalledWith("test@example.com", "123456");
-      expect(localStorage.getItem("multica_token")).toBe("new-token");
+      expect(localStorage.getItem("multicode_token")).toBe("new-token");
       expect(api.setToken).toHaveBeenCalledWith("new-token");
       expect(setLoggedInCookie).toHaveBeenCalled();
       expect(user).toEqual(mockUser);
@@ -83,13 +83,13 @@ describe("auth store", () => {
   describe("logout", () => {
     it("clears all auth state", () => {
       useAuthStore.setState({ user: { id: "u-1", email: "test@example.com", name: "Test" } as any });
-      localStorage.setItem("multica_token", "token");
-      localStorage.setItem("multica_workspace_id", "ws-1");
+      localStorage.setItem("multicode_token", "token");
+      localStorage.setItem("multicode_workspace_id", "ws-1");
 
       useAuthStore.getState().logout();
 
-      expect(localStorage.getItem("multica_token")).toBeNull();
-      expect(localStorage.getItem("multica_workspace_id")).toBeNull();
+      expect(localStorage.getItem("multicode_token")).toBeNull();
+      expect(localStorage.getItem("multicode_workspace_id")).toBeNull();
       expect(api.setToken).toHaveBeenCalledWith(null);
       expect(api.setWorkspaceId).toHaveBeenCalledWith(null);
       expect(clearLoggedInCookie).toHaveBeenCalled();

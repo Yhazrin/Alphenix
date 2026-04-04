@@ -16,7 +16,7 @@ func NewEmailService() *EmailService {
 	apiKey := os.Getenv("RESEND_API_KEY")
 	from := os.Getenv("RESEND_FROM_EMAIL")
 	if from == "" {
-		from = "noreply@multica.ai"
+		from = "noreply@multicode.ai"
 	}
 
 	var client *resend.Client
@@ -39,7 +39,7 @@ func (s *EmailService) SendVerificationCode(to, code string) error {
 	params := &resend.SendEmailRequest{
 		From:    s.fromEmail,
 		To:      []string{to},
-		Subject: "Your Multica verification code",
+		Subject: "Your Multicode verification code",
 		Html: fmt.Sprintf(
 			`<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;">
 				<h2>Your verification code</h2>

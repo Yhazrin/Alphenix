@@ -22,10 +22,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.multica.ai"),
+  metadataBase: new URL("https://www.multicode.ai"),
   title: {
-    default: "Multica — AI-Native Task Management",
-    template: "%s | Multica",
+    default: "Multicode — AI-Native Task Management",
+    template: "%s | Multicode",
   },
   description:
     "Open-source platform that turns coding agents into real teammates. Assign tasks, track progress, compound skills.",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Multica",
+    siteName: "Multicode",
     locale: "en_US",
   },
   twitter: {
@@ -56,7 +56,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
-  const locale = cookieStore.get("multica-locale")?.value;
+  const locale = cookieStore.get("multicode-locale")?.value;
   const lang = locale === "zh" ? "zh" : "en";
 
   return (

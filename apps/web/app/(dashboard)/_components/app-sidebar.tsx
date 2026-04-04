@@ -96,7 +96,7 @@ export function AppSidebar() {
                       <SidebarMenuButton>
                         <WorkspaceAvatar name={workspace?.name ?? "M"} size="sm" />
                         <span className="flex-1 truncate font-medium">
-                          {workspace?.name ?? "Multica"}
+                          {workspace?.name ?? "Multicode"}
                         </span>
                         <ChevronDown className="size-3 text-muted-foreground" />
                       </SidebarMenuButton>

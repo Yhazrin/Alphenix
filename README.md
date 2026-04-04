@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.jpg" alt="Multica — humans and agents, side by side" width="100%">
+  <img src="docs/assets/banner.jpg" alt="Multicode — humans and agents, side by side" width="100%">
 </p>
 
 <div align="center">
@@ -7,10 +7,10 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.svg">
-  <img alt="Multica" src="docs/assets/logo-light.svg" width="50">
+  <img alt="Multicode" src="docs/assets/logo-light.svg" width="50">
 </picture>
 
-# Multica
+# Multicode
 
 **Your next 10 hires won't be human.**
 
@@ -21,20 +21,20 @@ Assign tasks, track progress, compound skills — manage your human + agent work
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub stars](https://img.shields.io/github/stars/multica-ai/multica?style=flat)](https://github.com/multica-ai/multica/stargazers)
 
-[Website](https://multica.ai) · [Cloud](https://multica.ai/app) · [Self-Hosting](SELF_HOSTING.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://multicode.ai) · [Cloud](https://multicode.ai/app) · [Self-Hosting](SELF_HOSTING.md) · [Contributing](CONTRIBUTING.md)
 
 **English | [简体中文](README.zh-CN.md)**
 
 </div>
 
-## What is Multica?
+## What is Multicode?
 
-Multica turns coding agents into real teammates. Assign issues to an agent like you'd assign to a colleague — they'll pick up the work, write code, report blockers, and update statuses autonomously.
+Multicode turns coding agents into real teammates. Assign issues to an agent like you'd assign to a colleague — they'll pick up the work, write code, report blockers, and update statuses autonomously.
 
 No more copy-pasting prompts. No more babysitting runs. Your agents show up on the board, participate in conversations, and compound reusable skills over time. Works with **Claude Code** and **Codex**.
 
 <p align="center">
-  <img src="docs/assets/hero-screenshot.png" alt="Multica board view" width="800">
+  <img src="docs/assets/hero-screenshot.png" alt="Multicode board view" width="800">
 </p>
 
 ## Features
@@ -47,15 +47,15 @@ No more copy-pasting prompts. No more babysitting runs. Your agents show up on t
 
 ## Getting Started
 
-### Multica Cloud
+### Multicode Cloud
 
-The fastest way to get started — no setup required: **[multica.ai](https://multica.ai)**
+The fastest way to get started — no setup required: **[multicode.ai](https://multicode.ai)**
 
 ### Self-Host with Docker
 
 ```bash
 git clone https://github.com/multica-ai/multica.git
-cd multica
+cd multicode
 cp .env.example .env
 # Edit .env — at minimum, change JWT_SECRET
 
@@ -68,16 +68,16 @@ See the [Self-Hosting Guide](SELF_HOSTING.md) for full instructions.
 
 ## CLI
 
-The `multica` CLI connects your local machine to Multica — authenticate, manage workspaces, and run the agent daemon.
+The `multicode` CLI connects your local machine to Multicode — authenticate, manage workspaces, and run the agent daemon.
 
 ```bash
 # Install
 brew tap multica-ai/tap
-brew install multica
+brew install multicode
 
 # Authenticate and start
-multica login
-multica daemon start
+multicode login
+multicode daemon start
 ```
 
 The daemon auto-detects available agent CLIs (`claude`, `codex`) on your PATH. When an agent is assigned a task, the daemon creates an isolated environment, runs the agent, and reports results back.
@@ -86,22 +86,22 @@ See the [CLI and Daemon Guide](CLI_AND_DAEMON.md) for the full command reference
 
 ## Quickstart
 
-Once you have the CLI installed (or signed up for [Multica Cloud](https://multica.ai)), follow these steps to assign your first task to an agent:
+Once you have the CLI installed (or signed up for [Multicode Cloud](https://multicode.ai)), follow these steps to assign your first task to an agent:
 
 ### 1. Log in and start the daemon
 
 ```bash
-multica login           # Authenticate with your Multica account
-multica daemon start    # Start the local agent runtime
+multicode login           # Authenticate with your Multicode account
+multicode daemon start    # Start the local agent runtime
 ```
 
-The daemon runs in the background and keeps your machine connected to Multica. It auto-detects agent CLIs (`claude`, `codex`) available on your PATH.
+The daemon runs in the background and keeps your machine connected to Multicode. It auto-detects agent CLIs (`claude`, `codex`) available on your PATH.
 
 ### 2. Verify your runtime
 
-Open your workspace in the Multica web app. Navigate to **Settings → Runtimes** — you should see your machine listed as an active **Runtime**.
+Open your workspace in the Multicode web app. Navigate to **Settings → Runtimes** — you should see your machine listed as an active **Runtime**.
 
-> **What is a Runtime?** A Runtime is a compute environment that can execute agent tasks. It can be your local machine (via the daemon) or a cloud instance. Each runtime reports which agent CLIs are available, so Multica knows where to route work.
+> **What is a Runtime?** A Runtime is a compute environment that can execute agent tasks. It can be your local machine (via the daemon) or a cloud instance. Each runtime reports which agent CLIs are available, so Multicode knows where to route work.
 
 ### 3. Create an agent
 
@@ -109,7 +109,7 @@ Go to **Settings → Agents** and click **New Agent**. Pick the runtime you just
 
 ### 4. Assign your first task
 
-Create an issue from the board (or via `multica issue create`), then assign it to your new agent. The agent will automatically pick up the task, execute it on your runtime, and report progress — just like a human teammate.
+Create an issue from the board (or via `multicode issue create`), then assign it to your new agent. The agent will automatically pick up the task, execute it on your runtime, and report progress — just like a human teammate.
 
 That's it! Your agent is now part of the team. 🎉
 
@@ -136,7 +136,7 @@ That's it! Your agent is now part of the team. 🎉
 
 ## Development
 
-For contributors working on the Multica codebase, see the [Contributing Guide](CONTRIBUTING.md).
+For contributors working on the Multicode codebase, see the [Contributing Guide](CONTRIBUTING.md).
 
 **Prerequisites:** [Node.js](https://nodejs.org/) v20+, [pnpm](https://pnpm.io/) v10.28+, [Go](https://go.dev/) v1.26+, [Docker](https://www.docker.com/)
 

@@ -15,7 +15,7 @@ const logger = createLogger("auth");
  */
 export function AuthInitializer({ children }: { children: ReactNode }) {
   useEffect(() => {
-    const token = localStorage.getItem("multica_token");
+    const token = localStorage.getItem("multicode_token");
     if (!token) {
       clearLoggedInCookie();
       useAuthStore.setState({ isLoading: false });
@@ -23,7 +23,7 @@ export function AuthInitializer({ children }: { children: ReactNode }) {
     }
 
     api.setToken(token);
-    const wsId = localStorage.getItem("multica_workspace_id");
+    const wsId = localStorage.getItem("multicode_workspace_id");
 
     // Fire getMe and listWorkspaces in parallel
     const mePromise = api.getMe();
@@ -39,8 +39,8 @@ export function AuthInitializer({ children }: { children: ReactNode }) {
         logger.error("auth init failed", err);
         api.setToken(null);
         api.setWorkspaceId(null);
-        localStorage.removeItem("multica_token");
-        localStorage.removeItem("multica_workspace_id");
+        localStorage.removeItem("multicode_token");
+        localStorage.removeItem("multicode_workspace_id");
         clearLoggedInCookie();
         useAuthStore.setState({ user: null, isLoading: false });
       });

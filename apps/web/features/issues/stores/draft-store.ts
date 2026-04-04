@@ -41,6 +41,6 @@ export const useIssueDraftStore = create<IssueDraftStore>()(
         return !!(draft.title || draft.description);
       },
     }),
-    { name: "multica_issue_draft" },
+    { name: "multicode_issue_draft" },
   ),
 );
