@@ -12,6 +12,9 @@ import type {
   UpdateAgentRequest,
   AgentTask,
   AgentRuntime,
+  Team,
+  CreateTeamRequest,
+  UpdateTeamRequest,
   InboxItem,
   IssueSubscriber,
   Comment,
@@ -564,6 +567,58 @@ export class ApiClient {
     await this.fetch(`/api/agents/${agentId}/skills`, {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  }
+
+  // Teams
+  async listTeams(params?: { workspace_id?: string }): Promise<Team[]> {
+    const search = new URLSearchParams();
+    const wsId = params?.workspace_id ?? this.workspaceId;
+    if (wsId) search.set("workspace_id", wsId);
+    return this.fetch(`/api/teams?${search}`);
+  }
+
+  async getTeam(id: string): Promise<Team> {
+    return this.fetch(`/api/teams/${id}`);
+  }
+
+  async createTeam(data: CreateTeamRequest): Promise<Team> {
+    return this.fetch("/api/teams", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTeam(id: string, data: UpdateTeamRequest): Promise<Team> {
+    return this.fetch(`/api/teams/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async archiveTeam(id: string): Promise<Team> {
+    return this.fetch(`/api/teams/${id}/archive`, { method: "POST" });
+  }
+
+  async restoreTeam(id: string): Promise<Team> {
+    return this.fetch(`/api/teams/${id}/restore`, { method: "POST" });
+  }
+
+  async addTeamMember(teamId: string, agentId: string): Promise<void> {
+    await this.fetch(`/api/teams/${teamId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId }),
+    });
+  }
+
+  async removeTeamMember(teamId: string, agentId: string): Promise<void> {
+    await this.fetch(`/api/teams/${teamId}/members/${agentId}`, { method: "DELETE" });
+  }
+
+  async setTeamLead(teamId: string, agentId: string): Promise<void> {
+    await this.fetch(`/api/teams/${teamId}/lead`, {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId }),
     });
   }
 

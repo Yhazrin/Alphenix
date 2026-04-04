@@ -225,6 +225,21 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus) chi.Route
 				r.Delete("/{memoryId}", h.DeleteAgentMemory)
 			})
 
+			// Teams
+			r.Route("/api/teams", func(r chi.Router) {
+				r.Get("/", h.ListTeams)
+				r.With(middleware.RequireWorkspaceRole(queries, "owner", "admin")).Post("/", h.CreateTeam)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", h.GetTeam)
+					r.With(middleware.RequireWorkspaceRole(queries, "owner", "admin")).Put("/", h.UpdateTeam)
+					r.With(middleware.RequireWorkspaceRole(queries, "owner", "admin")).Post("/archive", h.ArchiveTeam)
+					r.With(middleware.RequireWorkspaceRole(queries, "owner", "admin")).Post("/restore", h.RestoreTeam)
+					r.With(middleware.RequireWorkspaceRole(queries, "owner", "admin")).Post("/members", h.AddTeamMember)
+					r.With(middleware.RequireWorkspaceRole(queries, "owner", "admin")).Delete("/members/{agentId}", h.RemoveTeamMember)
+					r.With(middleware.RequireWorkspaceRole(queries, "owner", "admin")).Post("/lead", h.SetTeamLead)
+				})
+			})
+
 			// Task dependencies (DAG) and checkpoints
 			r.Route("/api/tasks/{taskId}/dependencies", func(r chi.Router) {
 				r.Post("/", h.AddTaskDependency)

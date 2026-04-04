@@ -24,6 +24,12 @@ export type {
   RuntimeUpdate,
   RuntimeUpdateStatus,
 } from "./agent";
+export type {
+  Team,
+  TeamMember,
+  CreateTeamRequest,
+  UpdateTeamRequest,
+} from "./team";
 export type { Workspace, WorkspaceRepo, Member, MemberRole, User, MemberWithUser } from "./workspace";
 export type { InboxItem, InboxSeverity, InboxItemType } from "./inbox";
 export type { Comment, CommentType, CommentAuthorType, Reaction } from "./comment";
