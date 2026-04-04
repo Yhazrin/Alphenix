@@ -141,7 +141,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
       clearDraft();
       onClose();
       toast.custom((t) => (
-        <div className="bg-popover text-popover-foreground border rounded-lg shadow-lg p-4 w-[360px]">
+        <div className="bg-popover text-popover-foreground border rounded-lg shadow-lg dark:shadow-none p-4 w-[360px]">
           <div className="flex items-center gap-2 mb-2">
             <div className="flex items-center justify-center size-5 rounded-full bg-success/15 text-success">
               <Check className="size-3" />
@@ -154,7 +154,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
           </div>
           <button
             type="button"
-            className="ml-7 mt-2 text-sm text-primary hover:underline cursor-pointer"
+            className="ml-7 mt-2 text-sm text-primary hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => {
               router.push(`/issues/${issue.id}`);
               toast.dismiss(t);
@@ -202,7 +202,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="rounded-sm p-1.5 opacity-70 hover:opacity-100 hover:bg-accent/60 transition-all cursor-pointer"
                   >
-                    {isExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+                    {isExpanded ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}
                   </button>
                 }
               />
@@ -216,7 +216,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
                     onClick={onClose}
                     className="rounded-sm p-1.5 opacity-70 hover:opacity-100 hover:bg-accent/60 transition-all cursor-pointer"
                   >
-                    <XIcon className="size-4" />
+                    <XIcon className="size-4" aria-hidden="true" />
                   </button>
                 }
               />
@@ -261,7 +261,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
             <DropdownMenuTrigger
               render={
                 <PillButton>
-                  <StatusIcon status={status} className="size-3.5" />
+                  <StatusIcon status={status} className="size-3.5" aria-hidden="true" />
                   <span>{STATUS_CONFIG[status].label}</span>
                 </PillButton>
               }
@@ -281,7 +281,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
             <DropdownMenuTrigger
               render={
                 <PillButton>
-                  <PriorityIcon priority={priority} />
+                  <PriorityIcon priority={priority} aria-hidden="true" />
                   <span>{PRIORITY_CONFIG[priority].label}</span>
                 </PillButton>
               }

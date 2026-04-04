@@ -32,7 +32,7 @@ function CodeBlockView({ node }: NodeViewProps) {
           type="button"
           onClick={handleCopy}
           aria-label="Copy code"
-          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {copied ? (
             <Check className="h-3.5 w-3.5" aria-hidden="true" />

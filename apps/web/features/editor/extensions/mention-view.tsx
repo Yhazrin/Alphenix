@@ -58,7 +58,7 @@ function IssueMention({
   };
 
   const cardClass =
-    "issue-mention inline-flex items-center gap-1.5 rounded-md border mx-0.5 px-2 py-0.5 text-xs hover:bg-accent transition-colors cursor-pointer max-w-72";
+    "issue-mention inline-flex items-center gap-1.5 rounded-md border mx-0.5 px-2 py-0.5 text-xs hover:bg-accent transition-colors cursor-pointer max-w-72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   if (!issue) {
     return (
@@ -72,7 +72,7 @@ function IssueMention({
 
   return (
     <a href={`/issues/${issueId}`} onClick={handleClick} className={cardClass}>
-      <StatusIcon status={issue.status} className="h-3.5 w-3.5 shrink-0" />
+      <StatusIcon status={issue.status} className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span className="font-medium text-muted-foreground shrink-0">{issue.identifier}</span>
       <span className="text-foreground truncate">{issue.title}</span>
     </a>

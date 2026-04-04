@@ -45,11 +45,17 @@ export function useRealtimeSync(ws: WSClient | null) {
   useEffect(() => {
     if (!ws) return;
 
-    // Event types handled by specific handlers below — skip generic refresh
+    // Event types handled by specific handlers below — skip generic refresh.
+    // Agent lifecycle events (tool_use, tool_result, started, completed, etc.)
+    // fire frequently during execution and must NOT trigger refreshAgents().
+    // CRUD events (created, updated, archived, restored, status) are NOT listed
+    // here so they fall through to the "agent" prefix → refreshAgents().
     const specificEvents = new Set([
       "issue:updated", "issue:created", "issue:deleted",
       "inbox:new", "inbox:read", "inbox:archived", "inbox:batch-read", "inbox:batch-archived",
       "issue_reaction:added", "issue_reaction:removed",
+      "agent:tool_use", "agent:tool_result", "agent:started", "agent:completed",
+      "agent:failed", "agent:stop", "agent:session_start", "agent:message",
     ]);
 
     const refreshMap: Record<string, () => void> = {

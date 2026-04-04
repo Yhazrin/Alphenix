@@ -112,6 +112,7 @@ export function FileViewer({
                     size="icon-xs"
                     onClick={() => setEditing(!editing)}
                     className="text-muted-foreground"
+                    aria-label={editing ? "Preview" : "Edit"}
                   >
                     {editing ? (
                       <Eye className="h-3.5 w-3.5" aria-hidden="true" />
@@ -147,7 +148,7 @@ export function FileViewer({
                 ? "Write markdown content..."
                 : "File content..."
             }
-            className="h-full min-h-full resize-none rounded-none border-0 font-mono text-sm leading-relaxed focus-visible:ring-0"
+            className="h-full min-h-full resize-none rounded-none border-0 font-mono text-sm leading-relaxed"
           />
         )}
       </div>

@@ -15,6 +15,7 @@ interface WorkspaceAvatarProps {
 function WorkspaceAvatar({ name, size = "sm", className }: WorkspaceAvatarProps) {
   return (
     <span
+      aria-hidden="true"
       className={cn(
         "inline-flex shrink-0 items-center justify-center border bg-muted font-semibold text-muted-foreground",
         sizeMap[size],

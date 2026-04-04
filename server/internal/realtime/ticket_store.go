@@ -31,8 +31,17 @@ type ticketEntry struct {
 	expiresAt   time.Time
 }
 
-// MemoryTicketStore is an in-memory TicketStore backed by sync.Map.
-// A background goroutine cleans up expired tickets every 30 seconds.
+// TicketStore is the interface for one-time-use short-lived ticket management.
+// Implementations must provide Generate and Validate for WebSocket auth flow.
+type TicketStore interface {
+	Generate(workspaceID, userID string) string
+	Validate(ticket, workspaceID string) (string, string, bool)
+}
+
+// MemoryTicketStore holds one-time-use short-lived tickets for WebSocket auth.
+// It uses an in-memory sync.Map with a background goroutine that cleans up
+// expired tickets every 30 seconds. If Redis becomes available, this can be
+// replaced with a Redis-backed implementation.
 type MemoryTicketStore struct {
 	tickets sync.Map // map[string]*ticketEntry
 	stopCh  chan struct{}
@@ -45,16 +54,14 @@ func InitTicketStore() {
 	store := &MemoryTicketStore{
 		stopCh: make(chan struct{}),
 	}
-	go store.cleanupLoop()
 	globalTicketStore = store
+	go store.cleanupLoop()
 }
 
 // StopTicketStore stops the cleanup goroutine. For testing / graceful shutdown.
 func StopTicketStore() {
-	if globalTicketStore != nil {
-		if ms, ok := globalTicketStore.(*MemoryTicketStore); ok {
-			close(ms.stopCh)
-		}
+	if store, ok := globalTicketStore.(*MemoryTicketStore); ok {
+		close(store.stopCh)
 	}
 }
 
@@ -82,6 +89,7 @@ func (ts *MemoryTicketStore) cleanup() {
 	})
 }
 
+// Generate creates a new ticket for the given workspace and user, returns the ticket string.
 func (ts *MemoryTicketStore) Generate(workspaceID, userID string) string {
 	bytes := make([]byte, 16)
 	rand.Read(bytes)
@@ -95,6 +103,8 @@ func (ts *MemoryTicketStore) Generate(workspaceID, userID string) string {
 	return ticket
 }
 
+// Validate checks a ticket: returns (workspaceID, userID, true) if valid and not expired,
+// or ("", "", false) if missing, expired, or workspace mismatch.
 func (ts *MemoryTicketStore) Validate(ticket, workspaceID string) (string, string, bool) {
 	value, ok := ts.tickets.Load(ticket)
 	if !ok {

@@ -143,6 +143,7 @@ export function AIAssistant() {
             <div className="flex justify-start">
               <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-2">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only">Assistant is typing...</span>
               </div>
             </div>
           )}

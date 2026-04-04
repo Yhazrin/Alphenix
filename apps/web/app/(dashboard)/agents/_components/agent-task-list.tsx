@@ -97,6 +97,7 @@ export function TasksTab({ agent }: { agent: Agent }) {
                 }`}
               >
                 <Icon
+                  aria-hidden="true"
                   className={`h-4 w-4 shrink-0 ${config.color} ${
                     isRunning ? "animate-spin" : ""
                   }`}

@@ -100,7 +100,7 @@ function TreeNodeItem({
         <button
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
-          className="flex w-full items-center gap-1.5 py-1 text-left text-xs hover:bg-accent/50 rounded-sm"
+          className="flex w-full items-center gap-1.5 py-1 text-left text-xs hover:bg-accent/50 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
           <ChevronIcon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -130,7 +130,7 @@ function TreeNodeItem({
     <button
       onClick={() => onSelect(node.path)}
       className={cn(
-        "flex w-full items-center gap-1.5 py-1 text-left text-xs rounded-sm",
+        "flex w-full items-center gap-1.5 py-1 text-left text-xs rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isSelected
           ? "bg-accent text-accent-foreground"
           : "hover:bg-accent/50",

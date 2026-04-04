@@ -58,6 +58,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 
 	taskSvc := service.NewTaskService(queries, hub, bus)
 	compactor := service.NewCompactor()
+	compactor.Summarizer = service.NewLLMSummarizer()
 
 	return &Handler{
 		Queries:              queries,
