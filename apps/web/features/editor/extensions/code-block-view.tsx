@@ -31,13 +31,13 @@ function CodeBlockView({ node }: NodeViewProps) {
         <button
           type="button"
           onClick={handleCopy}
+          aria-label="Copy code"
           className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          title="Copy code"
         >
           {copied ? (
-            <Check className="h-3.5 w-3.5" />
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
           ) : (
-            <Copy className="h-3.5 w-3.5" />
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           )}
         </button>
       </div>
