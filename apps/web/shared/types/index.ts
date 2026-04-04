@@ -71,5 +71,6 @@ export type { Run, RunPhase, RunStep, RunTodo, RunArtifact } from "./run";
 export type {
   PromptSection,
   PromptPreviewResponse,
+  TaskContextSection,
   TaskContextPreviewResponse,
 } from "./prompt-preview";
