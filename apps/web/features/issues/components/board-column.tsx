@@ -44,7 +44,8 @@ export function BoardColumn({
   );
 
   return (
-    <div className={`flex w-[280px] shrink-0 flex-col rounded-xl ${cfg.columnBg} p-2`}>
+    <div className={`flex min-w-[260px] max-w-[320px] flex-1 shrink-0 flex-col overflow-hidden rounded-xl ${cfg.columnBg} p-2`}>
+      <div className={`-mx-2 -mt-2 mb-2 h-0.5 ${cfg.badgeBg}`} />
       <div className="mb-2 flex items-center justify-between px-1.5">
         {/* Left: status badge + count */}
         <div className="flex items-center gap-2">

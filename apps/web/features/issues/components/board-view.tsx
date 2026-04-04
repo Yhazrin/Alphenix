@@ -170,7 +170,7 @@ export function BoardView({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto p-4">
+      <div className="flex flex-1 min-h-0 gap-3 overflow-x-auto p-4 pb-2">
         {visibleStatuses.map((status) => (
           <BoardColumn
             key={status}
@@ -189,7 +189,7 @@ export function BoardView({
 
       <DragOverlay>
         {activeIssue ? (
-          <div className="w-[280px] rotate-1 cursor-grabbing opacity-95 shadow-md">
+          <div className="min-w-[260px] max-w-[320px] rotate-1 cursor-grabbing opacity-95 shadow-md">
             <BoardCardContent issue={activeIssue} />
           </div>
         ) : null}

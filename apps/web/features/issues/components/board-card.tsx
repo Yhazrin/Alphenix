@@ -65,7 +65,7 @@ export const BoardCardContent = memo(function BoardCardContent({
   const showBottom = showAssignee || showDueDate;
 
   return (
-    <div className="rounded-lg border bg-card p-3.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] transition-shadow group-hover:shadow-sm">
+    <div className="rounded-lg border bg-card p-3.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] transition-all group-hover:-translate-y-0.5 group-hover:shadow-md">
       {/* Row 1: Identifier */}
       <p className="text-xs text-muted-foreground">{issue.identifier}</p>
 
