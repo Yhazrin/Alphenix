@@ -294,8 +294,12 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	// Only ready issues in todo are enqueued for agents.
 	if issue.AssigneeType.Valid && issue.AssigneeID.Valid {
+		slog.Debug("CreateIssue: assignee set, checking trigger", "issue_id", uuidToString(issue.ID))
 		if h.shouldEnqueueAgentTask(r.Context(), issue) {
+			slog.Debug("CreateIssue: trigger enabled, enqueuing task", "issue_id", uuidToString(issue.ID))
 			h.TaskService.EnqueueTaskForIssue(r.Context(), issue)
+		} else {
+			slog.Debug("CreateIssue: trigger disabled", "issue_id", uuidToString(issue.ID))
 		}
 	}
 
@@ -519,16 +523,36 @@ func (h *Handler) shouldEnqueueOnComment(ctx context.Context, issue db.Issue) bo
 // specific trigger type enabled. Returns true if the agent has no triggers
 // configured (default-enabled behavior for backwards compatibility).
 func (h *Handler) isAgentTriggerEnabled(ctx context.Context, issue db.Issue, triggerType string) bool {
-	if !issue.AssigneeType.Valid || issue.AssigneeType.String != "agent" || !issue.AssigneeID.Valid {
+	if !issue.AssigneeType.Valid {
+		slog.Debug("isAgentTriggerEnabled: AssigneeType not valid", "issue_id", uuidToString(issue.ID))
+		return false
+	}
+	if issue.AssigneeType.String != "agent" {
+		slog.Debug("isAgentTriggerEnabled: AssigneeType not agent", "issue_id", uuidToString(issue.ID), "assignee_type", issue.AssigneeType.String)
+		return false
+	}
+	if !issue.AssigneeID.Valid {
+		slog.Debug("isAgentTriggerEnabled: AssigneeID not valid", "issue_id", uuidToString(issue.ID))
 		return false
 	}
 
 	agent, err := h.Queries.GetAgent(ctx, issue.AssigneeID)
-	if err != nil || !agent.RuntimeID.Valid || agent.ArchivedAt.Valid {
+	if err != nil {
+		slog.Debug("isAgentTriggerEnabled: GetAgent failed", "issue_id", uuidToString(issue.ID), "error", err)
+		return false
+	}
+	if !agent.RuntimeID.Valid {
+		slog.Debug("isAgentTriggerEnabled: agent.RuntimeID not valid", "issue_id", uuidToString(issue.ID), "agent_id", uuidToString(issue.AssigneeID))
+		return false
+	}
+	if agent.ArchivedAt.Valid {
+		slog.Debug("isAgentTriggerEnabled: agent is archived", "issue_id", uuidToString(issue.ID), "agent_id", uuidToString(issue.AssigneeID))
 		return false
 	}
 
-	return agentHasTriggerEnabled(agent.Triggers, triggerType)
+	enabled := agentHasTriggerEnabled(agent.Triggers, triggerType)
+	slog.Debug("isAgentTriggerEnabled", "issue_id", uuidToString(issue.ID), "trigger", triggerType, "enabled", enabled)
+	return enabled
 }
 
 // isAgentMentionTriggerEnabled checks if a specific agent has the on_mention
