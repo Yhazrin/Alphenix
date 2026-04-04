@@ -134,7 +134,7 @@ export function MyIssuesPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 min-h-0 flex-col">
+      <div className="flex flex-1 min-h-0 flex-col" role="status" aria-label="Loading issues">
         <div className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
           <Skeleton className="h-5 w-5 rounded" />
           <Skeleton className="h-4 w-32" />
@@ -185,7 +185,7 @@ export function MyIssuesPage() {
           <Empty className="flex-1 border-0">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <ListTodo />
+                <ListTodo aria-hidden="true" />
               </EmptyMedia>
               <EmptyTitle>No issues assigned to you</EmptyTitle>
               <EmptyDescription>Issues you create or are assigned to will appear here.</EmptyDescription>

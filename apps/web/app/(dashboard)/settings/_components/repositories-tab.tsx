@@ -93,7 +93,7 @@ export function RepositoriesTab() {
                     className="mt-0.5 shrink-0 text-muted-foreground hover:text-destructive"
                     onClick={() => handleRemoveRepo(index)}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 )}
               </div>
@@ -102,7 +102,7 @@ export function RepositoriesTab() {
             {canManageWorkspace && (
               <div className="flex items-center justify-between pt-1">
                 <Button variant="outline" size="sm" onClick={handleAddRepo}>
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-3 w-3" aria-hidden="true" />
                   Add repository
                 </Button>
                 <Button
@@ -110,7 +110,7 @@ export function RepositoriesTab() {
                   onClick={handleSave}
                   disabled={saving}
                 >
-                  <Save className="h-3 w-3" />
+                  <Save className="h-3 w-3" aria-hidden="true" />
                   {saving ? "Saving..." : "Save"}
                 </Button>
               </div>

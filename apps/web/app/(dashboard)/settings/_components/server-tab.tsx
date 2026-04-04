@@ -37,7 +37,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
       {/* Server Connection */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <Server className="h-5 w-5 text-muted-foreground" />
+          <Server className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-sm font-semibold">Server Connection</h2>
         </div>
 
@@ -65,7 +65,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-muted-foreground" />
+            <Globe className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
             <h2 className="text-sm font-semibold">Tunnel Configuration</h2>
           </div>
           <Switch
@@ -120,9 +120,9 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
                     }
                   >
                     {copied ? (
-                      <Check className="h-4 w-4 text-success" />
+                      <Check className="h-4 w-4 text-success" aria-hidden="true" />
                     ) : (
-                      <Copy className="h-4 w-4" />
+                      <Copy className="h-4 w-4" aria-hidden="true" />
                     )}
                   </Button>
                 </div>
@@ -135,7 +135,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
       {/* Deployment Guide */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <Play className="h-5 w-5 text-muted-foreground" />
+          <Play className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-sm font-semibold">Deployment Guide</h2>
         </div>
 
@@ -143,7 +143,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
           {/* Server Deployment */}
           <div className="border rounded-lg p-4 space-y-3">
             <h3 className="text-sm font-medium flex items-center gap-2">
-              <Server className="h-4 w-4" />
+              <Server className="h-4 w-4" aria-hidden="true" />
               1. Deploy the server
             </h3>
             <div className="bg-muted/50 p-3 rounded-lg font-mono text-xs space-y-1">
@@ -159,7 +159,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
               size="sm"
               onClick={() => handleCopyCommand(localCommands.deploy)}
             >
-              <Copy className="h-4 w-4 mr-2" />
+              <Copy className="h-4 w-4 mr-2" aria-hidden="true" />
               Copy command
             </Button>
           </div>
@@ -167,7 +167,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
           {/* Client Connection */}
           <div className="border rounded-lg p-4 space-y-3">
             <h3 className="text-sm font-medium flex items-center gap-2">
-              <Globe className="h-4 w-4" />
+              <Globe className="h-4 w-4" aria-hidden="true" />
               2. Connect a client
             </h3>
             <p className="text-xs text-muted-foreground">
@@ -184,7 +184,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
               size="sm"
               onClick={() => handleCopyCommand(localCommands.connect)}
             >
-              <Copy className="h-4 w-4 mr-2" />
+              <Copy className="h-4 w-4 mr-2" aria-hidden="true" />
               Copy command
             </Button>
           </div>
@@ -192,7 +192,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
           {/* Security Note */}
           <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
             <div className="flex items-center gap-2 text-warning">
-              <Lock className="h-4 w-4" />
+              <Lock className="h-4 w-4" aria-hidden="true" />
               <span className="text-sm font-medium">Security Recommendations</span>
             </div>
             <ul className="mt-2 text-xs text-muted-foreground space-y-1">

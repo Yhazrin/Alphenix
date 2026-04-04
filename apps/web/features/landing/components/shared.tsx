@@ -66,22 +66,22 @@ export function headerButtonClassName(
   variant: "dark" | "light" = "dark",
 ) {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-[11px] px-4 py-2.5 text-[13px] font-semibold transition-colors",
+    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     variant === "dark"
       ? tone === "solid"
-        ? "bg-white text-[#0a0d12] hover:bg-white/92"
-        : "border border-white/18 bg-black/16 text-white backdrop-blur-sm hover:bg-black/24"
+        ? "bg-landing-dark-foreground text-landing-dark hover:bg-landing-dark-foreground/90"
+        : "border border-landing-dark-foreground/20 bg-landing-dark-foreground/10 text-landing-dark-foreground backdrop-blur-sm hover:bg-landing-dark-foreground/15"
       : tone === "solid"
-        ? "bg-[#0a0d12] text-white hover:bg-[#0a0d12]/88"
-        : "border border-[#0a0d12]/12 bg-white text-[#0a0d12] hover:bg-[#0a0d12]/5",
+        ? "bg-landing-dark text-landing-dark-foreground hover:bg-landing-dark/90"
+        : "border border-border bg-background text-foreground hover:bg-accent",
   );
 }
 
 export function heroButtonClassName(tone: "ghost" | "solid") {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-[12px] px-5 py-3 text-[14px] font-semibold transition-colors",
+    "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     tone === "solid"
-      ? "bg-white text-[#0a0d12] hover:bg-white/92"
-      : "border border-white/18 bg-black/16 text-white backdrop-blur-sm hover:bg-black/24",
+      ? "bg-landing-dark-foreground text-landing-dark hover:bg-landing-dark-foreground/90"
+      : "border border-landing-dark-foreground/20 bg-landing-dark-foreground/10 text-landing-dark-foreground backdrop-blur-sm hover:bg-landing-dark-foreground/15",
   );
 }

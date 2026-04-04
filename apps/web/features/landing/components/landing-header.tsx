@@ -32,6 +32,7 @@ export function LandingHeader({
               variant === "dark" ? "text-landing-dark-foreground" : "text-foreground",
             )}
             noSpin
+            aria-hidden="true"
           />
           <span
             className={cn(

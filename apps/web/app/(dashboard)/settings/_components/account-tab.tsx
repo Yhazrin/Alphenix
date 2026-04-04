@@ -71,6 +71,7 @@ export function AccountTab() {
             <div className="flex items-center gap-4">
               <button
                 type="button"
+                aria-label="Upload avatar"
                 className="group relative h-16 w-16 shrink-0 rounded-full bg-muted overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
@@ -86,11 +87,11 @@ export function AccountTab() {
                     {initials}
                   </span>
                 )}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-sm">
                   {uploading ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" />
+                    <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" aria-hidden="true" />
                   ) : (
-                    <Camera className="h-5 w-5 text-primary-foreground" />
+                    <Camera className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
                   )}
                 </div>
               </button>
@@ -107,9 +108,10 @@ export function AccountTab() {
             </div>
 
             <div>
-              <Label className="text-xs text-muted-foreground">Name</Label>
+              <Label htmlFor="profile-name" className="text-xs text-muted-foreground">Name</Label>
               <Input
-                type="search"
+                id="profile-name"
+                type="text"
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
                 className="mt-1"
@@ -121,7 +123,7 @@ export function AccountTab() {
                 onClick={handleProfileSave}
                 disabled={profileSaving || !profileName.trim()}
               >
-                <Save className="h-3 w-3" />
+                <Save className="h-3 w-3" aria-hidden="true" />
                 {profileSaving ? "Updating..." : "Update Profile"}
               </Button>
             </div>

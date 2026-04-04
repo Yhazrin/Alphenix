@@ -48,7 +48,7 @@ function MockAvatar({
       style={{ width: size, height: size, fontSize: size * 0.45 }}
     >
       {type === "agent" ? (
-        <Bot style={{ width: size * 0.55, height: size * 0.55 }} />
+        <Bot style={{ width: size * 0.55, height: size * 0.55 }} aria-hidden="true" />
       ) : (
         initials
       )}
@@ -165,9 +165,9 @@ function TeammatesVisual() {
       <div className="flex h-10 shrink-0 items-center border-b bg-background px-4 text-sm">
         <div className="flex items-center gap-1.5 min-w-0 text-xs">
           <span className="text-muted-foreground">Multicode Demo</span>
-          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
           <span className="text-muted-foreground">MUL-18</span>
-          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
           <span className="truncate">Refactor API error handling middleware</span>
         </div>
       </div>
@@ -231,7 +231,7 @@ function TeammatesVisual() {
           <div className="p-4 space-y-4">
             <div>
               <div className="flex items-center gap-1 text-xs font-medium mb-2">
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground rotate-90" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground rotate-90" aria-hidden="true" />
                 Properties
               </div>
               <div className="space-y-0.5 pl-2">
@@ -261,7 +261,7 @@ function TeammatesVisual() {
                         >
                           <StatusIcon status={s} className="h-3.5 w-3.5 shrink-0" />
                           {STATUS_CONFIG[s].label}
-                          {s === status && <Check className="ml-auto h-3.5 w-3.5" />}
+                          {s === status && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
                         </button>
                       ))}
                     </div>
@@ -294,7 +294,7 @@ function TeammatesVisual() {
                         >
                           <PriorityIcon priority={p} />
                           {PRIORITY_CONFIG[p].label}
-                          {p === priority && <Check className="ml-auto h-3.5 w-3.5" />}
+                          {p === priority && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
                         </button>
                       ))}
                     </div>
@@ -336,9 +336,9 @@ function TeammatesVisual() {
                     )}
                     onClick={() => { setAssignee(allAssignees[0]!); setPickerOpen(false); }}
                   >
-                    <UserMinus className="h-3.5 w-3.5" />
+                    <UserMinus className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Unassigned</span>
-                    {!assignee.type && <Check className="ml-auto h-3.5 w-3.5" />}
+                    {!assignee.type && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
                   </button>
                 </div>
                 <div className="px-3 py-0.5">
@@ -356,7 +356,7 @@ function TeammatesVisual() {
                     >
                       <MockAvatar type="member" initials={m.initials} size={16} />
                       <span>{m.name}</span>
-                      {assignee.id === m.id && <Check className="ml-auto h-3.5 w-3.5" />}
+                      {assignee.id === m.id && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
                     </button>
                   ))}
                 </div>
@@ -374,10 +374,10 @@ function TeammatesVisual() {
                       onClick={() => { setAssignee(a); setPickerOpen(false); }}
                     >
                       <div className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-info/10 text-info">
-                        <Bot className="size-2.5" />
+                        <Bot className="size-2.5" aria-hidden="true" />
                       </div>
                       <span>{a.name}</span>
-                      {assignee.id === a.id && <Check className="ml-auto h-3.5 w-3.5" />}
+                      {assignee.id === a.id && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
                     </button>
                   ))}
                 </div>
@@ -422,9 +422,9 @@ function AutonomousVisual() {
       <div className="flex h-10 shrink-0 items-center border-b bg-background px-4 text-sm">
         <div className="flex items-center gap-1.5 min-w-0 text-xs">
           <span className="text-muted-foreground">Multicode Demo</span>
-          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
           <span className="text-muted-foreground">MUL-18</span>
-          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
           <span className="truncate">Refactor API error handling middleware</span>
         </div>
       </div>
@@ -435,7 +435,7 @@ function AutonomousVisual() {
           {/* Live card header */}
           <div className="flex items-center gap-2 px-3 py-2">
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-info/10 text-info">
-              <Bot className="h-3 w-3" />
+              <Bot className="h-3 w-3" aria-hidden="true" />
             </div>
             <div className="flex items-center gap-1.5 text-xs font-medium">
               <Loader2 className="h-3 w-3 animate-spin text-info" aria-hidden="true" />
@@ -457,8 +457,8 @@ function AutonomousVisual() {
                     className="flex w-full items-center gap-2 rounded px-2 py-1 text-xs hover:bg-info/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => setExpanded(isExpanded ? null : i)}
                   >
-                    <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
-                    <Brain className="h-3 w-3 shrink-0 text-info/60" />
+                    <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} aria-hidden="true" />
+                    <Brain className="h-3 w-3 shrink-0 text-info/60" aria-hidden="true" />
                     <span className="truncate italic text-muted-foreground">{item.content}</span>
                   </button>
                 );
@@ -471,7 +471,7 @@ function AutonomousVisual() {
                     className="flex w-full items-center gap-2 rounded px-2 py-1 text-xs hover:bg-info/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => setExpanded(isExpanded ? null : i)}
                   >
-                    <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+                    <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} aria-hidden="true" />
                     <span className="shrink-0 font-semibold">{item.tool}</span>
                     <span className="truncate text-muted-foreground">{item.summary}</span>
                   </button>
@@ -485,7 +485,7 @@ function AutonomousVisual() {
                   className="flex w-full items-center gap-2 rounded px-2 py-1 text-xs hover:bg-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setExpanded(isExpanded ? null : i)}
                 >
-                  <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+                  <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} aria-hidden="true" />
                   <span className="shrink-0 text-muted-foreground">result:</span>
                   <span className="truncate text-muted-foreground">{item.preview}</span>
                 </button>
@@ -501,7 +501,7 @@ function AutonomousVisual() {
             {mockTaskHistory.map((task, i) => (
               <div key={i} className="flex items-center gap-2 text-xs">
                 {task.status === "completed" ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
                 ) : (
                   <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-info" aria-hidden="true" />
                 )}
@@ -547,8 +547,8 @@ function SkillsVisual() {
         <div className="hidden sm:block w-[200px] shrink-0 border-r flex flex-col">
           <div className="flex items-center justify-between border-b px-3 py-2">
             <span className="text-xs font-semibold">Skills</span>
-            <button className="rounded p-0.5 text-muted-foreground hover:bg-accent transition-colors">
-              <Sparkles className="h-3.5 w-3.5" />
+            <button className="rounded p-0.5 text-muted-foreground hover:bg-accent transition-colors" aria-label="Generate skill">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
           <div className="flex-1 overflow-hidden divide-y">
@@ -562,7 +562,7 @@ function SkillsVisual() {
                 onClick={() => setSelectedSkill(i)}
               >
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <Sparkles className="h-3 w-3 text-muted-foreground" />
+                  <Sparkles className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs font-medium">{skill.name}</div>
@@ -577,7 +577,7 @@ function SkillsVisual() {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Skill header */}
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
-            <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span className="text-sm font-medium">{mockSkills[selectedSkill]?.name}</span>
             <span className="ml-2 text-xs text-muted-foreground">{mockSkills[selectedSkill]?.description}</span>
           </div>
@@ -602,13 +602,13 @@ function SkillsVisual() {
                   >
                     {f.isDir ? (
                       <>
-                        <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", f.open && "rotate-90")} />
-                        {f.open ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                        <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", f.open && "rotate-90")} aria-hidden="true" />
+                        {f.open ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
                       </>
                     ) : f.icon === "md" ? (
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                     ) : (
-                      <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                     )}
                     <span className="truncate">{f.name}</span>
                   </button>
@@ -827,9 +827,9 @@ function RuntimesVisual() {
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                   {rt.mode === "cloud" ? (
-                    <Cloud className="h-4 w-4 text-muted-foreground" />
+                    <Cloud className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   ) : (
-                    <Monitor className="h-4 w-4 text-muted-foreground" />
+                    <Monitor className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -852,9 +852,9 @@ function RuntimesVisual() {
           <div className="flex items-center gap-2.5 border-b px-4 py-2.5">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
               {mockRuntimeList[selectedRuntime]?.mode === "cloud" ? (
-                <Cloud className="h-4 w-4 text-muted-foreground" />
+                <Cloud className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               ) : (
-                <Monitor className="h-4 w-4 text-muted-foreground" />
+                <Monitor className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               )}
             </div>
             <span className="text-sm font-semibold">{mockRuntimeList[selectedRuntime]?.name}</span>
@@ -1074,7 +1074,7 @@ export function FeaturesSection() {
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="flex flex-col items-center gap-4 text-center">
                           <div className="grid size-14 place-items-center rounded-2xl border border-border bg-background shadow-sm">
-                            <ImageIcon className="size-6 text-muted-foreground/50" />
+                            <ImageIcon className="size-6 text-muted-foreground/50" aria-hidden="true" />
                           </div>
                           <p className="text-[13px] text-muted-foreground/60">
                             {feature.label.toLowerCase()} visual

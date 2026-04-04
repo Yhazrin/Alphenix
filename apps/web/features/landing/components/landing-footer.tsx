@@ -19,7 +19,7 @@ export function LandingFooter() {
           {/* Left — newsletter / CTA */}
           <div className="lg:w-[340px] lg:shrink-0">
             <Link href="#product" className="flex items-center gap-3">
-              <MulticodeIcon className="size-5 text-landing-dark-foreground" noSpin />
+              <MulticodeIcon className="size-5 text-landing-dark-foreground" noSpin aria-hidden="true" />
               <span className="text-[18px] font-semibold tracking-[0.04em] lowercase">
                 multicode
               </span>
@@ -99,6 +99,7 @@ export function LandingFooter() {
             <MulticodeIcon
               className="size-[clamp(4rem,12vw,10rem)] shrink-0 text-landing-dark-foreground"
               noSpin
+              aria-hidden="true"
             />
             <span className="font-[family-name:var(--font-serif)] text-[clamp(6rem,22vw,16rem)] font-normal leading-[0.82] tracking-[-0.04em] text-landing-dark-foreground lowercase">
                 multicode
