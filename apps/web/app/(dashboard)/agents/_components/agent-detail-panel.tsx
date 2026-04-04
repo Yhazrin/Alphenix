@@ -21,6 +21,8 @@ import {
   MoreHorizontal,
   Settings,
   Eye,
+  Shield,
+  BarChart3,
 } from "lucide-react";
 import type {
   Agent,
@@ -53,6 +55,7 @@ import { TasksTab } from "./agent-task-list";
 import { SkillsTab } from "./agent-skill-manager";
 import { SettingsTab } from "./agent-settings-form";
 import { PromptPreviewTab } from "./agent-prompt-preview";
+import { RuntimePolicyTab } from "./agent-runtime-policy";
 
 // ---------------------------------------------------------------------------
 // Instructions Tab
@@ -594,7 +597,7 @@ function TriggersTab({
 // Agent Detail
 // ---------------------------------------------------------------------------
 
-type DetailTab = "instructions" | "skills" | "tools" | "triggers" | "tasks" | "prompt" | "settings";
+type DetailTab = "instructions" | "skills" | "tools" | "triggers" | "tasks" | "prompt" | "policy" | "settings";
 
 const detailTabs: { id: DetailTab; label: string; icon: typeof FileText }[] = [
   { id: "instructions", label: "Instructions", icon: FileText },
@@ -603,6 +606,7 @@ const detailTabs: { id: DetailTab; label: string; icon: typeof FileText }[] = [
   { id: "triggers", label: "Triggers", icon: Timer },
   { id: "tasks", label: "Tasks", icon: ListTodo },
   { id: "prompt", label: "Prompt", icon: Eye },
+  { id: "policy", label: "Policy", icon: Shield },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -724,6 +728,9 @@ export function AgentDetail({
         </TabsContent>
         <TabsContent value="prompt">
           <PromptPreviewTab agent={agent} />
+        </TabsContent>
+        <TabsContent value="policy">
+          <RuntimePolicyTab agent={agent} runtimes={runtimes} />
         </TabsContent>
         <TabsContent value="settings">
           <SettingsTab
