@@ -26,7 +26,68 @@ type ExecOptions struct {
 	MaxTurns        int
 	Timeout         time.Duration
 	ResumeSessionID string // if non-empty, resume a previous agent session
+
+	// ToolPermissions controls which tools the agent may use.
+	// Nil means all tools allowed (default behavior).
+	ToolPermissions *ToolPermissions
 }
+
+// ToolPermissions defines role-based tool restrictions for an agent session.
+// Inspired by Claude Code's coordinator/agent mode tool allow/deny lists.
+type ToolPermissions struct {
+	// AllowedTools lists tool names the agent may use. If empty, all tools allowed.
+	// Examples: "Bash", "Read", "Edit", "Write", "Grep", "Glob"
+	AllowedTools []string
+
+	// DeniedTools lists tool names the agent must NOT use. Takes precedence over AllowedTools.
+	DeniedTools []string
+
+	// ReadOnly when true prevents any write operations (Edit, Write, Bash with side effects).
+	ReadOnly bool
+}
+
+// IsToolAllowed checks if a tool is permitted under these permissions.
+func (tp *ToolPermissions) IsToolAllowed(toolName string) bool {
+	if tp == nil {
+		return true
+	}
+	// Denied takes precedence.
+	for _, d := range tp.DeniedTools {
+		if d == toolName {
+			return false
+		}
+	}
+	// ReadOnly blocks write tools.
+	if tp.ReadOnly {
+		switch toolName {
+		case "Edit", "Write", "NotebookEdit":
+			return false
+		}
+	}
+	// If AllowedTools is empty, everything not denied is allowed.
+	if len(tp.AllowedTools) == 0 {
+		return true
+	}
+	for _, a := range tp.AllowedTools {
+		if a == toolName {
+			return true
+		}
+	}
+	return false
+}
+
+// AgentRole defines the behavioral role for an agent session.
+// Maps to Claude Code's coordinator vs agent mode distinction.
+type AgentRole string
+
+const (
+	// AgentRoleExecutor is the default — executes tasks directly.
+	AgentRoleExecutor AgentRole = "executor"
+	// AgentRoleCoordinator orchestrates sub-agents without doing direct work.
+	AgentRoleCoordinator AgentRole = "coordinator"
+	// AgentRoleReviewer is read-only — reviews code without modifications.
+	AgentRoleReviewer AgentRole = "reviewer"
+)
 
 // Session represents a running agent execution.
 type Session struct {

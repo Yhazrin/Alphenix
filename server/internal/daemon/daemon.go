@@ -935,6 +935,14 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		return TaskResult{}, fmt.Errorf("create agent backend: %w", err)
 	}
 
+	// Determine tool permissions based on agent role.
+	// Currently all agents are executors (full access).
+	// Future: task.Agent.Role could drive coordinator/reviewer restrictions.
+	var toolPerms *agent.ToolPermissions
+	if task.Agent != nil && task.Agent.Role != "" {
+		toolPerms = DefaultToolPermissions(task.Agent.Role)
+	}
+
 	reused := task.PriorWorkDir != "" && env.WorkDir == task.PriorWorkDir
 	taskLog.Info("starting agent",
 		"provider", provider,
@@ -953,12 +961,14 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		Model:           entry.Model,
 		Timeout:         d.cfg.AgentTimeout,
 		ResumeSessionID: task.PriorSessionID,
+		ToolPermissions: toolPerms,
 	})
 	if err != nil {
 		return TaskResult{}, err
 	}
 
 	// Drain message channel — forward to server for live output + log locally.
+	// Uses priority-based flushing: errors flush immediately, text/thinking batches.
 	var toolCount atomic.Int32
 	go func() {
 		var seq atomic.Int32
@@ -1020,6 +1030,8 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		}()
 
 		for msg := range session.Messages {
+			class := ClassifyMessage(string(msg.Type))
+
 			switch msg.Type {
 			case agent.MessageToolUse:
 				n := toolCount.Add(1)
@@ -1071,6 +1083,20 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 					mu.Lock()
 					pendingText.WriteString(msg.Content)
 					mu.Unlock()
+
+					// Detect structured progress patterns and report to server.
+					if prog := DetectProgress(msg.Content); prog != nil {
+						step := prog.Current
+						total := prog.Total
+						if step == 0 && total > 0 {
+							step = 1
+						}
+						summary := prog.Summary
+						if summary == "" {
+							summary = prog.Phase
+						}
+						_ = d.client.ReportProgress(context.Background(), task.ID, summary, step, total)
+					}
 				}
 			case agent.MessageError:
 				taskLog.Error("agent error", "content", msg.Content)
@@ -1082,6 +1108,11 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 					Content: msg.Content,
 				})
 				mu.Unlock()
+			}
+
+			// Priority-based flushing: urgent messages trigger immediate flush.
+			if class == ClassUrgent {
+				flush()
 			}
 		}
 
