@@ -51,7 +51,13 @@ export class WSClient {
     };
 
     this.ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data as string) as WSMessage;
+      let msg: WSMessage;
+      try {
+        msg = JSON.parse(event.data as string) as WSMessage;
+      } catch {
+        this.logger.warn("failed to parse WS message", event.data);
+        return;
+      }
       this.logger.debug("received", msg.type);
       const eventHandlers = this.handlers.get(msg.type);
       if (eventHandlers) {

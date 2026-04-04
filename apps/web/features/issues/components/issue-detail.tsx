@@ -101,7 +101,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
         toast.error("Failed to load issue");
       })
       .finally(() => setIssueLoading(false));
-  }, [id, !!issue]);
+  }, [id, issue?.id]);
 
   // Custom hooks — encapsulate timeline, reactions, subscribers
   const {

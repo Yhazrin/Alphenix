@@ -126,11 +126,14 @@ export class ApiClient {
         this.logger.info(`↻ retry ${attempt}/${maxRetries} ${method} ${path}`, { rid });
       }
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
       try {
         const res = await fetch(`${this.baseUrl}${path}`, {
           ...init,
           headers,
           credentials: "include",
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -156,6 +159,8 @@ export class ApiClient {
       } catch (err) {
         if (err instanceof Error && err.message.startsWith("API error:")) throw err;
         lastError = err instanceof Error ? err : new Error("Network error");
+      } finally {
+        clearTimeout(timeout);
       }
     }
 

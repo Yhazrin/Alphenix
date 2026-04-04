@@ -35,6 +35,12 @@ export function deduplicateInboxItems(items: InboxItem[]): InboxItem[] {
   );
 }
 
+function deriveInboxState(items: InboxItem[]) {
+  const dedupedItems = deduplicateInboxItems(items);
+  const unreadCount = dedupedItems.filter((i) => !i.read).length;
+  return { dedupedItems, unreadCount };
+}
+
 interface InboxState {
   items: InboxItem[];
   loading: boolean;
@@ -64,8 +70,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     try {
       const data = await api.listInbox();
       logger.info("fetched", data.length, "items");
-      const deduped = deduplicateInboxItems(data);
-      set({ items: data, loading: false, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length });
+      set({ items: data, loading: false, ...deriveInboxState(data) });
     } catch (err) {
       logger.error("fetch failed", err);
       toast.error("Failed to load inbox");
@@ -74,22 +79,20 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   },
 
   setItems: (items) => {
-    const deduped = deduplicateInboxItems(items);
-    set({ items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length });
+    set({ items, ...deriveInboxState(items) });
   },
   addItem: (item) =>
     set((s) => {
       const items = s.items.some((i) => i.id === item.id)
         ? s.items
         : [item, ...s.items];
-      const deduped = deduplicateInboxItems(items);
-      return { items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length };
+      return { items, ...deriveInboxState(items) };
     }),
   markRead: (id) =>
     set((s) => {
       const items = s.items.map((i) => (i.id === id ? { ...i, read: true } : i));
-      const deduped = deduplicateInboxItems(items);
-      return { items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length };
+      const dedupedItems = s.dedupedItems.map((i) => (i.id === id ? { ...i, read: true } : i));
+      return { items, dedupedItems, unreadCount: Math.max(0, s.unreadCount - 1) };
     }),
   archive: (id) =>
     set((s) => {
@@ -100,35 +103,33 @@ export const useInboxStore = create<InboxState>((set, get) => ({
           ? { ...i, archived: true }
           : i,
       );
-      const deduped = deduplicateInboxItems(items);
-      return { items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length };
+      return { items, ...deriveInboxState(items) };
     }),
   markAllRead: () =>
     set((s) => {
       const items = s.items.map((i) => (!i.archived ? { ...i, read: true } : i));
-      const deduped = deduplicateInboxItems(items);
-      return { items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length };
+      return { items, ...deriveInboxState(items) };
     }),
   archiveAll: () =>
     set((s) => {
       const items = s.items.map((i) => (!i.archived ? { ...i, archived: true } : i));
-      const deduped = deduplicateInboxItems(items);
-      return { items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length };
+      return { items, ...deriveInboxState(items) };
     }),
   archiveAllRead: () =>
     set((s) => {
       const items = s.items.map((i) =>
         i.read && !i.archived ? { ...i, archived: true } : i
       );
-      const deduped = deduplicateInboxItems(items);
-      return { items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length };
+      return { items, ...deriveInboxState(items) };
     }),
   updateIssueStatus: (issueId, status) =>
     set((s) => {
       const items = s.items.map((i) =>
         i.issue_id === issueId ? { ...i, issue_status: status } : i
       );
-      const deduped = deduplicateInboxItems(items);
-      return { items, dedupedItems: deduped, unreadCount: deduped.filter((i) => !i.read).length };
+      const dedupedItems = s.dedupedItems.map((i) =>
+        i.issue_id === issueId ? { ...i, issue_status: status } : i
+      );
+      return { items, dedupedItems };
     }),
 }));

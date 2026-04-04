@@ -50,6 +50,8 @@ export function useRealtimeSync(ws: WSClient | null) {
       "issue:updated", "issue:created", "issue:deleted",
       "inbox:new", "inbox:read", "inbox:archived", "inbox:batch-read", "inbox:batch-archived",
       "issue_reaction:added", "issue_reaction:removed",
+      "agent:tool_use", "agent:tool_result", "agent:started",
+      "agent:completed", "agent:failed", "agent:stop", "agent:session_start",
     ]);
 
     const refreshMap: Record<string, () => void> = {

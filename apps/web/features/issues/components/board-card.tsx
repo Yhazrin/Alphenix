@@ -52,14 +52,15 @@ export const BoardCardContent = memo(function BoardCardContent({
 
   const handleUpdate = useCallback(
     (updates: Partial<UpdateIssueRequest>) => {
-      const prev = { ...issue };
+      const current = useIssueStore.getState().issues.find(i => i.id === issue.id);
+      const prev = current ? { ...current } : { ...issue };
       useIssueStore.getState().updateIssue(issue.id, updates);
       api.updateIssue(issue.id, updates).catch(() => {
         useIssueStore.getState().updateIssue(issue.id, prev);
         toast.error("Failed to update issue");
       });
     },
-    [issue],
+    [issue.id],
   );
 
   const showPriority = storeProperties.priority;
