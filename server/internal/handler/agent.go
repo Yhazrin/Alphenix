@@ -539,3 +539,27 @@ func (h *Handler) ListAgentTasks(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, resp)
 }
+
+// loadAgentForUser resolves an agent by ID, verifying the caller is authenticated
+// and the agent belongs to their workspace.
+func (h *Handler) loadAgentForUser(w http.ResponseWriter, r *http.Request, agentID string) (db.Agent, bool) {
+	if _, ok := requireUserID(w, r); !ok {
+		return db.Agent{}, false
+	}
+
+	workspaceID := resolveWorkspaceID(r)
+	if workspaceID == "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required")
+		return db.Agent{}, false
+	}
+
+	agent, err := h.Queries.GetAgentInWorkspace(r.Context(), db.GetAgentInWorkspaceParams{
+		ID:          parseUUID(agentID),
+		WorkspaceID: parseUUID(workspaceID),
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "agent not found")
+		return db.Agent{}, false
+	}
+	return agent, true
+}
