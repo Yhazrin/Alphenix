@@ -99,7 +99,7 @@ export function AssigneePicker({
           setOpen(false);
         }}
       >
-        <UserMinus className="h-3.5 w-3.5 text-muted-foreground" />
+        <UserMinus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
         <span className="text-muted-foreground">Unassigned</span>
       </PickerItem>
 
@@ -147,7 +147,7 @@ export function AssigneePicker({
                 <ActorAvatar actorType="agent" actorId={a.id} size={18} />
                 <span className={allowed ? "" : "text-muted-foreground"}>{a.name}</span>
                 {a.visibility === "private" && (
-                  <Lock className="ml-auto h-3 w-3 text-muted-foreground" />
+                  <Lock className="ml-auto h-3 w-3 text-muted-foreground" aria-hidden="true" />
                 )}
               </PickerItem>
             );

@@ -32,7 +32,7 @@ export function ReviewSection({ taskId }: ReviewSectionProps) {
   return (
     <CollapsibleSection
       title="Review"
-      icon={<ThumbsUp className="h-3.5 w-3.5 text-muted-foreground" />}
+      icon={<ThumbsUp className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />}
       defaultOpen={false}
     >
       {showReview ? (
@@ -44,7 +44,7 @@ export function ReviewSection({ taskId }: ReviewSectionProps) {
               className="h-7 text-xs flex-1"
               onClick={() => setReviewVerdict("pass")}
             >
-              <ThumbsUp className="h-3 w-3 mr-1" /> Pass
+              <ThumbsUp className="h-3 w-3 mr-1" aria-hidden="true" /> Pass
             </Button>
             <Button
               size="sm"
@@ -52,7 +52,7 @@ export function ReviewSection({ taskId }: ReviewSectionProps) {
               className="h-7 text-xs flex-1"
               onClick={() => setReviewVerdict("fail")}
             >
-              <ThumbsDown className="h-3 w-3 mr-1" /> Fail
+              <ThumbsDown className="h-3 w-3 mr-1" aria-hidden="true" /> Fail
             </Button>
             <Button
               size="sm"
@@ -60,7 +60,7 @@ export function ReviewSection({ taskId }: ReviewSectionProps) {
               className="h-7 text-xs flex-1"
               onClick={() => setReviewVerdict("retry")}
             >
-              <RotateCcw className="h-3 w-3 mr-1" /> Retry
+              <RotateCcw className="h-3 w-3 mr-1" aria-hidden="true" /> Retry
             </Button>
           </div>
           <Input
@@ -104,7 +104,7 @@ export function ReviewSection({ taskId }: ReviewSectionProps) {
           className="h-6 text-xs text-muted-foreground w-full"
           onClick={() => setShowReview(true)}
         >
-          <ThumbsUp className="h-3 w-3 mr-1" />
+          <ThumbsUp className="h-3 w-3 mr-1" aria-hidden="true" />
           Submit review
         </Button>
       )}

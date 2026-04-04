@@ -38,6 +38,7 @@ const ToolCallRow = memo(function ToolCallRow({ item }: { item: TimelineItem }) 
             open && "rotate-90",
             !hasInput && "invisible",
           )}
+          aria-hidden="true"
         />
         <span className="font-medium text-foreground shrink-0">{item.tool}</span>
         {summary && <span className="truncate text-muted-foreground">{summary}</span>}
@@ -65,6 +66,7 @@ const ToolResultRow = memo(function ToolResultRow({ item }: { item: TimelineItem
       <CollapsibleTrigger className="flex w-full items-start gap-1.5 rounded px-1 -mx-1 py-0.5 text-xs hover:bg-accent/30 transition-colors">
         <ChevronRight
           className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform mt-0.5", open && "rotate-90")}
+          aria-hidden="true"
         />
         <span className="text-muted-foreground/70 truncate">
           {item.tool ? `${item.tool} result: ` : "result: "}{preview}
@@ -89,7 +91,7 @@ const ThinkingRow = memo(function ThinkingRow({ item }: { item: TimelineItem }) 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex w-full items-start gap-1.5 rounded px-1 -mx-1 py-0.5 text-xs hover:bg-accent/30 transition-colors">
-        <Brain className="h-3 w-3 shrink-0 text-info/60 mt-0.5" />
+        <Brain className="h-3 w-3 shrink-0 text-info/60 mt-0.5" aria-hidden="true" />
         <span className="text-muted-foreground italic truncate">{preview}</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
@@ -119,7 +121,7 @@ const TextRow = memo(function TextRow({ item }: { item: TimelineItem }) {
 const ErrorRow = memo(function ErrorRow({ item }: { item: TimelineItem }) {
   return (
     <div className="flex items-start gap-1.5 px-1 -mx-1 py-0.5 text-xs">
-      <AlertCircle className="h-3 w-3 shrink-0 text-destructive mt-0.5" />
+      <AlertCircle className="h-3 w-3 shrink-0 text-destructive mt-0.5" aria-hidden="true" />
       <span className="text-destructive">{item.content}</span>
     </div>
   );

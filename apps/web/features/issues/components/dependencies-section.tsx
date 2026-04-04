@@ -72,7 +72,7 @@ export function DependenciesSection({
   return (
     <CollapsibleSection
       title="Dependencies"
-      icon={<GitBranch className="h-3.5 w-3.5 text-muted-foreground" />}
+      icon={<GitBranch className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />}
       count={dependencies.length}
     >
       {depsLoading ? (
@@ -144,6 +144,7 @@ export function DependenciesSection({
             className="h-8 w-8 p-0 shrink-0"
             onClick={handleAddDependency}
             disabled={!addDepTaskId.trim()}
+            aria-label="Add dependency link"
           >
             <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
@@ -155,6 +156,7 @@ export function DependenciesSection({
               setShowAddDep(false);
               setAddDepTaskId("");
             }}
+            aria-label="Cancel"
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>

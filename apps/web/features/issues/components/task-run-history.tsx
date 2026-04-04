@@ -68,8 +68,8 @@ export function TaskRunHistory({ issueId }: TaskRunHistoryProps) {
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
-        <ChevronRight className={cn("h-3 w-3 transition-transform", open && "rotate-90")} />
-        <Clock className="h-3 w-3" />
+        <ChevronRight className={cn("h-3 w-3 transition-transform", open && "rotate-90")} aria-hidden="true" />
+        <Clock className="h-3 w-3" aria-hidden="true" />
         <span>Execution history ({completedTasks.length})</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
@@ -108,11 +108,11 @@ function TaskRunEntry({ task }: { task: AgentTask }) {
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/30 transition-colors border border-transparent hover:border-border">
-        <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} aria-hidden="true" />
         {task.status === "completed" ? (
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
         ) : (
-          <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+          <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden="true" />
         )}
         <span className="text-muted-foreground">
           {new Date(task.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -126,7 +126,7 @@ function TaskRunEntry({ task }: { task: AgentTask }) {
         <div className="ml-5 mt-1 max-h-64 overflow-y-auto rounded border bg-muted/30 px-3 py-2 space-y-0.5">
           {items === null ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
               Loading...
             </div>
           ) : items.length === 0 ? (
