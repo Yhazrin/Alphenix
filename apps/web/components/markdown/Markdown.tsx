@@ -1,6 +1,5 @@
 import * as React from 'react'
 import ReactMarkdown, { type Components, defaultUrlTransform } from 'react-markdown'
-import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
 import { CodeBlock, InlineCode } from './CodeBlock'
@@ -309,7 +308,6 @@ export function Markdown({
     <div className={cn('markdown-content break-words', className)}>
       <ReactMarkdown
         remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
-        rehypePlugins={[rehypeRaw]}
         urlTransform={urlTransform}
         components={components}
       >

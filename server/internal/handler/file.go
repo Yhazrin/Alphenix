@@ -316,7 +316,9 @@ func (h *Handler) deleteS3Object(ctx context.Context, url string) {
 	if h.Storage == nil || url == "" {
 		return
 	}
-	h.Storage.Delete(ctx, h.Storage.KeyFromURL(url))
+	if err := h.Storage.Delete(ctx, h.Storage.KeyFromURL(url)); err != nil {
+		slog.Warn("failed to delete S3 object", "url", url, "error", err)
+	}
 }
 
 // deleteS3Objects removes multiple files from S3 by their CDN URLs.

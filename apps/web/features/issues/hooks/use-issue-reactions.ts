@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { IssueReaction } from "@/shared/types";
 import type {
   IssueReactionAddedPayload,
@@ -13,6 +13,9 @@ import { useWSEvent, useWSReconnect } from "@/features/realtime";
 export function useIssueReactions(issueId: string, userId?: string) {
   const [reactions, setReactions] = useState<IssueReaction[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const reactionsRef = useRef(reactions);
+  reactionsRef.current = reactions;
 
   // Initial fetch
   useEffect(() => {
@@ -75,7 +78,7 @@ export function useIssueReactions(issueId: string, userId?: string) {
   const toggleReaction = useCallback(
     async (emoji: string) => {
       if (!userId) return;
-      const existing = reactions.find(
+      const existing = reactionsRef.current.find(
         (r) => r.emoji === emoji && r.actor_type === "member" && r.actor_id === userId,
       );
       if (existing) {
@@ -105,7 +108,7 @@ export function useIssueReactions(issueId: string, userId?: string) {
         }
       }
     },
-    [issueId, userId, reactions],
+    [issueId, userId],
   );
 
   return { reactions, loading, toggleReaction };

@@ -254,6 +254,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	workspaceID := resolveWorkspaceID(r)
 
 	var req CreateAgentRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -320,7 +321,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Warn("create agent failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to create agent: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to create agent")
 		return
 	}
 	slog.Info("agent created", append(logger.RequestAttrs(r), "agent_id", uuidToString(agent.ID), "name", agent.Name, "workspace_id", workspaceID)...)
@@ -381,6 +382,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateAgentRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -438,7 +440,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	agent, err := h.Queries.UpdateAgent(r.Context(), params)
 	if err != nil {
 		slog.Warn("update agent failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
-		writeError(w, http.StatusInternalServerError, "failed to update agent: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to update agent")
 		return
 	}
 
@@ -536,4 +538,28 @@ func (h *Handler) ListAgentTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// loadAgentForUser resolves an agent by ID, verifying the caller is authenticated
+// and the agent belongs to their workspace.
+func (h *Handler) loadAgentForUser(w http.ResponseWriter, r *http.Request, agentID string) (db.Agent, bool) {
+	if _, ok := requireUserID(w, r); !ok {
+		return db.Agent{}, false
+	}
+
+	workspaceID := resolveWorkspaceID(r)
+	if workspaceID == "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required")
+		return db.Agent{}, false
+	}
+
+	agent, err := h.Queries.GetAgentInWorkspace(r.Context(), db.GetAgentInWorkspaceParams{
+		ID:          parseUUID(agentID),
+		WorkspaceID: parseUUID(workspaceID),
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "agent not found")
+		return db.Agent{}, false
+	}
+	return agent, true
 }

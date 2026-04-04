@@ -1,5 +1,6 @@
 import Mention from "@tiptap/extension-mention";
 import { mergeAttributes } from "@tiptap/core";
+import type { MarkdownToken, MarkdownParseHelpers, MarkdownParseResult, JSONContent } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { MentionView } from "./mention-view";
 
@@ -53,12 +54,13 @@ export const BaseMentionExtension = Mention.extend({
       };
     },
   },
-  parseMarkdown: (token: any, helpers: any) => {
+  parseMarkdown: (token: MarkdownToken, helpers: MarkdownParseHelpers): MarkdownParseResult => {
     return helpers.createNode("mention", token.attributes);
   },
-  renderMarkdown: (node: any) => {
-    const { id, label, type = "member" } = node.attrs || {};
+  renderMarkdown: (node: JSONContent): string => {
+    const attrs = (node.attrs ?? {}) as Record<string, string>;
+    const type = attrs.type ?? "member";
     const prefix = type === "issue" ? "" : "@";
-    return `[${prefix}${label ?? id}](mention://${type}/${id})`;
+    return `[${prefix}${attrs.label ?? attrs.id}](mention://${type}/${attrs.id})`;
   },
 });

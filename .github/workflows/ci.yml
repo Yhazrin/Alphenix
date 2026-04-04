@@ -11,6 +11,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Frontend lint
+        run: pnpm lint
+
+      - name: Go lint
+        run: |
+          cd server
+          # Run go vet as a lightweight linter equivalent
+          go vet ./...
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -68,3 +95,106 @@ jobs:
 
       - name: Test
         run: cd server && go test ./...
+
+  e2e:
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: multica
+          POSTGRES_USER: multica
+          POSTGRES_PASSWORD: multica
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U multica -d multica"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://multica:multica@localhost:5432/multica?sslmode=disable
+      PORT: 8080
+      FRONTEND_PORT: 3000
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      APP_ENV: development
+      JWT_SECRET: test-jwt-secret-for-ci-only
+      ALLOW_DEV_MASTER_CODE: "true"
+      POSTGRES_DB: multica
+      POSTGRES_USER: multica
+      POSTGRES_PASSWORD: multica
+      POSTGRES_PORT: 5432
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run backend migrations
+        run: cd server && go run ./cmd/migrate up
+
+      - name: Start backend
+        run: |
+          cd server
+          go run ./cmd/server > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+        shell: bash
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Backend ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to start"
+          cat /tmp/backend.log
+          exit 1
+        shell: bash
+
+      - name: Start frontend
+        run: |
+          pnpm dev:web > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
+        shell: bash
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "Frontend ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Frontend failed to start"
+          cat /tmp/frontend.log
+          exit 1
+        shell: bash
+
+      - name: Run E2E smoke tests
+        run: pnpm exec playwright test
+        shell: bash
+
+      - name: Stop services
+        if: always()
+        run: |
+          [ -f /tmp/backend.pid ] && kill $(cat /tmp/backend.pid) 2>/dev/null || true
+          [ -f /tmp/frontend.pid ] && kill $(cat /tmp/frontend.pid) 2>/dev/null || true
+        shell: bash

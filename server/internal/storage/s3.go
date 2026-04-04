@@ -103,9 +103,9 @@ func (s *S3Storage) KeyFromURL(rawURL string) string {
 }
 
 // Delete removes an object from S3. Errors are logged but not fatal.
-func (s *S3Storage) Delete(ctx context.Context, key string) {
+func (s *S3Storage) Delete(ctx context.Context, key string) error {
 	if key == "" {
-		return
+		return nil
 	}
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -113,7 +113,9 @@ func (s *S3Storage) Delete(ctx context.Context, key string) {
 	})
 	if err != nil {
 		slog.Error("s3 DeleteObject failed", "key", key, "error", err)
+		return err
 	}
+	return nil
 }
 
 // DeleteKeys removes multiple objects from S3. Best-effort, errors are logged.

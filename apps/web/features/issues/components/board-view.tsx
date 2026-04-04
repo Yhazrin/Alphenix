@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, memo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -80,6 +80,15 @@ export function BoardView({
     useSensor(KeyboardSensor)
   );
 
+  // Build a Map for O(1) issue lookups during drag events
+  const issueMap = useMemo(() => {
+    const map = new Map<string, Issue>();
+    for (const issue of issues) {
+      map.set(issue.id, issue);
+    }
+    return map;
+  }, [issues]);
+
   // Pre-sort issues by position per status for position calculations
   const issuesByStatus = useMemo(() => {
     const map: Record<string, Issue[]> = {};
@@ -93,10 +102,10 @@ export function BoardView({
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
-      const issue = issues.find((i) => i.id === event.active.id);
+      const issue = issueMap.get(event.active.id as string);
       if (issue) setActiveIssue(issue);
     },
-    [issues]
+    [issueMap]
   );
 
   const handleDragEnd = useCallback(
@@ -106,7 +115,7 @@ export function BoardView({
       if (!over || active.id === over.id) return;
 
       const issueId = active.id as string;
-      const currentIssue = issues.find((i) => i.id === issueId);
+      const currentIssue = issueMap.get(issueId);
       if (!currentIssue) return;
 
       // Determine target status
@@ -117,7 +126,7 @@ export function BoardView({
         targetStatus = over.id as IssueStatus;
         overIsColumn = true;
       } else {
-        const targetIssue = issues.find((i) => i.id === over.id);
+        const targetIssue = issueMap.get(over.id as string);
         if (!targetIssue) return;
         targetStatus = targetIssue.status;
       }
@@ -162,7 +171,7 @@ export function BoardView({
 
       onMoveIssue(issueId, targetStatus, newPosition);
     },
-    [issues, issuesByStatus, onMoveIssue, visibleStatuses]
+    [issueMap, issuesByStatus, onMoveIssue, visibleStatuses]
   );
 
   return (
@@ -177,7 +186,7 @@ export function BoardView({
           <BoardColumn
             key={status}
             status={status}
-            issues={issues.filter((i) => i.status === status)}
+            issues={issuesByStatus[status] ?? []}
           />
         ))}
 
@@ -191,7 +200,7 @@ export function BoardView({
 
       <DragOverlay>
         {activeIssue ? (
-          <div className="w-[280px] cursor-grabbing opacity-95 shadow-lg scale-[1.02]">
+          <div className="w-[260px] sm:w-[280px] lg:w-[300px] cursor-grabbing opacity-95 shadow-lg scale-[1.02]">
             <BoardCardContent issue={activeIssue} />
           </div>
         ) : null}
@@ -200,7 +209,7 @@ export function BoardView({
   );
 }
 
-function HiddenColumnsPanel({
+const HiddenColumnsPanel = memo(function HiddenColumnsPanel({
   hiddenStatuses,
   issues,
 }: {
@@ -208,6 +217,14 @@ function HiddenColumnsPanel({
   issues: Issue[];
 }) {
   const viewStoreApi = useViewStoreApi();
+  const countsByStatus = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const status of hiddenStatuses) {
+      counts.set(status, issues.filter((i) => i.status === status).length);
+    }
+    return counts;
+  }, [hiddenStatuses, issues]);
+
   return (
     <div className="flex w-[240px] shrink-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
@@ -218,7 +235,7 @@ function HiddenColumnsPanel({
       <div className="flex-1 space-y-0.5">
         {hiddenStatuses.map((status) => {
           const cfg = STATUS_CONFIG[status];
-          const count = issues.filter((i) => i.status === status).length;
+          const count = countsByStatus.get(status) ?? 0;
           return (
             <div
               key={status}
@@ -260,4 +277,4 @@ function HiddenColumnsPanel({
       </div>
     </div>
   );
-}
+});

@@ -49,6 +49,13 @@ export type WSEventType =
   | "issue_reaction:added"
   | "issue_reaction:removed"
   | "agent:message"
+  | "agent:tool_use"
+  | "agent:tool_result"
+  | "agent:started"
+  | "agent:completed"
+  | "agent:failed"
+  | "agent:stop"
+  | "agent:session_start"
   | "task_dep:created"
   | "task_dep:deleted"
   | "task:checkpoint"
@@ -261,6 +268,13 @@ export interface MemoryRecalledPayload {
   count: number;
 }
 
+export interface TaskProgressPayload {
+  task_id: string;
+  summary: string;
+  step: number;
+  total: number;
+}
+
 export interface TaskChainedPayload {
   task_id: string;
   source_task_id: string;
@@ -279,4 +293,63 @@ export interface TaskReviewedPayload {
   review_id: string;
   approved: boolean;
   score: number;
+}
+
+// --- Agent lifecycle event payloads ---
+
+export interface AgentToolUsePayload {
+  agent_id: string;
+  task_id: string;
+  issue_id: string;
+  tool: string;
+  call_id: string;
+  input?: Record<string, unknown>;
+}
+
+export interface AgentToolResultPayload {
+  agent_id: string;
+  task_id: string;
+  issue_id: string;
+  tool: string;
+  call_id: string;
+  output?: string;
+  is_error?: boolean;
+}
+
+export interface AgentStartedPayload {
+  agent_id: string;
+  task_id: string;
+  issue_id: string;
+  session_id?: string;
+}
+
+export interface AgentCompletedPayload {
+  agent_id: string;
+  task_id: string;
+  issue_id: string;
+  session_id?: string;
+  output?: string;
+  duration_ms?: number;
+}
+
+export interface AgentFailedPayload {
+  agent_id: string;
+  task_id: string;
+  issue_id: string;
+  session_id?: string;
+  error?: string;
+}
+
+export interface AgentStopPayload {
+  agent_id: string;
+  task_id: string;
+  issue_id: string;
+  reason?: string;
+}
+
+export interface AgentSessionStartPayload {
+  agent_id: string;
+  task_id: string;
+  issue_id: string;
+  session_id: string;
 }

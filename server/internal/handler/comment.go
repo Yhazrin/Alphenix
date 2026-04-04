@@ -187,6 +187,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateCommentRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -229,7 +230,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Warn("create comment failed", append(logger.RequestAttrs(r), "error", err, "issue_id", issueID)...)
-		writeError(w, http.StatusInternalServerError, "failed to create comment: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to create comment")
 		return
 	}
 
@@ -481,6 +482,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Content string `json:"content"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return

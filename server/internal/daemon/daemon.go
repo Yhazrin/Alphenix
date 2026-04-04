@@ -15,6 +15,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
 	"github.com/multica-ai/multica/server/internal/daemon/repocache"
 	"github.com/multica-ai/multica/server/internal/daemon/usage"
+	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/pkg/agent"
 )
 
@@ -30,6 +31,8 @@ type Daemon struct {
 	client    *Client
 	repoCache *repocache.Cache
 	logger    *slog.Logger
+	bus       *events.Bus
+	hooks     *HookService
 
 	mu           sync.Mutex
 	workspaces   map[string]*workspaceState
@@ -44,11 +47,14 @@ type Daemon struct {
 // New creates a new Daemon instance.
 func New(cfg Config, logger *slog.Logger) *Daemon {
 	cacheRoot := filepath.Join(cfg.WorkspacesRoot, ".repos")
+	bus := events.New()
 	return &Daemon{
 		cfg:          cfg,
 		client:       NewClient(cfg.ServerBaseURL),
 		repoCache:    repocache.New(cacheRoot, logger),
 		logger:       logger,
+		bus:          bus,
+		hooks:        NewHookService(bus, logger),
 		workspaces:   make(map[string]*workspaceState),
 		runtimeIndex: make(map[string]Runtime),
 	}
@@ -888,12 +894,13 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	if env == nil {
 		var err error
 		env, err = execenv.Prepare(execenv.PrepareParams{
-			WorkspacesRoot: d.cfg.WorkspacesRoot,
-			WorkspaceID:    task.WorkspaceID,
-			TaskID:         task.ID,
-			AgentName:      agentName,
-			Provider:       provider,
-			Task:           taskCtx,
+			WorkspacesRoot:    d.cfg.WorkspacesRoot,
+			WorkspaceID:       task.WorkspaceID,
+			TaskID:            task.ID,
+			AgentName:         agentName,
+			Provider:          provider,
+			Task:              taskCtx,
+			RepoCLAUDEProvider: d.repoCache,
 		}, d.logger)
 		if err != nil {
 			return TaskResult{}, fmt.Errorf("prepare execution environment: %w", err)
@@ -935,12 +942,20 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		return TaskResult{}, fmt.Errorf("create agent backend: %w", err)
 	}
 
+	// Determine tool permissions based on agent role.
+	var toolPerms *agent.ToolPermissions
+	isCoordinator := task.Agent != nil && task.Agent.Role == "coordinator"
+	if task.Agent != nil && task.Agent.Role != "" {
+		toolPerms = DefaultToolPermissions(task.Agent.Role)
+	}
+
 	reused := task.PriorWorkDir != "" && env.WorkDir == task.PriorWorkDir
 	taskLog.Info("starting agent",
 		"provider", provider,
 		"workdir", env.WorkDir,
 		"model", entry.Model,
 		"reused", reused,
+		"coordinator", isCoordinator,
 	)
 	if task.PriorSessionID != "" {
 		taskLog.Info("resuming session", "session_id", task.PriorSessionID)
@@ -948,17 +963,84 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 
 	taskStart := time.Now()
 
-	session, err := backend.Execute(ctx, prompt, agent.ExecOptions{
-		Cwd:             env.WorkDir,
-		Model:           entry.Model,
-		Timeout:         d.cfg.AgentTimeout,
-		ResumeSessionID: task.PriorSessionID,
-	})
-	if err != nil {
-		return TaskResult{}, err
+	// Build tool hooks for lifecycle observability (pre/post tool use events on bus).
+	toolHooks := d.hooks.BuildToolHooks(task.WorkspaceID, task.ID, task.AgentID)
+	d.hooks.PublishAgentStarted(task.WorkspaceID, task.ID, task.AgentID, provider)
+
+	// Build lifecycle hooks for session_start and stop events.
+	lifecycleHooks := agent.LifecycleHooks{
+		SessionStart: func(ctx context.Context, sessionID string) {
+			d.hooks.PublishAgentSessionStart(task.WorkspaceID, task.ID, task.AgentID, sessionID)
+		},
+		Stop: func(ctx context.Context, result agent.Result) {
+			d.hooks.PublishAgentStop(task.WorkspaceID, task.ID, task.AgentID, result)
+		},
+	}
+
+	// Coordinator agents use Fork mode: a lightweight sub-agent that inherits
+	// the parent's codebase context and writes results to an output file.
+	// The "Don't peek" rule applies — we wait for ForkSession.Result before reading.
+	var session *agent.Session
+	if isCoordinator {
+		forkOutput := filepath.Join(env.WorkDir, ".multica", "fork_result.txt")
+		if mkErr := os.MkdirAll(filepath.Dir(forkOutput), 0o755); mkErr != nil {
+			return TaskResult{}, fmt.Errorf("create fork output dir: %w", mkErr)
+		}
+
+		forkSession, forkErr := backend.Fork(ctx, prompt, agent.ForkOptions{
+			Cwd:             env.WorkDir,
+			Model:           entry.Model,
+			Timeout:         d.cfg.AgentTimeout,
+			ToolPermissions: toolPerms,
+			ToolHooks:       toolHooks,
+			ParentSessionID: task.PriorSessionID,
+			OutputFile:      forkOutput,
+		})
+		if forkErr != nil {
+			return TaskResult{}, fmt.Errorf("fork agent: %w", forkErr)
+		}
+
+		// Convert ForkSession into a Session-compatible interface by draining
+		// the fork result and synthesizing a Session with empty messages.
+		msgCh := make(chan agent.Message)
+		resCh := make(chan agent.Result, 1)
+		go func() {
+			defer close(msgCh)
+			defer close(resCh)
+			fr := <-forkSession.Result
+			// Read the output file after fork completes ("Don't peek" until done).
+			output := fr.Output
+			if output == "" && forkSession.OutputFile != "" {
+				if data, readErr := os.ReadFile(forkSession.OutputFile); readErr == nil {
+					output = string(data)
+				}
+			}
+			resCh <- agent.Result{
+				Status:     fr.Status,
+				Output:     output,
+				Error:      fr.Error,
+				DurationMs: fr.DurationMs,
+			}
+		}()
+		session = &agent.Session{Messages: msgCh, Result: resCh}
+	} else {
+		var execErr error
+		session, execErr = backend.Execute(ctx, prompt, agent.ExecOptions{
+			Cwd:             env.WorkDir,
+			Model:           entry.Model,
+			Timeout:         d.cfg.AgentTimeout,
+			ResumeSessionID: task.PriorSessionID,
+			ToolPermissions: toolPerms,
+			ToolHooks:       toolHooks,
+			LifecycleHooks:  lifecycleHooks,
+		})
+		if execErr != nil {
+			return TaskResult{}, execErr
+		}
 	}
 
 	// Drain message channel — forward to server for live output + log locally.
+	// Uses priority-based flushing: errors flush immediately, text/thinking batches.
 	var toolCount atomic.Int32
 	go func() {
 		var seq atomic.Int32
@@ -1020,6 +1102,8 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		}()
 
 		for msg := range session.Messages {
+			class := ClassifyMessage(string(msg.Type))
+
 			switch msg.Type {
 			case agent.MessageToolUse:
 				n := toolCount.Add(1)
@@ -1032,10 +1116,11 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 				s := seq.Add(1)
 				mu.Lock()
 				batch = append(batch, TaskMessageData{
-					Seq:   int(s),
-					Type:  "tool_use",
-					Tool:  msg.Tool,
-					Input: msg.Input,
+					Seq:    int(s),
+					Type:   "tool_use",
+					CallID: msg.CallID,
+					Tool:   msg.Tool,
+					Input:  msg.Input,
 				})
 				mu.Unlock()
 			case agent.MessageToolResult:
@@ -1055,6 +1140,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 				batch = append(batch, TaskMessageData{
 					Seq:    int(s),
 					Type:   "tool_result",
+					CallID: msg.CallID,
 					Tool:   toolName,
 					Output: output,
 				})
@@ -1071,6 +1157,20 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 					mu.Lock()
 					pendingText.WriteString(msg.Content)
 					mu.Unlock()
+
+					// Detect structured progress patterns and report to server.
+					if prog := DetectProgress(msg.Content); prog != nil {
+						step := prog.Current
+						total := prog.Total
+						if step == 0 && total > 0 {
+							step = 1
+						}
+						summary := prog.Summary
+						if summary == "" {
+							summary = prog.Phase
+						}
+						_ = d.client.ReportProgress(context.Background(), task.ID, summary, step, total)
+					}
 				}
 			case agent.MessageError:
 				taskLog.Error("agent error", "content", msg.Content)
@@ -1082,6 +1182,11 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 					Content: msg.Content,
 				})
 				mu.Unlock()
+			}
+
+			// Priority-based flushing: urgent messages trigger immediate flush.
+			if class == ClassUrgent {
+				flush()
 			}
 		}
 
@@ -1096,6 +1201,17 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		"duration", elapsed.String(),
 		"tools", toolCount.Load(),
 	)
+
+	// Publish lifecycle completion event.
+	if result.Status == "completed" {
+		d.hooks.PublishAgentCompleted(task.WorkspaceID, task.ID, task.AgentID, result.DurationMs)
+	} else {
+		errMsg := result.Error
+		if errMsg == "" {
+			errMsg = fmt.Sprintf("%s %s", provider, result.Status)
+		}
+		d.hooks.PublishAgentFailed(task.WorkspaceID, task.ID, task.AgentID, errMsg)
+	}
 
 	switch result.Status {
 	case "completed":

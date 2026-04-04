@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { EyeOff, MoreHorizontal, Plus } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useDroppable } from "@dnd-kit/core";
@@ -20,7 +20,7 @@ import { sortIssues } from "@/features/issues/utils/sort";
 import { StatusIcon } from "./status-icon";
 import { DraggableBoardCard } from "./board-card";
 
-export function BoardColumn({
+export const BoardColumn = memo(function BoardColumn({
   status,
   issues,
 }: {
@@ -94,7 +94,7 @@ export function BoardColumn({
       <div
         ref={setNodeRef}
         className={`min-h-[200px] flex-1 space-y-2 overflow-y-auto rounded-lg p-1 transition-colors ${
-          isOver ? "bg-accent/60" : ""
+          isOver ? "bg-accent/80 ring-1 ring-inset ring-primary/20" : ""
         }`}
       >
         <SortableContext items={sortedIds} strategy={verticalListSortingStrategy}>
@@ -121,4 +121,4 @@ export function BoardColumn({
       </div>
     </div>
   );
-}
+});

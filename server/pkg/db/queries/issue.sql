@@ -51,3 +51,10 @@ RETURNING *;
 
 -- name: DeleteIssue :exec
 DELETE FROM issue WHERE id = $1;
+
+-- name: ListIssuesByIDs :many
+SELECT * FROM issue
+WHERE id = ANY($1::uuid[]) AND workspace_id = $2;
+
+-- name: BatchDeleteIssues :exec
+DELETE FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2;

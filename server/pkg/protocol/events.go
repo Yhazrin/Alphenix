@@ -76,4 +76,13 @@ const (
 	// Daemon events
 	EventDaemonHeartbeat = "daemon:heartbeat"
 	EventDaemonRegister  = "daemon:register"
+
+	// Agent lifecycle events (hook-driven, published by daemon)
+	EventAgentToolUse    = "agent:tool_use"
+	EventAgentToolResult = "agent:tool_result"
+	EventAgentStarted    = "agent:started"
+	EventAgentCompleted  = "agent:completed"
+	EventAgentFailed     = "agent:failed"
+	EventAgentStop       = "agent:stop"
+	EventAgentSessionStart = "agent:session_start"
 )

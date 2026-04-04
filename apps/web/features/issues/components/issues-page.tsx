@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { ChevronRight, ListTodo, Plus } from "lucide-react";
+import { ListTodo, Plus } from "lucide-react";
 import type { IssueStatus } from "@/shared/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { useIssueStore } from "@/features/issues/store";
 import { useIssueViewStore, initFilterWorkspaceSync } from "@/features/issues/stores/view-store";
 import { useIssuesScopeStore } from "@/features/issues/stores/issues-scope-store";
@@ -143,20 +144,23 @@ export function IssuesPage() {
       {/* Content: scrollable */}
       <ViewStoreProvider store={useIssueViewStore}>
         {scopedIssues.length === 0 ? (
-          <div className="flex flex-1 min-h-0 flex-col items-center justify-center gap-3 text-muted-foreground">
-            <ListTodo className="h-10 w-10 text-muted-foreground/40" />
-            <p className="text-sm">No issues yet</p>
-            <p className="text-xs">Create an issue to get started.</p>
+          <Empty className="flex-1 border-0">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ListTodo />
+              </EmptyMedia>
+              <EmptyTitle>No issues yet</EmptyTitle>
+              <EmptyDescription>Create an issue to get started.</EmptyDescription>
+            </EmptyHeader>
             <Button
               variant="outline"
               size="sm"
-              className="mt-1"
               onClick={() => useModalStore.getState().open("create-issue")}
             >
               <Plus className="size-3.5 mr-1" />
               New issue
             </Button>
-          </div>
+          </Empty>
         ) : (
           <div className="flex flex-col flex-1 min-h-0">
             {viewMode === "board" ? (

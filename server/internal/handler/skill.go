@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -192,6 +193,7 @@ func (h *Handler) CreateSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateSkillRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -236,7 +238,8 @@ func (h *Handler) CreateSkill(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "a skill with this name already exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to create skill: "+err.Error())
+		slog.Warn("create skill failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to create skill")
 		return
 	}
 
@@ -248,7 +251,8 @@ func (h *Handler) CreateSkill(w http.ResponseWriter, r *http.Request) {
 			Content: f.Content,
 		})
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to create skill file: "+err.Error())
+			slog.Warn("create skill file failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to create skill file")
 			return
 		}
 		fileResps = append(fileResps, skillFileToResponse(sf))
@@ -279,6 +283,7 @@ func (h *Handler) UpdateSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateSkillRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -323,7 +328,8 @@ func (h *Handler) UpdateSkill(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "a skill with this name already exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to update skill: "+err.Error())
+		slog.Warn("update skill failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update skill")
 		return
 	}
 
@@ -342,7 +348,8 @@ func (h *Handler) UpdateSkill(w http.ResponseWriter, r *http.Request) {
 				Content: f.Content,
 			})
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to upsert skill file: "+err.Error())
+				slog.Warn("upsert skill file failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to upsert skill file")
 				return
 			}
 			fileResps = append(fileResps, skillFileToResponse(sf))
@@ -751,8 +758,72 @@ func parseSkillFrontmatter(content string) (name, description string) {
 
 // --- Shared helpers ---
 
+// validateFetchURL checks that a URL is safe to fetch: must use http(s) scheme
+// and must not resolve to a private or reserved IP address (SSRF protection).
+func validateFetchURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("unsupported URL scheme: %s (must be http or https)", scheme)
+	}
+
+	host := parsed.Hostname()
+	if host == "" {
+		return fmt.Errorf("missing hostname in URL")
+	}
+
+	// Resolve the hostname to check for private/reserved IPs.
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		// If DNS resolution fails, allow the request to proceed (it will
+		// fail at the HTTP level). This avoids blocking legitimate hosts
+		// that have transient DNS issues.
+		return nil
+	}
+
+	for _, ip := range ips {
+		if isRestrictedIP(ip) {
+			return fmt.Errorf("URL resolves to a restricted address: %s", host)
+		}
+	}
+	return nil
+}
+
+// isRestrictedIP returns true for loopback, link-local, private, and reserved addresses.
+func isRestrictedIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		switch {
+		case ip4[0] == 10:
+			return true
+		case ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31:
+			return true
+		case ip4[0] == 192 && ip4[1] == 168:
+			return true
+		case ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127:
+			return true // CGNAT
+		}
+	}
+	if ip.To16() != nil && ip.To4() == nil {
+		// IPv6 unique local (fc00::/7)
+		if len(ip) >= 1 && (ip[0] == 0xfc || ip[0] == 0xfd) {
+			return true
+		}
+	}
+	return false
+}
+
 // fetchRawFile downloads a URL and returns the body bytes. Limit 1MB.
 func fetchRawFile(httpClient *http.Client, fileURL string) ([]byte, error) {
+	if err := validateFetchURL(fileURL); err != nil {
+		return nil, fmt.Errorf("blocked fetch: %w", err)
+	}
 	resp, err := httpClient.Get(fileURL)
 	if err != nil {
 		return nil, err
@@ -775,6 +846,7 @@ func (h *Handler) ImportSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ImportSkillRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -796,10 +868,10 @@ func (h *Handler) ImportSkill(w http.ResponseWriter, r *http.Request) {
 		imported, err = fetchFromSkillsSh(httpClient, normalized)
 	}
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		slog.Warn("skill import failed", "error", err, "url", req.URL)
+		writeError(w, http.StatusBadGateway, "failed to import skill from external source")
 		return
 	}
-
 	// Create skill in database
 	tx, err := h.TxStarter.Begin(r.Context())
 	if err != nil {
@@ -823,7 +895,8 @@ func (h *Handler) ImportSkill(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "a skill with this name already exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to create skill: "+err.Error())
+		slog.Warn("create skill failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to create skill")
 		return
 	}
 
@@ -890,6 +963,7 @@ func (h *Handler) UpsertSkillFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateSkillFileRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -906,7 +980,8 @@ func (h *Handler) UpsertSkillFile(w http.ResponseWriter, r *http.Request) {
 		Content: req.Content,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to upsert skill file: "+err.Error())
+		slog.Warn("upsert skill file failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to upsert skill file")
 		return
 	}
 
@@ -964,6 +1039,7 @@ func (h *Handler) SetAgentSkills(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req SetAgentSkillsRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -988,7 +1064,8 @@ func (h *Handler) SetAgentSkills(w http.ResponseWriter, r *http.Request) {
 			AgentID: agent.ID,
 			SkillID: parseUUID(skillID),
 		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to add agent skill: "+err.Error())
+			slog.Warn("add agent skill failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to add agent skill")
 			return
 		}
 	}

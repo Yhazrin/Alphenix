@@ -68,3 +68,33 @@ export interface RecallMemoryRequest {
   embedding: number[];
   limit?: number;
 }
+
+export interface ChainTaskRequest {
+  target_agent_id: string;
+  chain_reason?: string;
+}
+
+export interface SubmitReviewRequest {
+  verdict: "pass" | "fail" | "retry";
+  feedback?: string;
+}
+
+export interface RecallWorkspaceMemoryRequest {
+  query: string;
+  limit?: number;
+  agent_id?: string;
+}
+
+export interface SharedContext {
+  task_id: string;
+  workspace_id: string;
+  context: Record<string, unknown>;
+  updated_at: string;
+}
+
+export interface TaskDependencyInfo {
+  task_id: string;
+  depends_on_id: string;
+  status: string;
+  created_at: string;
+}

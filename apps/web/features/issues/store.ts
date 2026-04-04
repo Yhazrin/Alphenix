@@ -11,8 +11,10 @@ const logger = createLogger("issue-store");
 interface IssueState {
   issues: Issue[];
   loading: boolean;
+  error: string | null;
   activeIssueId: string | null;
   fetch: () => Promise<void>;
+  reset: () => void;
   setIssues: (issues: Issue[]) => void;
   addIssue: (issue: Issue) => void;
   updateIssue: (id: string, updates: Partial<Issue>) => void;
@@ -23,24 +25,29 @@ interface IssueState {
 export const useIssueStore = create<IssueState>((set, get) => ({
   issues: [],
   loading: true,
+  error: null,
   activeIssueId: null,
 
   fetch: async () => {
     logger.debug("fetch start");
     const isInitialLoad = get().issues.length === 0;
-    if (isInitialLoad) set({ loading: true });
+    if (isInitialLoad) set({ loading: true, error: null });
     try {
       const res = await api.listIssues({ limit: 200 });
       logger.info("fetched", res.issues.length, "issues");
-      set({ issues: res.issues, loading: false });
+      set({ issues: res.issues, loading: false, error: null });
     } catch (err) {
       logger.error("fetch failed", err);
-      toast.error("Failed to load issues");
-      if (isInitialLoad) set({ loading: false });
+      const message = "Failed to load issues";
+      toast.error(message);
+      set({ loading: false, error: message });
     }
   },
 
   setIssues: (issues) => set({ issues }),
+
+  reset: () => set({ issues: [], loading: false, error: null, activeIssueId: null }),
+
   addIssue: (issue) =>
     set((s) => ({
       issues: s.issues.some((i) => i.id === issue.id)

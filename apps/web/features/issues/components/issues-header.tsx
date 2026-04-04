@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   ArrowDown,
   ArrowUp,
@@ -276,15 +277,27 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
   const scope = useIssuesScopeStore((s) => s.scope);
   const setScope = useIssuesScopeStore((s) => s.setScope);
 
-  const viewMode = useIssueViewStore((s) => s.viewMode);
-  const statusFilters = useIssueViewStore((s) => s.statusFilters);
-  const priorityFilters = useIssueViewStore((s) => s.priorityFilters);
-  const assigneeFilters = useIssueViewStore((s) => s.assigneeFilters);
-  const includeNoAssignee = useIssueViewStore((s) => s.includeNoAssignee);
-  const creatorFilters = useIssueViewStore((s) => s.creatorFilters);
-  const sortBy = useIssueViewStore((s) => s.sortBy);
-  const sortDirection = useIssueViewStore((s) => s.sortDirection);
-  const cardProperties = useIssueViewStore((s) => s.cardProperties);
+  const {
+    viewMode,
+    statusFilters,
+    priorityFilters,
+    assigneeFilters,
+    includeNoAssignee,
+    creatorFilters,
+    sortBy,
+    sortDirection,
+    cardProperties,
+  } = useIssueViewStore(useShallow((s) => ({
+    viewMode: s.viewMode,
+    statusFilters: s.statusFilters,
+    priorityFilters: s.priorityFilters,
+    assigneeFilters: s.assigneeFilters,
+    includeNoAssignee: s.includeNoAssignee,
+    creatorFilters: s.creatorFilters,
+    sortBy: s.sortBy,
+    sortDirection: s.sortDirection,
+    cardProperties: s.cardProperties,
+  })));
   const act = useIssueViewStore.getState();
 
   const counts = useIssueCounts(scopedIssues);

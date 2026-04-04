@@ -37,7 +37,7 @@ func makeTestToken(t *testing.T) string {
 
 func newTestHub(t *testing.T) (*Hub, *httptest.Server) {
 	t.Helper()
-	hub := NewHub()
+	hub := NewHub([]string{"*"})
 	go hub.Run()
 
 	mc := &mockMembershipChecker{}

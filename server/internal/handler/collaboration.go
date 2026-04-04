@@ -61,6 +61,7 @@ func (h *Handler) SendAgentMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req SendMessageRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -163,6 +164,7 @@ func (h *Handler) AddTaskDependency(w http.ResponseWriter, r *http.Request) {
 	workspaceID := resolveWorkspaceID(r)
 
 	var req AddDependencyRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -196,6 +198,7 @@ func (h *Handler) RemoveTaskDependency(w http.ResponseWriter, r *http.Request) {
 	workspaceID := resolveWorkspaceID(r)
 
 	var req AddDependencyRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -290,6 +293,7 @@ func (h *Handler) SaveTaskCheckpoint(w http.ResponseWriter, r *http.Request) {
 	workspaceID := resolveWorkspaceID(r)
 
 	var req SaveCheckpointRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -390,6 +394,7 @@ func (h *Handler) StoreAgentMemory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req StoreMemoryRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -442,6 +447,7 @@ func (h *Handler) RecallAgentMemory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req RecallMemoryRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -525,6 +531,7 @@ func (h *Handler) RecallWorkspaceMemory(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req RecallWorkspaceMemoryRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return

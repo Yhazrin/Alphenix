@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useShallow } from "zustand/react/shallow";
 import { useIssueStore } from "@/features/issues/store";
 import { StatusIcon } from "./status-icon";
 
@@ -11,7 +12,7 @@ interface IssueMentionCardProps {
 }
 
 export function IssueMentionCard({ issueId, fallbackLabel }: IssueMentionCardProps) {
-  const issue = useIssueStore((s) => s.issues.find((i) => i.id === issueId));
+  const issue = useIssueStore(useShallow((s) => s.issues.find((i) => i.id === issueId)));
 
   if (!issue) {
     return (

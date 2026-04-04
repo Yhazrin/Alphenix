@@ -17,6 +17,8 @@ import type {
   IssueCreatedPayload,
   IssueDeletedPayload,
   InboxNewPayload,
+  InboxReadPayload,
+  InboxArchivedPayload,
 } from "@/shared/types";
 
 const logger = createLogger("realtime-sync");
@@ -45,13 +47,18 @@ export function useRealtimeSync(ws: WSClient | null) {
 
     // Event types handled by specific handlers below — skip generic refresh
     const specificEvents = new Set([
-      "issue:updated", "issue:created", "issue:deleted", "inbox:new",
+      "issue:updated", "issue:created", "issue:deleted",
+      "inbox:new", "inbox:read", "inbox:archived", "inbox:batch-read", "inbox:batch-archived",
+      "issue_reaction:added", "issue_reaction:removed",
+      "agent:tool_use", "agent:tool_result", "agent:started",
+      "agent:completed", "agent:failed", "agent:stop", "agent:session_start",
     ]);
 
     const refreshMap: Record<string, () => void> = {
       inbox: () => void useInboxStore.getState().fetch(),
       agent: () => void useWorkspaceStore.getState().refreshAgents(),
       member: () => void useWorkspaceStore.getState().refreshMembers(),
+      task: () => void useIssueStore.getState().fetch(),
       workspace: () => {
         // Lightweight: only re-fetch workspace list, don't hydrate everything.
         // workspace:deleted is handled by a precise side-effect handler below.
@@ -120,6 +127,38 @@ export function useRealtimeSync(ws: WSClient | null) {
       if (payload?.item) useInboxStore.getState().addItem(payload.item);
     });
 
+    const unsubInboxRead = ws.on("inbox:read", (p) => {
+      const payload = asPayload<InboxReadPayload>(p);
+      if (payload?.item_id) useInboxStore.getState().markRead(payload.item_id);
+    });
+
+    const unsubInboxArchived = ws.on("inbox:archived", (p) => {
+      const payload = asPayload<InboxArchivedPayload>(p);
+      if (payload?.item_id) useInboxStore.getState().archive(payload.item_id);
+    });
+
+    const unsubInboxBatchRead = ws.on("inbox:batch-read", () => {
+      useInboxStore.getState().markAllRead();
+    });
+
+    const unsubInboxBatchArchived = ws.on("inbox:batch-archived", () => {
+      useInboxStore.getState().archiveAll();
+    });
+
+    // --- Reaction event handlers ---
+    // issue_reaction:* are for issue-level reactions (not comment reactions).
+    // Comment reactions are already handled by useIssueTimeline's reaction:added/removed.
+    // Registered here so specificEvents blocks the generic onAny refresh for them.
+    // Issue-level reaction UI is component-local — handled by detail components.
+
+    const unsubIssueReactionAdded = ws.on("issue_reaction:added", () => {
+      // Blocked from generic refresh via specificEvents; component handles UI update.
+    });
+
+    const unsubIssueReactionRemoved = ws.on("issue_reaction:removed", () => {
+      // Blocked from generic refresh via specificEvents; component handles UI update.
+    });
+
     // --- Side-effect handlers (toast, navigation) ---
 
     const unsubWsDeleted = ws.on("workspace:deleted", (p) => {
@@ -161,6 +200,12 @@ export function useRealtimeSync(ws: WSClient | null) {
       unsubIssueCreated();
       unsubIssueDeleted();
       unsubInboxNew();
+      unsubInboxRead();
+      unsubInboxArchived();
+      unsubInboxBatchRead();
+      unsubInboxBatchArchived();
+      unsubIssueReactionAdded();
+      unsubIssueReactionRemoved();
       unsubWsDeleted();
       unsubMemberRemoved();
       unsubMemberAdded();
@@ -183,6 +228,14 @@ export function useRealtimeSync(ws: WSClient | null) {
           useWorkspaceStore.getState().refreshMembers(),
           useWorkspaceStore.getState().refreshSkills(),
         ]);
+
+        // Refetch the currently-viewed issue's timeline if on an issue detail page
+        const match = window.location.pathname.match(/\/issues\/([a-f0-9-]+)/);
+        if (match?.[1]) {
+          api.listTimeline(match[1]).catch((err) => {
+            logger.error("reconnect timeline refetch failed", err);
+          });
+        }
       } catch (e) {
         logger.error("reconnect refetch failed", e);
       }

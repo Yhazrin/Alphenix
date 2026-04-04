@@ -87,6 +87,7 @@ func (c *Client) ReportProgress(ctx context.Context, taskID, summary string, ste
 type TaskMessageData struct {
 	Seq     int            `json:"seq"`
 	Type    string         `json:"type"`
+	CallID  string         `json:"call_id,omitempty"`
 	Tool    string         `json:"tool,omitempty"`
 	Content string         `json:"content,omitempty"`
 	Input   map[string]any `json:"input,omitempty"`

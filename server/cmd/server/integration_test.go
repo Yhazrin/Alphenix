@@ -65,7 +65,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	hub := realtime.NewHub()
+	hub := realtime.NewHub([]string{"*"})
 	go hub.Run()
 
 	bus := events.New()

@@ -26,11 +26,13 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 		return nil, fmt.Errorf("opencode executable not found at %q: %w", execPath, err)
 	}
 
-	timeout := opts.Timeout
-	if timeout == 0 {
-		timeout = 20 * time.Minute
+	var runCtx context.Context
+	var cancel context.CancelFunc
+	if opts.Timeout > 0 {
+		runCtx, cancel = context.WithTimeout(ctx, opts.Timeout)
+	} else {
+		runCtx, cancel = context.WithCancel(ctx)
 	}
-	runCtx, cancel := context.WithTimeout(ctx, timeout)
 
 	args := []string{"run", "--format", "json"}
 	if opts.Model != "" {
@@ -53,8 +55,7 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 	}
 
 	env := buildEnv(b.cfg.Env)
-	// Auto-approve all tool use in daemon mode.
-	env = append(env, `OPENCODE_PERMISSION={"*":"allow"}`)
+	env = append(env, `OPENCODE_PERMISSION=`+buildOpenCodePerms(opts.ToolPermissions))
 	cmd.Env = env
 
 	stdout, err := cmd.StdoutPipe()
@@ -80,7 +81,7 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 		defer close(resCh)
 
 		startTime := time.Now()
-		scanResult := b.processEvents(stdout, msgCh)
+		scanResult := b.processEvents(stdout, msgCh, opts.ToolHooks)
 
 		// Wait for process exit.
 		exitErr := cmd.Wait()
@@ -88,7 +89,7 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 
 		if runCtx.Err() == context.DeadlineExceeded {
 			scanResult.status = "timeout"
-			scanResult.errMsg = fmt.Sprintf("opencode timed out after %s", timeout)
+			scanResult.errMsg = fmt.Sprintf("opencode timed out after %s", opts.Timeout)
 		} else if runCtx.Err() == context.Canceled {
 			scanResult.status = "aborted"
 			scanResult.errMsg = "execution cancelled"
@@ -111,6 +112,38 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 	return &Session{Messages: msgCh, Result: resCh}, nil
 }
 
+func (b *opencodeBackend) Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error) {
+	// OpenCode doesn't have native fork support — delegate to Execute with
+	// the parent's session context inherited via --session flag.
+	execOpts := ExecOptions{
+		Cwd:             opts.Cwd,
+		Model:           opts.Model,
+		MaxTurns:        opts.MaxTurns,
+		Timeout:         opts.Timeout,
+		ResumeSessionID: opts.ParentSessionID,
+		ToolPermissions: opts.ToolPermissions,
+		ToolHooks:       opts.ToolHooks,
+	}
+
+	session, err := b.Execute(ctx, prompt, execOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	resCh := make(chan ForkResult, 1)
+	go func() {
+		result := <-session.Result
+		resCh <- ForkResult{
+			Status:     result.Status,
+			Output:     result.Output,
+			Error:      result.Error,
+			DurationMs: result.DurationMs,
+		}
+	}()
+
+	return &ForkSession{Result: resCh, OutputFile: opts.OutputFile}, nil
+}
+
 // ── Event handlers ──
 
 // eventResult holds the accumulated state from processing the event stream.
@@ -123,7 +156,7 @@ type eventResult struct {
 
 // processEvents reads JSON lines from r, dispatches events to ch, and returns
 // the accumulated result. This is the core scanner loop, extracted for testability.
-func (b *opencodeBackend) processEvents(r io.Reader, ch chan<- Message) eventResult {
+func (b *opencodeBackend) processEvents(r io.Reader, ch chan<- Message, toolHooks ToolHooks) eventResult {
 	var output strings.Builder
 	var sessionID string
 	finalStatus := "completed"
@@ -151,7 +184,7 @@ func (b *opencodeBackend) processEvents(r io.Reader, ch chan<- Message) eventRes
 		case "text":
 			b.handleTextEvent(event, ch, &output)
 		case "tool_use":
-			b.handleToolUseEvent(event, ch)
+			b.handleToolUseEvent(event, ch, toolHooks)
 		case "error":
 			b.handleErrorEvent(event, ch, &finalStatus, &finalError)
 		case "step_start":
@@ -189,7 +222,7 @@ func (b *opencodeBackend) handleTextEvent(event opencodeEvent, ch chan<- Message
 // handleToolUseEvent processes "tool_use" events from opencode. A single
 // tool_use event contains both the call and result in part.state when the
 // tool has completed (state.status == "completed").
-func (b *opencodeBackend) handleToolUseEvent(event opencodeEvent, ch chan<- Message) {
+func (b *opencodeBackend) handleToolUseEvent(event opencodeEvent, ch chan<- Message, toolHooks ToolHooks) {
 	// Extract input from state.input (the tool invocation parameters).
 	var input map[string]any
 	if event.Part.State != nil && event.Part.State.Input != nil {
@@ -207,6 +240,10 @@ func (b *opencodeBackend) handleToolUseEvent(event opencodeEvent, ch chan<- Mess
 	// If the tool has completed, also emit a tool-result message.
 	if event.Part.State != nil && event.Part.State.Status == "completed" {
 		outputStr := extractToolOutput(event.Part.State.Output)
+		// PostToolUse hook — observe tool result after execution.
+		if toolHooks.PostToolUse != nil {
+			toolHooks.PostToolUse(context.Background(), event.Part.Tool, input, outputStr)
+		}
 		trySend(ch, Message{
 			Type:   MessageToolResult,
 			Tool:   event.Part.Tool,
@@ -309,4 +346,37 @@ func (e *opencodeError) Message() string {
 
 type opencodeErrData struct {
 	Message string `json:"message,omitempty"`
+}
+
+// buildOpenCodePerms builds the OPENCODE_PERMISSION env var value from ToolPermissions.
+// OpenCode uses a JSON map of tool name → "allow"|"deny" with "*" as wildcard.
+func buildOpenCodePerms(tp *ToolPermissions) string {
+	if tp == nil {
+		return `{"*":"allow"}`
+	}
+
+	perms := map[string]string{}
+
+	// If ReadOnly, deny write tools explicitly.
+	if tp.ReadOnly {
+		perms["edit"] = "deny"
+		perms["write"] = "deny"
+		perms["patch"] = "deny"
+	}
+
+	// Denied tools override everything.
+	for _, d := range tp.DeniedTools {
+		perms[strings.ToLower(d)] = "deny"
+	}
+
+	// If AllowedTools is set, deny all by default and allow listed tools.
+	if len(tp.AllowedTools) > 0 {
+		perms["*"] = "deny"
+		for _, a := range tp.AllowedTools {
+			perms[strings.ToLower(a)] = "allow"
+		}
+	}
+
+	data, _ := json.Marshal(perms)
+	return string(data)
 }

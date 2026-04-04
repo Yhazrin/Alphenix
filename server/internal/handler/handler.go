@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -45,6 +46,7 @@ type Handler struct {
 	UpdateStore          *UpdateStore
 	Storage              *storage.S3Storage
 	CFSigner             *auth.CloudFrontSigner
+	prefixCache          sync.Map // workspace UUID string → issue prefix string
 }
 
 func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *events.Bus, emailService *service.EmailService, s3 *storage.S3Storage, cfSigner *auth.CloudFrontSigner) *Handler {
@@ -250,142 +252,3 @@ func (h *Handler) requireWorkspaceRole(w http.ResponseWriter, r *http.Request, w
 	return member, true
 }
 
-func (h *Handler) loadIssueForUser(w http.ResponseWriter, r *http.Request, issueID string) (db.Issue, bool) {
-	if _, ok := requireUserID(w, r); !ok {
-		return db.Issue{}, false
-	}
-
-	workspaceID := resolveWorkspaceID(r)
-	if workspaceID == "" {
-		writeError(w, http.StatusBadRequest, "workspace_id is required")
-		return db.Issue{}, false
-	}
-
-	// Try identifier format first (e.g., "JIA-42").
-	if issue, ok := h.resolveIssueByIdentifier(r.Context(), issueID, workspaceID); ok {
-		return issue, true
-	}
-
-	issue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
-		ID:          parseUUID(issueID),
-		WorkspaceID: parseUUID(workspaceID),
-	})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "issue not found")
-		return db.Issue{}, false
-	}
-	return issue, true
-}
-
-// resolveIssueByIdentifier tries to look up an issue by "PREFIX-NUMBER" format.
-func (h *Handler) resolveIssueByIdentifier(ctx context.Context, id, workspaceID string) (db.Issue, bool) {
-	parts := splitIdentifier(id)
-	if parts == nil {
-		return db.Issue{}, false
-	}
-	if workspaceID == "" {
-		return db.Issue{}, false
-	}
-	issue, err := h.Queries.GetIssueByNumber(ctx, db.GetIssueByNumberParams{
-		WorkspaceID: parseUUID(workspaceID),
-		Number:      parts.number,
-	})
-	if err != nil {
-		return db.Issue{}, false
-	}
-	return issue, true
-}
-
-type identifierParts struct {
-	prefix string
-	number int32
-}
-
-func splitIdentifier(id string) *identifierParts {
-	idx := -1
-	for i := len(id) - 1; i >= 0; i-- {
-		if id[i] == '-' {
-			idx = i
-			break
-		}
-	}
-	if idx <= 0 || idx >= len(id)-1 {
-		return nil
-	}
-	numStr := id[idx+1:]
-	num := 0
-	for _, c := range numStr {
-		if c < '0' || c > '9' {
-			return nil
-		}
-		num = num*10 + int(c-'0')
-	}
-	if num <= 0 {
-		return nil
-	}
-	return &identifierParts{prefix: id[:idx], number: int32(num)}
-}
-
-// getIssuePrefix fetches the issue_prefix for a workspace.
-// Falls back to generating a prefix from the workspace name if the stored
-// prefix is empty (e.g. workspaces created before the prefix was introduced).
-func (h *Handler) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
-	ws, err := h.Queries.GetWorkspace(ctx, workspaceID)
-	if err != nil {
-		return ""
-	}
-	if ws.IssuePrefix != "" {
-		return ws.IssuePrefix
-	}
-	return generateIssuePrefix(ws.Name)
-}
-
-func (h *Handler) loadAgentForUser(w http.ResponseWriter, r *http.Request, agentID string) (db.Agent, bool) {
-	if _, ok := requireUserID(w, r); !ok {
-		return db.Agent{}, false
-	}
-
-	workspaceID := resolveWorkspaceID(r)
-	if workspaceID == "" {
-		writeError(w, http.StatusBadRequest, "workspace_id is required")
-		return db.Agent{}, false
-	}
-
-	agent, err := h.Queries.GetAgentInWorkspace(r.Context(), db.GetAgentInWorkspaceParams{
-		ID:          parseUUID(agentID),
-		WorkspaceID: parseUUID(workspaceID),
-	})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "agent not found")
-		return db.Agent{}, false
-	}
-	return agent, true
-}
-
-func (h *Handler) loadInboxItemForUser(w http.ResponseWriter, r *http.Request, itemID string) (db.InboxItem, bool) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return db.InboxItem{}, false
-	}
-
-	workspaceID := resolveWorkspaceID(r)
-	if workspaceID == "" {
-		writeError(w, http.StatusBadRequest, "workspace_id is required")
-		return db.InboxItem{}, false
-	}
-
-	item, err := h.Queries.GetInboxItemInWorkspace(r.Context(), db.GetInboxItemInWorkspaceParams{
-		ID:          parseUUID(itemID),
-		WorkspaceID: parseUUID(workspaceID),
-	})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "inbox item not found")
-		return db.InboxItem{}, false
-	}
-
-	if item.RecipientType != "member" || uuidToString(item.RecipientID) != userID {
-		writeError(w, http.StatusNotFound, "inbox item not found")
-		return db.InboxItem{}, false
-	}
-	return item, true
-}

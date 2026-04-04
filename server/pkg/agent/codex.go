@@ -26,11 +26,13 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		return nil, fmt.Errorf("codex executable not found at %q: %w", execPath, err)
 	}
 
-	timeout := opts.Timeout
-	if timeout == 0 {
-		timeout = 20 * time.Minute
+	var runCtx context.Context
+	var cancel context.CancelFunc
+	if opts.Timeout > 0 {
+		runCtx, cancel = context.WithTimeout(ctx, opts.Timeout)
+	} else {
+		runCtx, cancel = context.WithCancel(ctx)
 	}
-	runCtx, cancel := context.WithTimeout(ctx, timeout)
 
 	cmd := exec.CommandContext(runCtx, execPath, "app-server", "--listen", "stdio://")
 	if opts.Cwd != "" {
@@ -70,8 +72,11 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	c := &codexClient{
 		cfg:                  b.cfg,
 		stdin:                stdin,
+		ctx:                  runCtx,
 		pending:              make(map[int]*pendingRPC),
 		notificationProtocol: "unknown",
+		toolPerms:            opts.ToolPermissions,
+		toolHooks:            opts.ToolHooks,
 		onMessage: func(msg Message) {
 			if msg.Type == MessageText {
 				outputMu.Lock()
@@ -197,7 +202,7 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		case <-runCtx.Done():
 			if runCtx.Err() == context.DeadlineExceeded {
 				finalStatus = "timeout"
-				finalError = fmt.Sprintf("codex timed out after %s", timeout)
+				finalError = fmt.Sprintf("codex timed out after %s", opts.Timeout)
 			} else {
 				finalStatus = "aborted"
 				finalError = "execution cancelled"
@@ -231,12 +236,46 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	return &Session{Messages: msgCh, Result: resCh}, nil
 }
 
+func (b *codexBackend) Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error) {
+	// Codex doesn't have native fork support — delegate to Execute with
+	// the parent's session context inherited via environment.
+	execOpts := ExecOptions{
+		Cwd:             opts.Cwd,
+		Model:           opts.Model,
+		MaxTurns:        opts.MaxTurns,
+		Timeout:         opts.Timeout,
+		ResumeSessionID: opts.ParentSessionID,
+		ToolPermissions: opts.ToolPermissions,
+		ToolHooks:       opts.ToolHooks,
+	}
+
+	session, err := b.Execute(ctx, prompt, execOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	resCh := make(chan ForkResult, 1)
+	go func() {
+		result := <-session.Result
+		resCh <- ForkResult{
+			Status:     result.Status,
+			Output:     result.Output,
+			Error:      result.Error,
+			DurationMs: result.DurationMs,
+		}
+	}()
+
+	return &ForkSession{Result: resCh, OutputFile: opts.OutputFile}, nil
+}
+
 // ── codexClient: JSON-RPC 2.0 transport ──
 
 type codexClient struct {
 	cfg       Config
 	stdin     interface{ Write([]byte) (int, error) }
-	mu        sync.Mutex
+	ctx       context.Context
+	mu        sync.Mutex   // protects pending map and nextID
+	stdinMu   sync.Mutex   // protects stdin writes (request/notify/respond)
 	nextID    int
 	pending   map[int]*pendingRPC
 	threadID  string
@@ -247,6 +286,9 @@ type codexClient struct {
 	notificationProtocol string // "unknown", "legacy", "raw"
 	turnStarted          bool
 	completedTurnIDs     map[string]bool
+
+	toolPerms *ToolPermissions
+	toolHooks ToolHooks
 }
 
 type pendingRPC struct {
@@ -281,7 +323,10 @@ func (c *codexClient) request(ctx context.Context, method string, params any) (j
 		return nil, err
 	}
 	data = append(data, '\n')
-	if _, err := c.stdin.Write(data); err != nil {
+	c.stdinMu.Lock()
+	_, writeErr := c.stdin.Write(data)
+	c.stdinMu.Unlock()
+	if writeErr != nil {
 		c.mu.Lock()
 		delete(c.pending, id)
 		c.mu.Unlock()
@@ -306,7 +351,9 @@ func (c *codexClient) notify(method string) {
 	}
 	data, _ := json.Marshal(msg)
 	data = append(data, '\n')
+	c.stdinMu.Lock()
 	_, _ = c.stdin.Write(data)
+	c.stdinMu.Unlock()
 }
 
 func (c *codexClient) respond(id int, result any) {
@@ -317,7 +364,9 @@ func (c *codexClient) respond(id int, result any) {
 	}
 	data, _ := json.Marshal(msg)
 	data = append(data, '\n')
+	c.stdinMu.Lock()
 	_, _ = c.stdin.Write(data)
+	c.stdinMu.Unlock()
 }
 
 func (c *codexClient) closeAllPending(err error) {
@@ -394,15 +443,48 @@ func (c *codexClient) handleServerRequest(raw map[string]json.RawMessage) {
 	var method string
 	_ = json.Unmarshal(raw["method"], &method)
 
-	// Auto-approve all exec/patch requests in daemon mode
+	// Map codex tool names to our unified tool names for permission checks.
+	var toolName string
+	var input map[string]any
 	switch method {
 	case "item/commandExecution/requestApproval", "execCommandApproval":
-		c.respond(id, map[string]any{"decision": "accept"})
+		toolName = "Bash"
+		if params, ok := raw["params"]; ok {
+			var p map[string]any
+			_ = json.Unmarshal(params, &p)
+			input = p
+		}
 	case "item/fileChange/requestApproval", "applyPatchApproval":
-		c.respond(id, map[string]any{"decision": "accept"})
+		toolName = "Write"
+		if params, ok := raw["params"]; ok {
+			var p map[string]any
+			_ = json.Unmarshal(params, &p)
+			input = p
+		}
 	default:
 		c.respond(id, map[string]any{})
+		return
 	}
+
+	// Step 1: Check ToolPermissions.
+	if c.toolPerms != nil && !c.toolPerms.IsToolAllowed(toolName) {
+		c.cfg.Logger.Info("codex: tool denied by permissions", "tool", toolName)
+		c.respond(id, map[string]any{"decision": "deny", "message": fmt.Sprintf("tool %q is not allowed for this agent role", toolName)})
+		return
+	}
+
+	// Step 2: Run PreToolUse hook if configured.
+	if c.toolHooks.PreToolUse != nil {
+		result := c.toolHooks.PreToolUse(c.ctx, toolName, input)
+		if result.Deny {
+			c.cfg.Logger.Info("codex: tool denied by hook", "tool", toolName, "reason", result.DenyReason)
+			c.respond(id, map[string]any{"decision": "deny", "message": result.DenyReason})
+			return
+		}
+	}
+
+	// Step 3: Allow the tool call.
+	c.respond(id, map[string]any{"decision": "accept"})
 }
 
 func (c *codexClient) handleNotification(raw map[string]json.RawMessage) {
@@ -479,6 +561,10 @@ func (c *codexClient) handleEvent(msg map[string]any) {
 				Output: output,
 			})
 		}
+		// PostToolUse hook — observe tool result after execution.
+		if c.toolHooks.PostToolUse != nil {
+			c.toolHooks.PostToolUse(c.ctx, "exec_command", nil, output)
+		}
 	case "patch_apply_begin":
 		callID, _ := msg["call_id"].(string)
 		if c.onMessage != nil {
@@ -496,6 +582,10 @@ func (c *codexClient) handleEvent(msg map[string]any) {
 				Tool:   "patch_apply",
 				CallID: callID,
 			})
+		}
+		// PostToolUse hook — observe file change result after execution.
+		if c.toolHooks.PostToolUse != nil {
+			c.toolHooks.PostToolUse(c.ctx, "Write", nil, "")
 		}
 	case "task_complete":
 		if c.onTurnDone != nil {
@@ -585,6 +675,10 @@ func (c *codexClient) handleItemNotification(method string, params map[string]an
 				Output: output,
 			})
 		}
+		// PostToolUse hook — observe tool result after execution.
+		if c.toolHooks.PostToolUse != nil {
+			c.toolHooks.PostToolUse(c.ctx, "exec_command", nil, output)
+		}
 
 	case method == "item/started" && itemType == "fileChange":
 		if c.onMessage != nil {
@@ -603,8 +697,12 @@ func (c *codexClient) handleItemNotification(method string, params map[string]an
 				CallID: itemID,
 			})
 		}
+		// PostToolUse hook — observe file change result after execution.
+		if c.toolHooks.PostToolUse != nil {
+			c.toolHooks.PostToolUse(c.ctx, "patch_apply", nil, "")
+		}
 
-	case method == "item/completed" && itemType == "agentMessage":
+		case method == "item/completed" && itemType == "agentMessage":
 		text, _ := item["text"].(string)
 		if text != "" && c.onMessage != nil {
 			c.onMessage(Message{Type: MessageText, Content: text})

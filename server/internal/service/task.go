@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"strconv"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,9 +22,10 @@ import (
 )
 
 type TaskService struct {
-	Queries *db.Queries
-	Hub     *realtime.Hub
-	Bus     *events.Bus
+	Queries     *db.Queries
+	Hub         *realtime.Hub
+	Bus         *events.Bus
+	prefixCache sync.Map
 }
 
 func NewTaskService(q *db.Queries, hub *realtime.Hub, bus *events.Bus) *TaskService {
@@ -118,6 +120,14 @@ func (s *TaskService) CancelTasksForIssue(ctx context.Context, issueID pgtype.UU
 // CancelTask cancels a single task by ID. It broadcasts a task:cancelled event
 // so frontends can update immediately.
 func (s *TaskService) CancelTask(ctx context.Context, taskID pgtype.UUID) (*db.AgentTaskQueue, error) {
+	existing, err := s.Queries.GetAgentTask(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("load task: %w", err)
+	}
+	if !CanTransition(TaskState(existing.Status), TaskStateCancelled) {
+		return nil, fmt.Errorf("cannot transition task from %s to cancelled", existing.Status)
+	}
+
 	task, err := s.Queries.CancelAgentTask(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("cancel task: %w", err)
@@ -202,6 +212,14 @@ func (s *TaskService) ClaimTaskForRuntime(ctx context.Context, runtimeID pgtype.
 // StartTask transitions a dispatched task to running.
 // Issue status is NOT changed here — the agent manages it via the CLI.
 func (s *TaskService) StartTask(ctx context.Context, taskID pgtype.UUID) (*db.AgentTaskQueue, error) {
+	existing, err := s.Queries.GetAgentTask(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("load task: %w", err)
+	}
+	if !CanTransition(TaskState(existing.Status), TaskStateRunning) {
+		return nil, fmt.Errorf("cannot transition task from %s to running", existing.Status)
+	}
+
 	task, err := s.Queries.StartAgentTask(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("start task: %w", err)
@@ -221,14 +239,8 @@ func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, resu
 	if err != nil {
 		return nil, fmt.Errorf("load task: %w", err)
 	}
-	if task.Status != "running" {
-		slog.Warn("complete task failed: task not in running state",
-			"task_id", util.UUIDToString(taskID),
-			"current_status", task.Status,
-			"issue_id", util.UUIDToString(task.IssueID),
-			"agent_id", util.UUIDToString(task.AgentID),
-		)
-		return nil, fmt.Errorf("task %s is not running (status: %s)", util.UUIDToString(taskID), task.Status)
+	if !CanTransition(TaskState(task.Status), TaskStateInReview) && !CanTransition(TaskState(task.Status), TaskStateCompleted) {
+		return nil, fmt.Errorf("cannot transition task from %s to in_review or completed", task.Status)
 	}
 
 	// If review is enabled, transition to in_review instead of completing.
@@ -302,24 +314,19 @@ func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, resu
 // FailTask marks a task as failed.
 // Issue status is NOT changed here — the agent manages it via the CLI.
 func (s *TaskService) FailTask(ctx context.Context, taskID pgtype.UUID, errMsg string) (*db.AgentTaskQueue, error) {
+	existing, err := s.Queries.GetAgentTask(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("load task: %w", err)
+	}
+	if !CanTransition(TaskState(existing.Status), TaskStateFailed) {
+		return nil, fmt.Errorf("cannot transition task from %s to failed", existing.Status)
+	}
+
 	task, err := s.Queries.FailAgentTask(ctx, db.FailAgentTaskParams{
 		ID:    taskID,
 		Error: pgtype.Text{String: errMsg, Valid: true},
 	})
 	if err != nil {
-		if existing, lookupErr := s.Queries.GetAgentTask(ctx, taskID); lookupErr == nil {
-			slog.Warn("fail task failed: task not in dispatched/running state",
-				"task_id", util.UUIDToString(taskID),
-				"current_status", existing.Status,
-				"issue_id", util.UUIDToString(existing.IssueID),
-				"agent_id", util.UUIDToString(existing.AgentID),
-			)
-		} else {
-			slog.Warn("fail task failed: task not found",
-				"task_id", util.UUIDToString(taskID),
-				"lookup_error", lookupErr,
-			)
-		}
 		return nil, fmt.Errorf("fail task: %w", err)
 	}
 
@@ -580,7 +587,7 @@ func (s *TaskService) checkAndLogReadyDependents(ctx context.Context, completedT
 }
 
 func (s *TaskService) broadcastIssueUpdated(issue db.Issue) {
-	prefix := s.getIssuePrefix(issue.WorkspaceID)
+	prefix := s.getIssuePrefix(context.Background(), issue.WorkspaceID)
 	s.Bus.Publish(events.Event{
 		Type:        protocol.EventIssueUpdated,
 		WorkspaceID: util.UUIDToString(issue.WorkspaceID),
@@ -590,12 +597,18 @@ func (s *TaskService) broadcastIssueUpdated(issue db.Issue) {
 	})
 }
 
-func (s *TaskService) getIssuePrefix(workspaceID pgtype.UUID) string {
-	ws, err := s.Queries.GetWorkspace(context.Background(), workspaceID)
+func (s *TaskService) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
+	key := util.UUIDToString(workspaceID)
+	if v, ok := s.prefixCache.Load(key); ok {
+		return v.(string)
+	}
+	ws, err := s.Queries.GetWorkspace(ctx, workspaceID)
 	if err != nil {
 		return ""
 	}
-	return ws.IssuePrefix
+	prefix := ws.IssuePrefix
+	s.prefixCache.Store(key, prefix)
+	return prefix
 }
 
 func (s *TaskService) createAgentComment(ctx context.Context, issueID, agentID pgtype.UUID, content, commentType string, parentID pgtype.UUID) {
@@ -668,15 +681,21 @@ func issueToMap(issue db.Issue, issuePrefix string) map[string]any {
 func agentToMap(a db.Agent) map[string]any {
 	var rc any
 	if a.RuntimeConfig != nil {
-		json.Unmarshal(a.RuntimeConfig, &rc)
+		if err := json.Unmarshal(a.RuntimeConfig, &rc); err != nil {
+			slog.Warn("failed to unmarshal agent runtime_config", "error", err)
+		}
 	}
 	var tools any
 	if a.Tools != nil {
-		json.Unmarshal(a.Tools, &tools)
+		if err := json.Unmarshal(a.Tools, &tools); err != nil {
+			slog.Warn("failed to unmarshal agent tools", "error", err)
+		}
 	}
 	var triggers any
 	if a.Triggers != nil {
-		json.Unmarshal(a.Triggers, &triggers)
+		if err := json.Unmarshal(a.Triggers, &triggers); err != nil {
+			slog.Warn("failed to unmarshal agent triggers", "error", err)
+		}
 	}
 	return map[string]any{
 		"id":                   util.UUIDToString(a.ID),

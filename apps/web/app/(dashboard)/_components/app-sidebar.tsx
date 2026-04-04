@@ -75,7 +75,7 @@ export function AppSidebar() {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const switchWorkspace = useWorkspaceStore((s) => s.switchWorkspace);
 
-  const unreadCount = useInboxStore((s) => s.unreadCount());
+  const unreadCount = useInboxStore((s) => s.unreadCount);
 
   const logout = () => {
     router.push("/");

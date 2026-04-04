@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -88,6 +89,12 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 	offset := 0
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil {
+			if v < 0 {
+				v = 0
+			}
+			if v > 200 {
+				v = 200
+			}
 			limit = v
 		}
 	}
@@ -182,6 +189,7 @@ type CreateIssueRequest struct {
 
 func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	var req CreateIssueRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -189,6 +197,10 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	if req.Title == "" {
 		writeError(w, http.StatusBadRequest, "title is required")
+		return
+	}
+	if len(req.Title) > 500 {
+		writeError(w, http.StatusBadRequest, "title must be 500 characters or fewer")
 		return
 	}
 
@@ -278,7 +290,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Warn("create issue failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to create issue: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to create issue")
 		return
 	}
 
@@ -327,6 +339,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 	workspaceID := uuidToString(prevIssue.WorkspaceID)
 
 	// Read body as raw bytes so we can detect which fields were explicitly sent.
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "failed to read request body")
@@ -341,7 +354,10 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 
 	// Track which fields were explicitly present in JSON (even if null)
 	var rawFields map[string]json.RawMessage
-	json.Unmarshal(bodyBytes, &rawFields)
+	if err := json.Unmarshal(bodyBytes, &rawFields); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
 	// Pre-fill nullable fields (bare sqlc.narg) with current values
 	params := db.UpdateIssueParams{
@@ -406,7 +422,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 	issue, err := h.Queries.UpdateIssue(r.Context(), params)
 	if err != nil {
 		slog.Warn("update issue failed", append(logger.RequestAttrs(r), "error", err, "issue_id", id, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to update issue: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to update issue")
 		return
 	}
 
@@ -601,9 +617,13 @@ func (h *Handler) DeleteIssue(w http.ResponseWriter, r *http.Request) {
 	h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
 
 	// Collect all attachment URLs (issue-level + comment-level) before CASCADE delete.
-	attachmentURLs, _ := h.Queries.ListAttachmentURLsByIssueOrComments(r.Context(), issue.ID)
+	attachmentURLs, err := h.Queries.ListAttachmentURLsByIssueOrComments(r.Context(), issue.ID)
+	if err != nil {
+		slog.Warn("failed to list attachment URLs for issue cleanup", "issue_id", uuidToString(issue.ID), "error", err)
+		attachmentURLs = nil
+	}
 
-	err := h.Queries.DeleteIssue(r.Context(), parseUUID(id))
+	err = h.Queries.DeleteIssue(r.Context(), parseUUID(id))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete issue")
 		return
@@ -627,6 +647,7 @@ type BatchUpdateIssuesRequest struct {
 }
 
 func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "failed to read request body")
@@ -643,6 +664,10 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "issue_ids is required")
 		return
 	}
+	if len(req.IssueIDs) > 500 {
+		writeError(w, http.StatusBadRequest, "too many issue IDs (max 500)")
+		return
+	}
 
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -651,20 +676,54 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 
 	// Detect which fields in "updates" were explicitly set (including null).
 	var rawTop map[string]json.RawMessage
-	json.Unmarshal(bodyBytes, &rawTop)
+	if err := json.Unmarshal(bodyBytes, &rawTop); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 	var rawUpdates map[string]json.RawMessage
 	if raw, exists := rawTop["updates"]; exists {
-		json.Unmarshal(raw, &rawUpdates)
+		if err := json.Unmarshal(raw, &rawUpdates); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
 	}
 
 	workspaceID := resolveWorkspaceID(r)
+
+	// Batch fetch all issues in a single query instead of N+1.
+	prevIssues, err := h.batchGetIssuesByIDs(r.Context(), req.IssueIDs, workspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to fetch issues")
+		return
+	}
+
+	// Index by ID for quick lookup.
+	prevByID := make(map[string]db.Issue, len(prevIssues))
+	for _, issue := range prevIssues {
+		prevByID[uuidToString(issue.ID)] = issue
+	}
+
 	updated := 0
+	prefix := h.getIssuePrefix(r.Context(), parseUUID(workspaceID))
+
+	// Wrap batch updates in a transaction for atomicity.
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	txQueries := h.Queries.WithTx(tx)
+
+	type pendingEvent struct {
+		workspaceID, actorType, actorID string
+		payload                         map[string]any
+	}
+	var events []pendingEvent
+
 	for _, issueID := range req.IssueIDs {
-		prevIssue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
-			ID:          parseUUID(issueID),
-			WorkspaceID: parseUUID(workspaceID),
-		})
-		if err != nil {
+		prevIssue, ok := prevByID[issueID]
+		if !ok {
 			continue
 		}
 
@@ -723,13 +782,12 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		issue, err := h.Queries.UpdateIssue(r.Context(), params)
+		issue, err := txQueries.UpdateIssue(r.Context(), params)
 		if err != nil {
 			slog.Warn("batch update issue failed", "issue_id", issueID, "error", err)
 			continue
 		}
 
-		prefix := h.getIssuePrefix(r.Context(), issue.WorkspaceID)
 		resp := issueToResponse(issue, prefix)
 		actorType, actorID := h.resolveActor(r, userID, workspaceID)
 
@@ -738,11 +796,16 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		statusChanged := req.Updates.Status != nil && prevIssue.Status != issue.Status
 		priorityChanged := req.Updates.Priority != nil && prevIssue.Priority != issue.Priority
 
-		h.publish(protocol.EventIssueUpdated, workspaceID, actorType, actorID, map[string]any{
-			"issue":            resp,
-			"assignee_changed": assigneeChanged,
-			"status_changed":   statusChanged,
-			"priority_changed": priorityChanged,
+		events = append(events, pendingEvent{
+			workspaceID: workspaceID,
+			actorType:   actorType,
+			actorID:     actorID,
+			payload: map[string]any{
+				"issue":            resp,
+				"assignee_changed": assigneeChanged,
+				"status_changed":   statusChanged,
+				"priority_changed": priorityChanged,
+			},
 		})
 
 		if assigneeChanged {
@@ -755,6 +818,15 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		updated++
 	}
 
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit transaction")
+		return
+	}
+
+	for _, e := range events {
+		h.publish(protocol.EventIssueUpdated, e.workspaceID, e.actorType, e.actorID, e.payload)
+	}
+
 	slog.Info("batch update issues", append(logger.RequestAttrs(r), "count", updated)...)
 	writeJSON(w, http.StatusOK, map[string]any{"updated": updated})
 }
@@ -765,6 +837,7 @@ type BatchDeleteIssuesRequest struct {
 
 func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 	var req BatchDeleteIssuesRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -774,6 +847,10 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "issue_ids is required")
 		return
 	}
+	if len(req.IssueIDs) > 500 {
+		writeError(w, http.StatusBadRequest, "too many issue IDs (max 500)")
+		return
+	}
 
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -781,28 +858,207 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 	}
 
 	workspaceID := resolveWorkspaceID(r)
-	deleted := 0
-	for _, issueID := range req.IssueIDs {
-		issue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
-			ID:          parseUUID(issueID),
-			WorkspaceID: parseUUID(workspaceID),
-		})
-		if err != nil {
-			continue
-		}
 
-		h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
-
-		if err := h.Queries.DeleteIssue(r.Context(), parseUUID(issueID)); err != nil {
-			slog.Warn("batch delete issue failed", "issue_id", issueID, "error", err)
-			continue
-		}
-
-		actorType, actorID := h.resolveActor(r, userID, workspaceID)
-		h.publish(protocol.EventIssueDeleted, workspaceID, actorType, actorID, map[string]any{"issue_id": issueID})
-		deleted++
+	// Batch fetch all issues in a single query instead of N+1.
+	issues, err := h.batchGetIssuesByIDs(r.Context(), req.IssueIDs, workspaceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to fetch issues")
+		return
 	}
 
+	// Cancel tasks for all fetched issues.
+	for _, issue := range issues {
+		h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
+	}
+
+	// Collect attachment URLs before delete.
+	for _, issue := range issues {
+		attachmentURLs, err := h.Queries.ListAttachmentURLsByIssueOrComments(r.Context(), issue.ID)
+		if err != nil {
+			slog.Warn("failed to list attachment URLs for batch issue cleanup", "issue_id", uuidToString(issue.ID), "error", err)
+			continue
+		}
+		h.deleteS3Objects(r.Context(), attachmentURLs)
+	}
+
+	// Batch delete all issues in a single query.
+	if err := h.batchDeleteIssues(r.Context(), req.IssueIDs, workspaceID); err != nil {
+		slog.Warn("batch delete issues failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to delete issues")
+		return
+	}
+
+	// Publish delete events for each issue.
+	actorType, actorID := h.resolveActor(r, userID, workspaceID)
+	for _, issue := range issues {
+		h.publish(protocol.EventIssueDeleted, workspaceID, actorType, actorID, map[string]any{"issue_id": uuidToString(issue.ID)})
+	}
+
+	deleted := len(issues)
 	slog.Info("batch delete issues", append(logger.RequestAttrs(r), "count", deleted)...)
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": deleted})
+}
+
+// ── Issue identifier helpers ──────────────────────────────────────────────────
+
+type identifierParts struct {
+	prefix string
+	number int32
+}
+
+// splitIdentifier parses "PREFIX-NUMBER" into its components.
+// Returns nil if the string is not in that format.
+func splitIdentifier(id string) *identifierParts {
+	idx := -1
+	for i := len(id) - 1; i >= 0; i-- {
+		if id[i] == '-' {
+			idx = i
+			break
+		}
+	}
+	if idx <= 0 || idx >= len(id)-1 {
+		return nil
+	}
+	numStr := id[idx+1:]
+	num := 0
+	for _, c := range numStr {
+		if c < '0' || c > '9' {
+			return nil
+		}
+		num = num*10 + int(c-'0')
+	}
+	if num <= 0 {
+		return nil
+	}
+	return &identifierParts{prefix: id[:idx], number: int32(num)}
+}
+
+// getIssuePrefix fetches the issue_prefix for a workspace, using an in-memory
+// cache to avoid repeated DB lookups. Falls back to generating a prefix from
+// the workspace name if the stored prefix is empty.
+func (h *Handler) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
+	key := uuidToString(workspaceID)
+	if cached, ok := h.prefixCache.Load(key); ok {
+		return cached.(string)
+	}
+	ws, err := h.Queries.GetWorkspace(ctx, workspaceID)
+	if err != nil {
+		return ""
+	}
+	prefix := ws.IssuePrefix
+	if prefix == "" {
+		prefix = generateIssuePrefix(ws.Name)
+	}
+	h.prefixCache.Store(key, prefix)
+	return prefix
+}
+
+// resolveIssueByIdentifier tries to look up an issue by "PREFIX-NUMBER" format.
+// The prefix must match the workspace's actual issue_prefix, preventing ambiguous
+// resolution (e.g. MUL-42 vs XXX-42 both resolving to number 42).
+func (h *Handler) resolveIssueByIdentifier(ctx context.Context, id, workspaceID string) (db.Issue, bool) {
+	parts := splitIdentifier(id)
+	if parts == nil {
+		return db.Issue{}, false
+	}
+	if workspaceID == "" {
+		return db.Issue{}, false
+	}
+	wsUUID := parseUUID(workspaceID)
+	expectedPrefix := h.getIssuePrefix(ctx, wsUUID)
+	if expectedPrefix != "" && !strings.EqualFold(parts.prefix, expectedPrefix) {
+		return db.Issue{}, false
+	}
+	issue, err := h.Queries.GetIssueByNumber(ctx, db.GetIssueByNumberParams{
+		WorkspaceID: wsUUID,
+		Number:      parts.number,
+	})
+	if err != nil {
+		return db.Issue{}, false
+	}
+	return issue, true
+}
+
+// loadIssueForUser resolves an issue by ID or "PREFIX-NUMBER" identifier,
+// verifying the caller is authenticated and the issue belongs to their workspace.
+func (h *Handler) loadIssueForUser(w http.ResponseWriter, r *http.Request, issueID string) (db.Issue, bool) {
+	if _, ok := requireUserID(w, r); !ok {
+		return db.Issue{}, false
+	}
+
+	workspaceID := resolveWorkspaceID(r)
+	if workspaceID == "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required")
+		return db.Issue{}, false
+	}
+
+	if issue, ok := h.resolveIssueByIdentifier(r.Context(), issueID, workspaceID); ok {
+		return issue, true
+	}
+
+	issue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
+		ID:          parseUUID(issueID),
+		WorkspaceID: parseUUID(workspaceID),
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "issue not found")
+		return db.Issue{}, false
+	}
+	return issue, true
+}
+
+// batchGetIssuesByIDs fetches multiple issues in a single query, returning only
+// those that belong to the given workspace. Avoids N+1 queries in batch operations.
+func (h *Handler) batchGetIssuesByIDs(ctx context.Context, issueIDs []string, workspaceID string) ([]db.Issue, error) {
+	if h.DB == nil || len(issueIDs) == 0 {
+		return nil, nil
+	}
+	uuids := make([]pgtype.UUID, len(issueIDs))
+	for i, id := range issueIDs {
+		uuids[i] = parseUUID(id)
+	}
+	rows, err := h.DB.Query(ctx,
+		`SELECT id, workspace_id, title, description, status, priority,
+		        assignee_type, assignee_id, creator_type, creator_id,
+		        parent_issue_id, acceptance_criteria, context_refs,
+		        position, due_date, created_at, updated_at, number
+		 FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
+		uuids, parseUUID(workspaceID),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []db.Issue
+	for rows.Next() {
+		var i db.Issue
+		err := rows.Scan(
+			&i.ID, &i.WorkspaceID, &i.Title, &i.Description, &i.Status, &i.Priority,
+			&i.AssigneeType, &i.AssigneeID, &i.CreatorType, &i.CreatorID,
+			&i.ParentIssueID, &i.AcceptanceCriteria, &i.ContextRefs,
+			&i.Position, &i.DueDate, &i.CreatedAt, &i.UpdatedAt, &i.Number,
+		)
+		if err != nil {
+			return nil, err
+		}
+		issues = append(issues, i)
+	}
+	return issues, rows.Err()
+}
+
+// batchDeleteIssues deletes multiple issues in a single SQL statement.
+func (h *Handler) batchDeleteIssues(ctx context.Context, issueIDs []string, workspaceID string) error {
+	if h.DB == nil || len(issueIDs) == 0 {
+		return nil
+	}
+	uuids := make([]pgtype.UUID, len(issueIDs))
+	for i, id := range issueIDs {
+		uuids[i] = parseUUID(id)
+	}
+	_, err := h.DB.Exec(ctx,
+		`DELETE FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
+		uuids, parseUUID(workspaceID),
+	)
+	return err
 }

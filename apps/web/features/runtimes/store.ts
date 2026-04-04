@@ -13,6 +13,7 @@ interface RuntimeState {
 
 interface RuntimeActions {
   fetchRuntimes: () => Promise<void>;
+  reset: () => void;
   setSelectedId: (id: string) => void;
   /** Patch a single runtime in-place (e.g. status/last_seen_at from WS event). */
   patchRuntime: (id: string, updates: Partial<AgentRuntime>) => void;
@@ -49,6 +50,8 @@ export const useRuntimeStore = create<RuntimeStore>((set, get) => ({
   },
 
   setSelectedId: (id) => set({ selectedId: id }),
+
+  reset: () => set({ runtimes: [], selectedId: "", fetching: true }),
 
   patchRuntime: (id, updates) => {
     set((state) => ({

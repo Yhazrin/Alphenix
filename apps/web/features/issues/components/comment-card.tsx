@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, memo, useMemo } from "react";
 import { ChevronRight, Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Editor, generateHTML } from "@tiptap/core";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,10 +32,55 @@ import { cn } from "@/lib/utils";
 import { useActorName } from "@/features/workspace";
 import { timeAgo } from "@/shared/utils";
 import { ContentEditor, type ContentEditorRef, copyMarkdown } from "@/features/editor";
+import { createEditorExtensions } from "@/features/editor/extensions";
+import { preprocessMarkdown } from "@/features/editor/utils/preprocess";
 import { FileUploadButton } from "@/components/common/file-upload-button";
 import { useFileUpload } from "@/shared/hooks/use-file-upload";
 import { ReplyInput } from "./reply-input";
 import type { TimelineEntry } from "@/shared/types";
+
+// ---------------------------------------------------------------------------
+// Static HTML rendering for readonly comments
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert markdown to HTML using a shared standalone Tiptap Editor.
+ * Reuses a single Editor instance across all calls to avoid creating
+ * a full ProseMirror editor per comment.
+ */
+let _standaloneEditor: Editor | null = null;
+function getStandaloneEditor(): Editor {
+  if (!_standaloneEditor) {
+    _standaloneEditor = new Editor({
+      editable: false,
+      content: "",
+      extensions: createEditorExtensions({ editable: false }),
+    });
+  }
+  return _standaloneEditor;
+}
+
+function markdownToHtml(markdown: string): string {
+  if (!markdown) return "";
+  const editor = getStandaloneEditor();
+  editor.commands.setContent(preprocessMarkdown(markdown), { contentType: "markdown" });
+  return generateHTML(editor.getJSON(), editor.extensionManager.extensions);
+}
+
+/** Memoized static HTML block — no ProseMirror editor instance. */
+const StaticCommentContent = memo(function StaticCommentContent({
+  content,
+}: {
+  content: string;
+}) {
+  const html = useMemo(() => markdownToHtml(content), [content]);
+  return (
+    <div
+      className="rich-text-editor text-sm outline-none readonly"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,7 +140,7 @@ function DeleteCommentDialog({
 // Single comment row (used for both parent and replies within the same Card)
 // ---------------------------------------------------------------------------
 
-function CommentRow({
+const CommentRow = memo(function CommentRow({
   issueId,
   entry,
   currentUserId,
@@ -245,7 +291,7 @@ function CommentRow({
       ) : (
         <>
           <div className="mt-1.5 pl-8 text-sm leading-relaxed text-foreground/85">
-            <ContentEditor defaultValue={entry.content ?? ""} editable={false} />
+            <StaticCommentContent content={entry.content ?? ""} />
           </div>
           {!isTemp && (
             <ReactionBar
@@ -260,13 +306,13 @@ function CommentRow({
       )}
     </div>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // CommentCard — One Card per thread (parent + all replies flat inside)
 // ---------------------------------------------------------------------------
 
-function CommentCard({
+const CommentCard = memo(function CommentCard({
   issueId,
   entry,
   allReplies,
@@ -317,15 +363,18 @@ function CommentCard({
   };
 
   // Collect all nested replies recursively into a flat list
-  const allNestedReplies: TimelineEntry[] = [];
-  const collectReplies = (parentId: string) => {
-    const children = allReplies.get(parentId) ?? [];
-    for (const child of children) {
-      allNestedReplies.push(child);
-      collectReplies(child.id);
-    }
-  };
-  collectReplies(entry.id);
+  const allNestedReplies = useMemo(() => {
+    const result: TimelineEntry[] = [];
+    const collect = (parentId: string) => {
+      const children = allReplies.get(parentId) ?? [];
+      for (const child of children) {
+        result.push(child);
+        collect(child.id);
+      }
+    };
+    collect(entry.id);
+    return result;
+  }, [allReplies, entry.id]);
 
   const replyCount = allNestedReplies.length;
   const contentPreview = (entry.content ?? "").replace(/\n/g, " ").slice(0, 80);
@@ -451,7 +500,7 @@ function CommentCard({
             ) : (
               <>
                 <div className="pl-10 text-sm leading-relaxed text-foreground/85">
-                  <ContentEditor defaultValue={entry.content ?? ""} editable={false} />
+                  <StaticCommentContent content={entry.content ?? ""} />
                 </div>
                 {!isTemp && (
                   <ReactionBar
@@ -494,6 +543,6 @@ function CommentCard({
       </Collapsible>
     </Card>
   );
-}
+});
 
 export { CommentCard, type CommentCardProps };

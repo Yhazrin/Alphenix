@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import { toast } from "sonner";
-import { ChevronRight, ListTodo } from "lucide-react";
+import { ListTodo } from "lucide-react";
 import type { IssueStatus } from "@/shared/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore, WorkspaceAvatar } from "@/features/workspace";
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { useIssueStore } from "@/features/issues/store";
 import { filterIssues } from "@/features/issues/utils/filter";
 import { BOARD_STATUSES } from "@/features/issues/config";
@@ -158,12 +160,20 @@ export function MyIssuesPage() {
     <div className="flex flex-1 min-h-0 flex-col">
       {/* Header 1: Workspace breadcrumb */}
       <div className="flex h-12 shrink-0 items-center gap-1.5 border-b px-4">
-        <WorkspaceAvatar name={workspace?.name ?? "W"} size="sm" />
-        <span className="text-sm text-muted-foreground">
-          {workspace?.name ?? "Workspace"}
-        </span>
-        <ChevronRight className="h-3 w-3 text-muted-foreground" />
-        <span className="text-sm font-medium">My Issues</span>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <WorkspaceAvatar name={workspace?.name ?? "W"} size="sm" />
+              <span className="text-sm text-muted-foreground ml-1.5">
+                {workspace?.name ?? "Workspace"}
+              </span>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="text-sm font-medium">My Issues</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
 
       {/* Header: scope tabs (left) + controls (right) */}
@@ -172,11 +182,15 @@ export function MyIssuesPage() {
       {/* Content: scrollable */}
       <ViewStoreProvider store={myIssuesViewStore}>
         {myIssues.length === 0 ? (
-          <div className="flex flex-1 min-h-0 flex-col items-center justify-center gap-2 text-muted-foreground">
-            <ListTodo className="h-10 w-10 text-muted-foreground/40" />
-            <p className="text-sm">No issues assigned to you</p>
-            <p className="text-xs">Issues you create or are assigned to will appear here.</p>
-          </div>
+          <Empty className="flex-1 border-0">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ListTodo />
+              </EmptyMedia>
+              <EmptyTitle>No issues assigned to you</EmptyTitle>
+              <EmptyDescription>Issues you create or are assigned to will appear here.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="flex flex-col flex-1 min-h-0">
             {viewMode === "board" ? (

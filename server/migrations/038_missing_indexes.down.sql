@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS idx_agent_owner;
+DROP INDEX IF EXISTS idx_member_user;
+DROP INDEX IF EXISTS idx_daemon_connection_agent;
+DROP INDEX IF EXISTS idx_issue_dependency_depends;
+DROP INDEX IF EXISTS idx_issue_dependency_issue;
+DROP INDEX IF EXISTS idx_issue_to_label_label;
+DROP INDEX IF EXISTS idx_issue_label_workspace;
+DROP INDEX IF EXISTS idx_comment_issue_created;
+DROP INDEX IF EXISTS idx_activity_log_workspace_created;
+DROP INDEX IF EXISTS idx_agent_task_queue_issue;

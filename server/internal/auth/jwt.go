@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -16,11 +17,19 @@ var (
 	jwtSecretOnce sync.Once
 )
 
+func IsProduction() bool {
+	return os.Getenv("APP_ENV") == "production"
+}
+
 func JWTSecret() []byte {
 	jwtSecretOnce.Do(func() {
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
+			if IsProduction() {
+				panic("JWT_SECRET environment variable must be set in production")
+			}
 			secret = defaultJWTSecret
+			slog.Warn("using default JWT secret; set JWT_SECRET environment variable for production")
 		}
 		jwtSecret = []byte(secret)
 	})

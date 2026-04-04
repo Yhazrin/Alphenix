@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"strings"
@@ -14,6 +15,7 @@ func TestClaudeHandleAssistantText(t *testing.T) {
 	b := &claudeBackend{cfg: Config{Logger: slog.Default()}}
 	ch := make(chan Message, 10)
 	var output strings.Builder
+	tracker := make(map[string]toolCallRecord)
 
 	msg := claudeSDKMessage{
 		Type: "assistant",
@@ -25,7 +27,7 @@ func TestClaudeHandleAssistantText(t *testing.T) {
 		}),
 	}
 
-	b.handleAssistant(msg, ch, &output)
+	b.handleAssistant(msg, ch, &output, tracker)
 
 	if output.String() != "Hello world" {
 		t.Fatalf("expected output 'Hello world', got %q", output.String())
@@ -46,6 +48,7 @@ func TestClaudeHandleAssistantToolUse(t *testing.T) {
 	b := &claudeBackend{cfg: Config{Logger: slog.Default()}}
 	ch := make(chan Message, 10)
 	var output strings.Builder
+	tracker := make(map[string]toolCallRecord)
 
 	msg := claudeSDKMessage{
 		Type: "assistant",
@@ -62,7 +65,7 @@ func TestClaudeHandleAssistantToolUse(t *testing.T) {
 		}),
 	}
 
-	b.handleAssistant(msg, ch, &output)
+	b.handleAssistant(msg, ch, &output, tracker)
 
 	if output.String() != "" {
 		t.Fatalf("tool_use should not add to output, got %q", output.String())
@@ -100,7 +103,7 @@ func TestClaudeHandleUserToolResult(t *testing.T) {
 		}),
 	}
 
-	b.handleUser(msg, ch)
+	b.handleUser(context.Background(), msg, ch, ExecOptions{}, nil)
 
 	select {
 	case m := <-ch:
@@ -129,7 +132,7 @@ func TestClaudeHandleControlRequestAutoApproves(t *testing.T) {
 		}),
 	}
 
-	b.handleControlRequest(msg, &written)
+	b.handleControlRequest(context.Background(), msg, &written, ExecOptions{})
 
 	var resp map[string]any
 	if err := json.Unmarshal(bytes.TrimSpace(written.Bytes()), &resp); err != nil {
@@ -155,6 +158,7 @@ func TestClaudeHandleAssistantInvalidJSON(t *testing.T) {
 	b := &claudeBackend{cfg: Config{Logger: slog.Default()}}
 	ch := make(chan Message, 10)
 	var output strings.Builder
+	tracker := make(map[string]toolCallRecord)
 
 	msg := claudeSDKMessage{
 		Type:    "assistant",
@@ -162,7 +166,7 @@ func TestClaudeHandleAssistantInvalidJSON(t *testing.T) {
 	}
 
 	// Should not panic
-	b.handleAssistant(msg, ch, &output)
+	b.handleAssistant(msg, ch, &output, tracker)
 
 	if output.String() != "" {
 		t.Fatalf("expected empty output for invalid JSON, got %q", output.String())

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // RepoContextForEnv describes a workspace repo available for checkout.
@@ -18,12 +19,13 @@ type RepoContextForEnv struct {
 
 // PrepareParams holds all inputs needed to set up an execution environment.
 type PrepareParams struct {
-	WorkspacesRoot string           // base path for all envs (e.g., ~/multica_workspaces)
-	WorkspaceID    string           // workspace UUID — tasks are grouped under this
-	TaskID         string           // task UUID — used for directory name
-	AgentName      string           // for git branch naming only
-	Provider       string           // agent provider ("claude", "codex") — determines skill injection paths
-	Task           TaskContextForEnv // context data for writing files
+	WorkspacesRoot    string             // base path for all envs (e.g., ~/multica_workspaces)
+	WorkspaceID       string             // workspace UUID — tasks are grouped under this
+	TaskID            string             // task UUID — used for directory name
+	AgentName         string             // for git branch naming only
+	Provider          string             // agent provider ("claude", "codex") — determines skill injection paths
+	Task              TaskContextForEnv  // context data for writing files
+	RepoCLAUDEProvider RepoCLAUDEProvider // optional: reads repo-level CLAUDE.md from bare cache
 }
 
 // TaskContextForEnv is the subset of task context used for writing context files.
@@ -59,6 +61,15 @@ type Environment struct {
 	CodexHome string
 
 	logger *slog.Logger // for cleanup logging
+}
+
+// RepoCLAUDEProvider is an optional interface for reading repo-level CLAUDE.md
+// from a bare cache. When provided, Prepare copies discovered CLAUDE.md files
+// into the workDir so Claude Code sees project-specific instructions immediately.
+type RepoCLAUDEProvider interface {
+	// LookupRepoFile returns the content of a file from a repo's bare cache,
+	// or empty string if not found. The file is read from the default branch.
+	LookupRepoFile(workspaceID, repoURL, filePath string) (string, error)
 }
 
 // Prepare creates an isolated execution environment for a task.
@@ -103,6 +114,12 @@ func Prepare(params PrepareParams, logger *slog.Logger) (*Environment, error) {
 		return nil, fmt.Errorf("execenv: write context files: %w", err)
 	}
 
+	// Copy repo-level CLAUDE.md files from bare cache into workDir so Claude Code
+	// sees project-specific instructions immediately (before the agent checks out repos).
+	if params.Provider == "claude" && params.RepoCLAUDEProvider != nil {
+		copyRepoCLAUDEFiles(workDir, params.WorkspaceID, params.Task.Repos, params.RepoCLAUDEProvider, logger)
+	}
+
 	// For Codex, set up a per-task CODEX_HOME seeded from ~/.codex/ with skills.
 	if params.Provider == "codex" {
 		codexHome := filepath.Join(envRoot, "codex-home")
@@ -141,6 +158,71 @@ func Reuse(workDir, provider string, task TaskContextForEnv, logger *slog.Logger
 
 	logger.Info("execenv: reusing env", "workdir", workDir)
 	return env
+}
+
+// copyRepoCLAUDEFiles reads CLAUDE.md from each repo's bare cache and writes it
+// into the workDir under a .repo_claude/ directory. The runtime config (CLAUDE.md)
+// includes instructions pointing Claude Code to these files.
+func copyRepoCLAUDEFiles(workDir, workspaceID string, repos []RepoContextForEnv, provider RepoCLAUDEProvider, logger *slog.Logger) {
+	if len(repos) == 0 {
+		return
+	}
+
+	repoDir := filepath.Join(workDir, ".repo_claude")
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		logger.Warn("execenv: create .repo_claude dir failed", "error", err)
+		return
+	}
+
+	for _, repo := range repos {
+		if repo.URL == "" {
+			continue
+		}
+		content, err := provider.LookupRepoFile(workspaceID, repo.URL, "CLAUDE.md")
+		if err != nil {
+			logger.Debug("execenv: lookup repo CLAUDE.md failed", "url", repo.URL, "error", err)
+			continue
+		}
+		if content == "" {
+			continue
+		}
+		// Write to {workDir}/.repo_claude/{sanitized-repo-name}.md
+		fileName := sanitizeRepoFileName(repo.URL) + ".md"
+		dest := filepath.Join(repoDir, fileName)
+		if err := os.WriteFile(dest, []byte(content), 0o644); err != nil {
+			logger.Warn("execenv: write repo CLAUDE.md failed", "url", repo.URL, "error", err)
+			continue
+		}
+		logger.Info("execenv: copied repo CLAUDE.md", "url", repo.URL, "dest", dest)
+	}
+}
+
+// sanitizeRepoFileName extracts a safe filename from a repo URL.
+func sanitizeRepoFileName(url string) string {
+	name := url
+	// Strip protocol and trailing slashes.
+	if i := strings.LastIndex(name, "://"); i >= 0 {
+		name = name[i+3:]
+	}
+	name = strings.TrimRight(name, "/")
+	name = strings.TrimSuffix(name, ".git")
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+	}
+	// Replace non-alphanumeric with hyphens.
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	result := strings.Trim(b.String(), "-")
+	if result == "" {
+		return "repo"
+	}
+	return result
 }
 
 // Cleanup tears down the execution environment.

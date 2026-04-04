@@ -158,6 +158,7 @@ func (h *Handler) InitiateUpdate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TargetVersion string `json:"target_version"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -198,6 +199,7 @@ func (h *Handler) ReportUpdateResult(w http.ResponseWriter, r *http.Request) {
 		Output string `json:"output"`
 		Error  string `json:"error"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return

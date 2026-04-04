@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useMemo } from "react";
 import { en } from "./en";
 import { zh } from "./zh";
 import type { LandingDict, Locale } from "./types";
@@ -32,10 +32,13 @@ export function LocaleProvider({
     document.cookie = `${COOKIE_NAME}=${l}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
   }, []);
 
+  const value = useMemo(
+    () => ({ locale, t: dictionaries[locale], setLocale }),
+    [locale, setLocale],
+  );
+
   return (
-    <LocaleContext.Provider
-      value={{ locale, t: dictionaries[locale], setLocale }}
-    >
+    <LocaleContext.Provider value={value}>
       {children}
     </LocaleContext.Provider>
   );

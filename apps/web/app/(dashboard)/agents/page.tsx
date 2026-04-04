@@ -1,34 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import {
   Bot,
-  Cloud,
-  Monitor,
   Plus,
-  ListTodo,
-  Wrench,
-  FileText,
-  BookOpenText,
-  MessageSquare,
-  Timer,
-  Trash2,
-  Save,
-  Key,
-  Link2,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  MoreHorizontal,
-  Play,
-  ChevronDown,
-  Globe,
-  Lock,
-  Settings,
-  Camera,
   Archive,
   Search,
   Sparkles,
@@ -43,45 +19,18 @@ import {
 } from "@/shared/data/preset-agents";
 import type {
   Agent,
-  AgentStatus,
-  AgentVisibility,
-  AgentTool,
-  AgentTrigger,
-  AgentTriggerType,
-  AgentTask,
-  RuntimeDevice,
   CreateAgentRequest,
   UpdateAgentRequest,
 } from "@/shared/types";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { api } from "@/shared/api";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
@@ -1738,9 +1687,14 @@ export default function AgentsPage() {
   }, [filteredAgents, selectedId]);
 
   const handleCreate = async (data: CreateAgentRequest) => {
-    const agent = await api.createAgent(data);
-    await refreshAgents();
-    setSelectedId(agent.id);
+    try {
+      const agent = await api.createAgent(data);
+      await refreshAgents();
+      setSelectedId(agent.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create agent");
+      throw e;
+    }
   };
 
   const handleUpdate = async (id: string, data: Record<string, unknown>) => {
@@ -1849,22 +1803,25 @@ export default function AgentsPage() {
             </div>
           </div>
           {filteredAgents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-4 py-12">
-              <Bot className="h-8 w-8 text-muted-foreground/40" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {showArchived ? "No archived agents" : archivedCount > 0 ? "No active agents" : "No agents yet"}
-              </p>
+            <Empty className="border-0 px-4 py-12">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Bot />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {showArchived ? "No archived agents" : archivedCount > 0 ? "No active agents" : "No agents yet"}
+                </EmptyTitle>
+              </EmptyHeader>
               {!showArchived && (
                 <Button
                   onClick={() => setShowCreate(true)}
                   size="xs"
-                  className="mt-3"
                 >
                   <Plus className="h-3 w-3" />
                   Create Agent
                 </Button>
               )}
-            </div>
+            </Empty>
           ) : (
             <div className="divide-y">
               {filteredAgents.map((agent) => (
@@ -1894,18 +1851,21 @@ export default function AgentsPage() {
             onRestore={handleRestore}
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-            <Bot className="h-10 w-10 text-muted-foreground/30" />
-            <p className="mt-3 text-sm">Select an agent to view details</p>
+          <Empty className="border-0">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Bot />
+              </EmptyMedia>
+              <EmptyTitle>Select an agent to view details</EmptyTitle>
+            </EmptyHeader>
             <Button
               onClick={() => setShowCreate(true)}
               size="xs"
-              className="mt-3"
             >
               <Plus className="h-3 w-3" />
               Create Agent
             </Button>
-          </div>
+          </Empty>
         )}
       </ResizablePanel>
 

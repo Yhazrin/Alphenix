@@ -91,6 +91,24 @@ func (c *Cache) Lookup(workspaceID, url string) string {
 	return ""
 }
 
+// LookupRepoFile reads a file from a repo's default branch in the bare cache.
+// Returns empty string if the repo is not cached or the file doesn't exist.
+// This implements execenv.RepoCLAUDEProvider.
+func (c *Cache) LookupRepoFile(workspaceID, repoURL, filePath string) (string, error) {
+	barePath := c.Lookup(workspaceID, repoURL)
+	if barePath == "" {
+		return "", nil
+	}
+
+	defaultBranch := getRemoteDefaultBranch(barePath)
+	cmd := exec.Command("git", "-C", barePath, "show", defaultBranch+":"+filePath)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", nil // file doesn't exist in this repo
+	}
+	return string(out), nil
+}
+
 // Fetch runs `git fetch origin` on a cached bare clone to get latest refs.
 func (c *Cache) Fetch(barePath string) error {
 	return gitFetch(barePath)

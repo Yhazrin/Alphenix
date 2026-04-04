@@ -46,6 +46,7 @@ func (h *Handler) AddIssueReaction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Emoji string `json:"emoji"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -98,6 +99,7 @@ func (h *Handler) RemoveIssueReaction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Emoji string `json:"emoji"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return

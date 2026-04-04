@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -48,7 +49,8 @@ func resolveWorkspaceID(r *http.Request) string {
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	w.Write([]byte(`{"error":"` + msg + `"}`))
+	body, _ := json.Marshal(map[string]string{"error": msg})
+	w.Write(body)
 }
 
 // RequireWorkspaceMember resolves the workspace ID from query param or

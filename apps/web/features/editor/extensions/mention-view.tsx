@@ -20,6 +20,7 @@
 
 import { NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
+import { useShallow } from "zustand/react/shallow";
 import { useIssueStore } from "@/features/issues/store";
 import { StatusIcon } from "@/features/issues/components/status-icon";
 
@@ -48,7 +49,7 @@ function IssueMention({
   issueId: string;
   fallbackLabel?: string;
 }) {
-  const issue = useIssueStore((s) => s.issues.find((i) => i.id === issueId));
+  const issue = useIssueStore(useShallow((s) => s.issues.find((i) => i.id === issueId)));
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();

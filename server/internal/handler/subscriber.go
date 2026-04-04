@@ -62,6 +62,7 @@ func (h *Handler) SubscribeToIssue(w http.ResponseWriter, r *http.Request) {
 	// Default to current user as member; allow specifying another user/agent
 	targetUserID := requestUserID(r)
 	targetUserType := "member"
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB
 	var req struct {
 		UserID   *string `json:"user_id"`
 		UserType *string `json:"user_type"`
@@ -111,6 +112,7 @@ func (h *Handler) UnsubscribeFromIssue(w http.ResponseWriter, r *http.Request) {
 
 	targetUserID := requestUserID(r)
 	targetUserType := "member"
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB
 	var req struct {
 		UserID   *string `json:"user_id"`
 		UserType *string `json:"user_type"`

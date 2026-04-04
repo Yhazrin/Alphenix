@@ -43,6 +43,7 @@ type AgentData struct {
 	ID           string      `json:"id"`
 	Name         string      `json:"name"`
 	Instructions string      `json:"instructions"`
+	Role         string      `json:"role,omitempty"` // "executor" (default), "coordinator", "reviewer"
 	Skills       []SkillData `json:"skills"`
 }
 

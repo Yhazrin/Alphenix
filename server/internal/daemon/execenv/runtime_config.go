@@ -74,6 +74,10 @@ func buildMetaSkillContent(provider string, ctx TaskContextForEnv) string {
 			fmt.Fprintf(&b, "| %s | %s |\n", repo.URL, desc)
 		}
 		b.WriteString("\nThe checkout command creates a git worktree with a dedicated branch. You can check out one or more repos as needed.\n\n")
+
+		// Reference repo-level CLAUDE.md files if they were pre-copied.
+		b.WriteString("Project-specific CLAUDE.md files from repositories are available in `.repo_claude/`.\n")
+		b.WriteString("Read these files to understand project conventions before making changes.\n\n")
 	}
 
 	b.WriteString("### Workflow\n\n")

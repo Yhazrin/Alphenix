@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActorName } from "@/features/workspace";
@@ -16,7 +16,7 @@ interface ActorAvatarProps {
   className?: string;
 }
 
-function ActorAvatar({
+const ActorAvatar = memo(function ActorAvatar({
   actorType,
   actorId,
   size = 20,
@@ -68,6 +68,13 @@ function ActorAvatar({
       )}
     </div>
   );
-}
+},
+(prev, next) =>
+  prev.actorType === next.actorType &&
+  prev.actorId === next.actorId &&
+  prev.size === next.size &&
+  prev.className === next.className &&
+  prev.avatarUrl === next.avatarUrl
+);
 
 export { ActorAvatar, type ActorAvatarProps };

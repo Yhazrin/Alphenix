@@ -84,6 +84,7 @@ export function ListView({
                     ref={(el) => {
                       if (el) el.indeterminate = someSelected && !allSelected;
                     }}
+                    aria-label={`Select all ${cfg.label} issues`}
                     onChange={() => {
                       if (allSelected) {
                         deselect(statusIssueIds);
@@ -111,6 +112,7 @@ export function ListView({
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          aria-label="Add issue"
                           className="rounded-full text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity"
                           onClick={() =>
                             useModalStore

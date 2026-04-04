@@ -48,4 +48,9 @@ export type {
   AgentMemory,
   StoreMemoryRequest,
   RecallMemoryRequest,
+  ChainTaskRequest,
+  SubmitReviewRequest,
+  RecallWorkspaceMemoryRequest,
+  SharedContext,
+  TaskDependencyInfo,
 } from "./collaboration";

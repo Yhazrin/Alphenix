@@ -4,10 +4,10 @@ import { create } from "zustand";
 import type { Workspace, MemberWithUser, Agent, Skill } from "@/shared/types";
 import { useIssueStore } from "@/features/issues";
 import { useInboxStore } from "@/features/inbox";
-import { useRuntimeStore } from "@/features/runtimes";
 import { toast } from "sonner";
-import { api } from "@/shared/api";
+import { api, workspaceApi, agentsApi, skillsApi } from "@/shared/api";
 import { createLogger } from "@/shared/logger";
+import { resetStores } from "./orchestration";
 
 const logger = createLogger("workspace-store");
 
@@ -77,19 +77,19 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     logger.debug("hydrate workspace", nextWorkspace.name, nextWorkspace.id);
     const [nextMembers, nextAgents, nextSkills] = await Promise.all([
-      api.listMembers(nextWorkspace.id).catch((e) => {
+      workspaceApi.listMembers(nextWorkspace.id).catch((e) => {
         logger.error("failed to load members", e);
         toast.error("Failed to load members");
         return [] as MemberWithUser[];
       }),
-      api.listAgents({ workspace_id: nextWorkspace.id, include_archived: true }).catch((e) => {
+      agentsApi.list({ workspace_id: nextWorkspace.id, include_archived: true }).catch((e) => {
         logger.error("failed to load agents", e);
         toast.error("Failed to load agents");
         return [] as Agent[];
       }),
-      api.listSkills().catch(() => [] as Skill[]),
-      useIssueStore.getState().fetch().catch(() => {}),
-      useInboxStore.getState().fetch().catch(() => {}),
+      skillsApi.list().catch(() => [] as Skill[]),
+      useIssueStore.getState().fetch().catch((e) => console.error("Failed to fetch issues:", e)),
+      useInboxStore.getState().fetch().catch((e) => console.error("Failed to fetch inbox:", e)),
     ]);
     logger.info("hydrate complete", "members:", nextMembers.length, "agents:", nextAgents.length);
     set({ members: nextMembers, agents: nextAgents, skills: nextSkills });
@@ -111,9 +111,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     localStorage.setItem("multica_workspace_id", ws.id);
 
     // Clear ALL stale data across every store before hydrating.
-    useIssueStore.getState().setIssues([]);
-    useInboxStore.getState().setItems([]);
-    useRuntimeStore.getState().setRuntimes([]);
+    resetStores();
     set({ workspace: ws, members: [], agents: [], skills: [] });
 
     await hydrateWorkspace(workspaces, ws.id);
@@ -137,7 +135,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const { workspace } = get();
     if (!workspace) return;
     try {
-      const members = await api.listMembers(workspace.id);
+      const members = await workspaceApi.listMembers(workspace.id);
       set({ members });
     } catch (e) {
       logger.error("failed to refresh members", e);
@@ -154,7 +152,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const { workspace } = get();
     if (!workspace) return;
     try {
-      const agents = await api.listAgents({ workspace_id: workspace.id, include_archived: true });
+      const agents = await agentsApi.list({ workspace_id: workspace.id, include_archived: true });
       set({ agents });
     } catch (e) {
       logger.error("failed to refresh agents", e);
@@ -166,7 +164,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const { workspace, skills: existing } = get();
     if (!workspace) return;
     try {
-      const fetched = await api.listSkills();
+      const fetched = await skillsApi.list();
       // listSkills doesn't include files — preserve files from existing entries
       const filesById = new Map(
         existing.filter((s) => s.files?.length).map((s) => [s.id, s.files]),
@@ -199,9 +197,15 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   },
 
   createWorkspace: async (data) => {
-    const ws = await api.createWorkspace(data);
-    set((state) => ({ workspaces: [...state.workspaces, ws] }));
-    return ws;
+    try {
+      const ws = await workspaceApi.createWorkspace(data);
+      set((state) => ({ workspaces: [...state.workspaces, ws] }));
+      return ws;
+    } catch (e) {
+      logger.error("failed to create workspace", e);
+      toast.error("Failed to create workspace");
+      throw e;
+    }
   },
 
   updateWorkspace: (ws) => {
@@ -214,21 +218,33 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   },
 
   leaveWorkspace: async (workspaceId) => {
-    await api.leaveWorkspace(workspaceId);
-    const { workspace, hydrateWorkspace } = get();
-    const wsList = await api.listWorkspaces();
-    const preferredWorkspaceId =
-      workspace?.id === workspaceId ? null : (workspace?.id ?? null);
-    await hydrateWorkspace(wsList, preferredWorkspaceId);
+    try {
+      await workspaceApi.leaveWorkspace(workspaceId);
+      const { workspace, hydrateWorkspace } = get();
+      const wsList = await api.listWorkspaces();
+      const preferredWorkspaceId =
+        workspace?.id === workspaceId ? null : (workspace?.id ?? null);
+      await hydrateWorkspace(wsList, preferredWorkspaceId);
+    } catch (e) {
+      logger.error("failed to leave workspace", e);
+      toast.error("Failed to leave workspace");
+      throw e;
+    }
   },
 
   deleteWorkspace: async (workspaceId) => {
-    await api.deleteWorkspace(workspaceId);
-    const { workspace, hydrateWorkspace } = get();
-    const wsList = await api.listWorkspaces();
-    const preferredWorkspaceId =
-      workspace?.id === workspaceId ? null : (workspace?.id ?? null);
-    await hydrateWorkspace(wsList, preferredWorkspaceId);
+    try {
+      await workspaceApi.deleteWorkspace(workspaceId);
+      const { workspace, hydrateWorkspace } = get();
+      const wsList = await api.listWorkspaces();
+      const preferredWorkspaceId =
+        workspace?.id === workspaceId ? null : (workspace?.id ?? null);
+      await hydrateWorkspace(wsList, preferredWorkspaceId);
+    } catch (e) {
+      logger.error("failed to delete workspace", e);
+      toast.error("Failed to delete workspace");
+      throw e;
+    }
   },
 
   clearWorkspace: () => {

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useShallow } from "zustand/react/shallow";
 import { useSearchParams } from "next/navigation";
 import { useDefaultLayout } from "react-resizable-panels";
 import { useInboxStore } from "@/features/inbox";
@@ -26,6 +28,7 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -34,6 +37,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/shared/api";
+import { timeAgo } from "@/shared/utils";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,17 +59,6 @@ const typeLabels: Record<InboxItemType, string> = {
   agent_completed: "Agent completed",
   reaction_added: "Reacted",
 };
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `${days}d`;
-}
 
 function shortDate(dateStr: string): string {
   if (!dateStr) return "";
@@ -154,9 +147,17 @@ function InboxListItem({
   onArchive: () => void;
 }) {
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer ${
         isSelected ? "bg-accent" : "hover:bg-accent/50"
       }`}
     >
@@ -178,24 +179,17 @@ function InboxListItem({
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <span
-              role="button"
-              tabIndex={-1}
+            <button
+              type="button"
               title="Archive"
               onClick={(e) => {
                 e.stopPropagation();
                 onArchive();
               }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.stopPropagation();
-                  onArchive();
-                }
-              }}
               className="hidden rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground group-hover:inline-flex"
             >
               <Archive className="h-3.5 w-3.5" />
-            </span>
+            </button>
             {item.issue_status && (
               <StatusIcon status={item.issue_status} className="h-3.5 w-3.5 shrink-0" />
             )}
@@ -210,7 +204,7 @@ function InboxListItem({
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -235,15 +229,21 @@ export default function InboxPage() {
     window.history.replaceState(null, "", url);
   }, []);
 
-  const items = useInboxStore((s) => s.dedupedItems());
+  const items = useInboxStore(useShallow((s) => s.dedupedItems));
   const loading = useInboxStore((s) => s.loading);
 
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: "multica_inbox_layout",
   });
 
-  const selected = items.find((i) => (i.issue_id ?? i.id) === selectedKey) ?? null;
-  const unreadCount = items.filter((i) => !i.read).length;
+  const selected = useMemo(
+    () => items.find((i) => (i.issue_id ?? i.id) === selectedKey) ?? null,
+    [items, selectedKey],
+  );
+  const unreadCount = useMemo(
+    () => items.filter((i) => !i.read).length,
+    [items],
+  );
 
   // Click-to-read: select + auto-mark-read
   const handleSelect = async (item: InboxItem) => {
@@ -260,7 +260,7 @@ export default function InboxPage() {
     }
   };
 
-  const handleArchive = async (id: string) => {
+  const handleArchive = useCallback(async (id: string) => {
     try {
       await api.archiveInbox(id);
       useInboxStore.getState().archive(id);
@@ -269,7 +269,7 @@ export default function InboxPage() {
     } catch {
       toast.error("Failed to archive");
     }
-  };
+  }, [items, selectedKey, setSelectedKey]);
 
   // Batch operations
   const handleMarkAllRead = async () => {
@@ -314,6 +314,14 @@ export default function InboxPage() {
       toast.error("Failed to archive completed");
     }
   };
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 5,
+  });
 
   if (loading) {
     return (
@@ -395,23 +403,45 @@ export default function InboxPage() {
           </DropdownMenu>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div ref={parentRef} className="flex-1 min-h-0 overflow-y-auto">
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <Inbox className="mb-3 h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm">No notifications</p>
-          </div>
+          <Empty className="border-0 py-16">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Inbox />
+              </EmptyMedia>
+              <EmptyTitle>No notifications</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div>
-            {items.map((item) => (
-              <InboxListItem
-                key={item.id}
-                item={item}
-                isSelected={(item.issue_id ?? item.id) === selectedKey}
-                onClick={() => handleSelect(item)}
-                onArchive={() => handleArchive(item.id)}
-              />
-            ))}
+          <div
+            style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const item = items[virtualRow.index];
+              if (!item) return null;
+
+              return (
+                <div
+                  key={virtualRow.key}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <InboxListItem
+                    item={item}
+                    isSelected={(item.issue_id ?? item.id) === selectedKey}
+                    onClick={() => handleSelect(item)}
+                    onArchive={() => handleArchive(item.id)}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
         </div>
@@ -455,14 +485,18 @@ export default function InboxPage() {
             </div>
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-            <Inbox className="mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="text-sm">
-              {items.length === 0
-                ? "Your inbox is empty"
-                : "Select a notification to view details"}
-            </p>
-          </div>
+          <Empty className="border-0">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Inbox />
+              </EmptyMedia>
+              <EmptyTitle>
+                {items.length === 0
+                  ? "Your inbox is empty"
+                  : "Select a notification to view details"}
+              </EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
       </div>
       </ResizablePanel>

@@ -79,3 +79,35 @@ func (b *Bus) Publish(e Event) {
 		}()
 	}
 }
+
+// PublishAsync dispatches an event asynchronously. Each handler runs in its own
+// goroutine. This is useful when handlers may perform I/O (e.g. DB writes, WS broadcast)
+// and the publisher should not block.
+func (b *Bus) PublishAsync(e Event) {
+	b.mu.RLock()
+	handlers := b.listeners[e.Type]
+	globals := b.globalHandlers
+	b.mu.RUnlock()
+
+	for _, h := range handlers {
+		go func(h Handler) {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("panic in async event listener", "event_type", e.Type, "recovered", r)
+				}
+			}()
+			h(e)
+		}(h)
+	}
+
+	for _, h := range globals {
+		go func(h Handler) {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("panic in async global event listener", "event_type", e.Type, "recovered", r)
+				}
+			}()
+			h(e)
+		}(h)
+	}
+}

@@ -61,7 +61,7 @@ export function AIAssistant() {
         "对于内网穿透，我推荐使用 ngrok。你可以在服务器上运行 `ngrok http 8080` 来创建公网访问地址。",
         "创建任务的流程是：1) 在 Issues 页面创建 issue，2) 分配给 agent，3) agent 会自动接收并执行任务。",
       ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)]!;
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: randomResponse },

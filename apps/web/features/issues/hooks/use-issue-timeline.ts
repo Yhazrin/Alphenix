@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Comment, TimelineEntry } from "@/shared/types";
 import type {
   CommentCreatedPayload,
@@ -33,6 +33,9 @@ export function useIssueTimeline(issueId: string, userId?: string) {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const timelineRef = useRef(timeline);
+  timelineRef.current = timeline;
 
   // Initial fetch + reset on id change
   useEffect(() => {
@@ -273,7 +276,7 @@ export function useIssueTimeline(issueId: string, userId?: string) {
   const toggleReaction = useCallback(
     async (commentId: string, emoji: string) => {
       if (!userId) return;
-      const entry = timeline.find((e) => e.id === commentId);
+      const entry = timelineRef.current.find((e) => e.id === commentId);
       const existing = (entry?.reactions ?? []).find(
         (r) => r.emoji === emoji && r.actor_type === "member" && r.actor_id === userId,
       );
@@ -332,7 +335,7 @@ export function useIssueTimeline(issueId: string, userId?: string) {
         }
       }
     },
-    [userId, timeline],
+    [userId],
   );
 
   return {

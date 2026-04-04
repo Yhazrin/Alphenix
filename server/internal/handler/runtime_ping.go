@@ -185,6 +185,7 @@ func (h *Handler) ReportPingResult(w http.ResponseWriter, r *http.Request) {
 		Error      string `json:"error"`
 		DurationMs int64  `json:"duration_ms"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return

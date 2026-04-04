@@ -17,6 +17,9 @@ import (
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
+// outboxPollInterval defines how often the outbox worker checks for new events.
+const outboxPollInterval = 5 * time.Second
+
 func main() {
 	logger.Init()
 
@@ -30,9 +33,20 @@ func main() {
 		dbURL = "postgres://multica:multica@localhost:5432/multica?sslmode=disable"
 	}
 
-	// Connect to database
+	// Connect to database with configured connection pool.
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
+	poolCfg, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		slog.Error("unable to parse database URL", "error", err)
+		os.Exit(1)
+	}
+	poolCfg.MaxConns = 20
+	poolCfg.MinConns = 2
+	poolCfg.MaxConnLifetime = 30 * time.Minute
+	poolCfg.MaxConnIdleTime = 5 * time.Minute
+	poolCfg.HealthCheckPeriod = 1 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		slog.Error("unable to connect to database", "error", err)
 		os.Exit(1)
@@ -46,11 +60,22 @@ func main() {
 	slog.Info("connected to database")
 
 	bus := events.New()
-	hub := realtime.NewHub()
+	realtime.InitTicketStore()
+	hub := realtime.NewHub(allowedOrigins())
 	go hub.Run()
 	registerListeners(bus, hub)
 
 	queries := db.New(pool)
+
+	// Set up outbox for reliable event delivery
+	outboxRepo := events.NewOutboxRepository(pool)
+	bus.WithOutbox(outboxRepo)
+
+	// Start outbox worker for async external event delivery
+	outboxWorker := events.NewOutboxWorker(outboxRepo, events.NoOpPublisher{}, outboxPollInterval)
+	outboxCtx, outboxCancel := context.WithCancel(context.Background())
+	go outboxWorker.Start(outboxCtx)
+
 	// Order matters: subscriber listeners must register BEFORE notification listeners.
 	// The notification listener queries the subscriber table to determine recipients,
 	// so subscribers must be written first within the same synchronous event dispatch.
@@ -85,6 +110,7 @@ func main() {
 
 	slog.Info("shutting down server")
 	sweepCancel()
+	outboxCancel()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

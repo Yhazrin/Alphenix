@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
@@ -17,11 +18,22 @@ type MembershipChecker interface {
 	IsMember(ctx context.Context, userID, workspaceID string) bool
 }
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		// TODO: Restrict origins in production
-		return true
-	},
+// checkOrigin validates the WebSocket origin against a set of allowed origins.
+// If no allowed origins are configured, all origins are rejected.
+// Use "*" to allow all origins (not recommended for production).
+func checkOrigin(allowedOrigins []string) func(r *http.Request) bool {
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true // Same-origin or non-browser client
+		}
+		for _, allowed := range allowedOrigins {
+			if allowed == "*" || strings.EqualFold(origin, allowed) {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // Client represents a single WebSocket connection with identity.
@@ -31,24 +43,28 @@ type Client struct {
 	send        chan []byte
 	userID      string
 	workspaceID string
+	pongWait    chan struct{} // closed when a pong is received or connection dies
 }
 
 // Hub manages WebSocket connections organized by workspace rooms.
 type Hub struct {
-	rooms      map[string]map[*Client]bool // workspaceID -> clients
-	broadcast  chan []byte                  // global broadcast (daemon events)
-	register   chan *Client
-	unregister chan *Client
-	mu         sync.RWMutex
+	rooms          map[string]map[*Client]bool // workspaceID -> clients
+	broadcast      chan []byte                  // global broadcast (daemon events)
+	register       chan *Client
+	unregister     chan *Client
+	mu             sync.RWMutex
+	allowedOrigins []string
+	closeOnce      sync.Once // protects broadcast channel close
 }
 
 // NewHub creates a new Hub instance.
-func NewHub() *Hub {
+func NewHub(allowedOrigins []string) *Hub {
 	return &Hub{
-		rooms:      make(map[string]map[*Client]bool),
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+		rooms:          make(map[string]map[*Client]bool),
+		broadcast:      make(chan []byte, 64),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		allowedOrigins: allowedOrigins,
 	}
 }
 
@@ -89,7 +105,10 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 			slog.Info("ws client disconnected", "workspace_id", room, "total_clients", total)
 
-		case message := <-h.broadcast:
+		case message, ok := <-h.broadcast:
+			if !ok {
+				return // broadcast channel closed
+			}
 			// Global broadcast for daemon events (no workspace filtering)
 			h.mu.RLock()
 			var slow []*Client
@@ -214,37 +233,60 @@ func (h *Hub) Broadcast(message []byte) {
 	h.broadcast <- message
 }
 
-// HandleWebSocket upgrades an HTTP connection to WebSocket with JWT auth.
-func HandleWebSocket(hub *Hub, mc MembershipChecker, w http.ResponseWriter, r *http.Request) {
-	tokenStr := r.URL.Query().Get("token")
-	workspaceID := r.URL.Query().Get("workspace_id")
-
-	if tokenStr == "" || workspaceID == "" {
-		http.Error(w, `{"error":"token and workspace_id required"}`, http.StatusUnauthorized)
-		return
-	}
-
-	// Validate JWT
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, jwt.ErrSignatureInvalid
-		}
-		return auth.JWTSecret(), nil
+// CloseBroadcast safely closes the broadcast channel exactly once.
+func (h *Hub) CloseBroadcast() {
+	h.closeOnce.Do(func() {
+		close(h.broadcast)
 	})
-	if err != nil || !token.Valid {
-		http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
-		return
-	}
+}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
-		return
-	}
+// HandleWebSocket upgrades an HTTP connection to WebSocket with JWT or ticket auth.
+func HandleWebSocket(hub *Hub, mc MembershipChecker, w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.URL.Query().Get("workspace_id")
+	ticketStr := r.URL.Query().Get("ticket")
+	tokenStr := r.URL.Query().Get("token")
 
-	userID, ok := claims["sub"].(string)
-	if !ok || strings.TrimSpace(userID) == "" {
-		http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
+	var userID string
+	var err error
+
+	if ticketStr != "" && workspaceID != "" {
+		// Ticket-based auth (new flow)
+		store := TicketStoreFor()
+		if store == nil {
+			http.Error(w, `{"error":"ticket store not available"}`, http.StatusServiceUnavailable)
+			return
+		}
+		wsID, uid, ok := store.Validate(ticketStr, workspaceID)
+		if !ok {
+			http.Error(w, `{"error":"invalid or expired ticket"}`, http.StatusUnauthorized)
+			return
+		}
+		workspaceID = wsID
+		userID = uid
+	} else if tokenStr != "" && workspaceID != "" {
+		// Token-based auth (legacy fallback)
+		token, parseErr := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return auth.JWTSecret(), nil
+		})
+		if parseErr != nil || !token.Valid {
+			http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+			return
+		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
+			return
+		}
+		userID, ok = claims["sub"].(string)
+		if !ok || strings.TrimSpace(userID) == "" {
+			http.Error(w, `{"error":"invalid claims"}`, http.StatusUnauthorized)
+			return
+		}
+	} else {
+		http.Error(w, `{"error":"ticket or token and workspace_id required"}`, http.StatusUnauthorized)
 		return
 	}
 
@@ -252,6 +294,10 @@ func HandleWebSocket(hub *Hub, mc MembershipChecker, w http.ResponseWriter, r *h
 	if !mc.IsMember(r.Context(), userID, workspaceID) {
 		http.Error(w, `{"error":"not a member of this workspace"}`, http.StatusForbidden)
 		return
+	}
+
+	upgrader := websocket.Upgrader{
+		CheckOrigin: checkOrigin(hub.allowedOrigins),
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -266,6 +312,7 @@ func HandleWebSocket(hub *Hub, mc MembershipChecker, w http.ResponseWriter, r *h
 		send:        make(chan []byte, 256),
 		userID:      userID,
 		workspaceID: workspaceID,
+		pongWait:    make(chan struct{}),
 	}
 	hub.register <- client
 
@@ -273,11 +320,33 @@ func HandleWebSocket(hub *Hub, mc MembershipChecker, w http.ResponseWriter, r *h
 	go client.readPump()
 }
 
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = 30 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+)
+
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
+
+	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		// Signal that a pong was received
+		select {
+		case c.pongWait <- struct{}{}:
+		default:
+		}
+		return nil
+	})
 
 	for {
 		_, _, err := c.conn.ReadMessage()
@@ -293,12 +362,30 @@ func (c *Client) readPump() {
 }
 
 func (c *Client) writePump() {
-	defer c.conn.Close()
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
 
-	for message := range c.send {
-		if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			slog.Warn("websocket write error", "error", err)
-			return
+	for {
+		select {
+		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				// The hub closed the channel.
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				slog.Warn("websocket write error", "error", err)
+				return
+			}
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
 		}
 	}
 }

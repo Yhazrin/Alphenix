@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -92,10 +93,25 @@ func (h *Handler) ListInbox(w http.ResponseWriter, r *http.Request) {
 	}
 	workspaceID := r.Header.Get("X-Workspace-ID")
 
+	limit := int32(50)
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 {
+			limit = int32(n)
+		}
+	}
+	offset := int32(0)
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = int32(n)
+		}
+	}
+
 	items, err := h.Queries.ListInboxItems(r.Context(), db.ListInboxItemsParams{
 		WorkspaceID:   parseUUID(workspaceID),
 		RecipientType: "member",
 		RecipientID:   parseUUID(userID),
+		Limit:         limit,
+		Offset:        offset,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list inbox")
@@ -283,4 +299,34 @@ func (h *Handler) ArchiveCompletedInbox(w http.ResponseWriter, r *http.Request) 
 	})
 
 	writeJSON(w, http.StatusOK, map[string]any{"count": count})
+}
+
+// loadInboxItemForUser resolves an inbox item by ID, verifying the caller is the
+// designated recipient.
+func (h *Handler) loadInboxItemForUser(w http.ResponseWriter, r *http.Request, itemID string) (db.InboxItem, bool) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return db.InboxItem{}, false
+	}
+
+	workspaceID := resolveWorkspaceID(r)
+	if workspaceID == "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required")
+		return db.InboxItem{}, false
+	}
+
+	item, err := h.Queries.GetInboxItemInWorkspace(r.Context(), db.GetInboxItemInWorkspaceParams{
+		ID:          parseUUID(itemID),
+		WorkspaceID: parseUUID(workspaceID),
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "inbox item not found")
+		return db.InboxItem{}, false
+	}
+
+	if item.RecipientType != "member" || uuidToString(item.RecipientID) != userID {
+		writeError(w, http.StatusNotFound, "inbox item not found")
+		return db.InboxItem{}, false
+	}
+	return item, true
 }
