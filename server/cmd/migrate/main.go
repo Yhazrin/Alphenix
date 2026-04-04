@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 
@@ -52,10 +53,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	migrationsFS, err := fs.Sub(migrations.EmbedMigrations, "migrations")
+	if err != nil {
+		slog.Error("failed to create sub-FS for migrations", "error", err)
+		os.Exit(1)
+	}
+
 	provider, err := goose.NewProvider(
 		goose.DialectPostgres,
 		db,
-		migrations.EmbedMigrations,
+		migrationsFS,
 		goose.WithSessionLocker(sessionLocker),
 	)
 	if err != nil {
