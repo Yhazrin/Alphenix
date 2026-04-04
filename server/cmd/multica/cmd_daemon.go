@@ -238,13 +238,24 @@ func runDaemonForeground(cmd *cobra.Command) error {
 			serverURL = c.ServerURL
 		}
 	}
+
+	// Determine health port: MULTICA_HEALTH_PORT env var takes precedence over profile-based calculation
+	healthPort := daemon.DefaultHealthPort
+	if envPort := os.Getenv("MULTICA_HEALTH_PORT"); envPort != "" {
+		if p, err := strconv.Atoi(envPort); err == nil && p > 0 {
+			healthPort = p
+		}
+	} else if profile != "" {
+		healthPort = healthPortForProfile(profile)
+	}
+
 	overrides := daemon.Overrides{
 		ServerURL:   serverURL,
 		DaemonID:    flagString(cmd, "daemon-id"),
 		DeviceName:  flagString(cmd, "device-name"),
 		RuntimeName: flagString(cmd, "runtime-name"),
 		Profile:     profile,
-		HealthPort:  healthPortForProfile(profile),
+		HealthPort:  healthPort,
 	}
 	if d, _ := cmd.Flags().GetDuration("poll-interval"); d > 0 {
 		overrides.PollInterval = d

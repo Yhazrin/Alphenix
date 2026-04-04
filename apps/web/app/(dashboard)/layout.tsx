@@ -9,6 +9,7 @@ import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppSidebar } from "./_components/app-sidebar";
+import { AIAssistant } from "@/components/ai-assistant/ai-assistant";
 
 export default function DashboardLayout({
   children,
@@ -55,6 +56,7 @@ export default function DashboardLayout({
           )}
         </ErrorBoundary>
       </SidebarInset>
+      <AIAssistant />
     </SidebarProvider>
   );
 }

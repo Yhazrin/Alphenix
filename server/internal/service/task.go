@@ -64,6 +64,7 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 		IssueID:          issue.ID,
 		Priority:         priorityToInt(issue.Priority),
 		TriggerCommentID: commentID,
+		ChainReason:      pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
 		slog.Error("task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "error", err)
@@ -98,6 +99,7 @@ func (s *TaskService) EnqueueTaskForMention(ctx context.Context, issue db.Issue,
 		IssueID:          issue.ID,
 		Priority:         priorityToInt(issue.Priority),
 		TriggerCommentID: triggerCommentID,
+		ChainReason:      pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
 		slog.Error("mention task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(agentID), "error", err)
@@ -439,7 +441,7 @@ func (s *TaskService) ChainTask(ctx context.Context, sourceTaskID, targetAgentID
 		IssueID:           sourceTask.IssueID,
 		Priority:          sourceTask.Priority,
 		ChainSourceTaskID: sourceTaskID,
-		ChainReason:       pgtype.Text{String: chainReason, Valid: chainReason != ""},
+		ChainReason:       pgtype.Text{String: chainReason, Valid: true},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create chained task: %w", err)

@@ -180,8 +180,11 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		return Config{}, fmt.Errorf("resolve absolute workspaces root: %w", err)
 	}
 
-	// Health port: override > default
+	// Health port: override > env > default
 	healthPort := DefaultHealthPort
+	if hp, err := intFromEnv("MULTICA_HEALTH_PORT", 0); err == nil && hp > 0 {
+		healthPort = hp
+	}
 	if overrides.HealthPort > 0 {
 		healthPort = overrides.HealthPort
 	}
