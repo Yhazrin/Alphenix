@@ -81,7 +81,7 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 		defer close(resCh)
 
 		startTime := time.Now()
-		scanResult := b.processEvents(stdout, msgCh)
+		scanResult := b.processEvents(stdout, msgCh, opts.ToolHooks)
 
 		// Wait for process exit.
 		exitErr := cmd.Wait()
@@ -156,7 +156,7 @@ type eventResult struct {
 
 // processEvents reads JSON lines from r, dispatches events to ch, and returns
 // the accumulated result. This is the core scanner loop, extracted for testability.
-func (b *opencodeBackend) processEvents(r io.Reader, ch chan<- Message) eventResult {
+func (b *opencodeBackend) processEvents(r io.Reader, ch chan<- Message, toolHooks ToolHooks) eventResult {
 	var output strings.Builder
 	var sessionID string
 	finalStatus := "completed"
@@ -184,7 +184,7 @@ func (b *opencodeBackend) processEvents(r io.Reader, ch chan<- Message) eventRes
 		case "text":
 			b.handleTextEvent(event, ch, &output)
 		case "tool_use":
-			b.handleToolUseEvent(event, ch)
+			b.handleToolUseEvent(event, ch, toolHooks)
 		case "error":
 			b.handleErrorEvent(event, ch, &finalStatus, &finalError)
 		case "step_start":
@@ -222,7 +222,7 @@ func (b *opencodeBackend) handleTextEvent(event opencodeEvent, ch chan<- Message
 // handleToolUseEvent processes "tool_use" events from opencode. A single
 // tool_use event contains both the call and result in part.state when the
 // tool has completed (state.status == "completed").
-func (b *opencodeBackend) handleToolUseEvent(event opencodeEvent, ch chan<- Message) {
+func (b *opencodeBackend) handleToolUseEvent(event opencodeEvent, ch chan<- Message, toolHooks ToolHooks) {
 	// Extract input from state.input (the tool invocation parameters).
 	var input map[string]any
 	if event.Part.State != nil && event.Part.State.Input != nil {
@@ -240,6 +240,10 @@ func (b *opencodeBackend) handleToolUseEvent(event opencodeEvent, ch chan<- Mess
 	// If the tool has completed, also emit a tool-result message.
 	if event.Part.State != nil && event.Part.State.Status == "completed" {
 		outputStr := extractToolOutput(event.Part.State.Output)
+		// PostToolUse hook — observe tool result after execution.
+		if toolHooks.PostToolUse != nil {
+			toolHooks.PostToolUse(context.Background(), event.Part.Tool, input, outputStr)
+		}
 		trySend(ch, Message{
 			Type:   MessageToolResult,
 			Tool:   event.Part.Tool,
