@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/multica-ai/multica/server/pkg/protocol"
+	"github.com/multica-ai/multicode/server/pkg/protocol"
 )
 
 // BuildPrompt constructs the task prompt for an agent CLI.
@@ -46,7 +46,7 @@ func BuildPrompt(task Task) string {
 			b.WriteString("---\n")
 			b.WriteString("## Current Task\n\n")
 			fmt.Fprintf(&b, "Your assigned issue ID is: **%s**\n\n", task.IssueID)
-			fmt.Fprintf(&b, "Start by running `multica issue get %s --output json` to understand your task, then follow the Execution Protocol above.\n", task.IssueID)
+			fmt.Fprintf(&b, "Start by running `multicode issue get %s --output json` to understand your task, then follow the Execution Protocol above.\n", task.IssueID)
 			return b.String()
 		},
 	})
@@ -115,8 +115,8 @@ func formatColleagues(b *strings.Builder, sc *protocol.SharedContext) {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("\nUse `multica agent message --to <agent_id> --message \"...\"` to send a message to a colleague.\n")
-	b.WriteString("Use `multica task chain <task_id> --target <agent_id> --reason \"...\"` to delegate follow-up work.\n\n")
+	b.WriteString("\nUse `multicode agent message --to <agent_id> --message \"...\"` to send a message to a colleague.\n")
+	b.WriteString("Use `multicode task chain <task_id> --target <agent_id> --reason \"...\"` to delegate follow-up work.\n\n")
 }
 
 func formatPendingMessages(b *strings.Builder, sc *protocol.SharedContext) {

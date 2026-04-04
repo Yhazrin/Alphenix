@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multica/server/internal/logger"
-	"github.com/multica-ai/multica/server/internal/service"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/protocol"
+	"github.com/multica-ai/multicode/server/internal/logger"
+	"github.com/multica-ai/multicode/server/internal/service"
+	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/multicode/server/pkg/protocol"
 )
 
 type AgentResponse struct {

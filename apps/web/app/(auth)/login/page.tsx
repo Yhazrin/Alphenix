@@ -73,7 +73,7 @@ function LoginPageContent() {
     const cliCallback = searchParams.get("cli_callback");
     if (!cliCallback) return;
 
-    const token = localStorage.getItem("multica_token");
+    const token = localStorage.getItem("multicode_token");
     if (!token) return;
 
     if (!validateCliCallback(cliCallback)) return;
@@ -89,7 +89,7 @@ function LoginPageContent() {
       .catch(() => {
         // Token expired/invalid — clear and fall through to normal login.
         api.setToken(null);
-        localStorage.removeItem("multica_token");
+        localStorage.removeItem("multicode_token");
       });
   }, [searchParams]);
 
@@ -101,7 +101,7 @@ function LoginPageContent() {
 
   const handleCliAuthorize = async () => {
     const cliCallback = searchParams.get("cli_callback");
-    const token = localStorage.getItem("multica_token");
+    const token = localStorage.getItem("multicode_token");
     if (!cliCallback || !token) return;
     const cliState = searchParams.get("cli_state") || "";
     setSubmitting(true);
@@ -187,7 +187,7 @@ function LoginPageContent() {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Authorize CLI</CardTitle>
             <CardDescription>
-              Allow the CLI to access Multica as{" "}
+              Allow the CLI to access Multicode as{" "}
               <span className="font-medium text-foreground">
                 {existingUser.email}
               </span>
@@ -285,7 +285,7 @@ function LoginPageContent() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Multica</CardTitle>
+          <CardTitle className="text-2xl">Multicode</CardTitle>
           <CardDescription>Turn coding agents into real teammates</CardDescription>
         </CardHeader>
         <CardContent>

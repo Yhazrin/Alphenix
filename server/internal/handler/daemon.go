@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/protocol"
-	"github.com/multica-ai/multica/server/pkg/redact"
+	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/multicode/server/pkg/protocol"
+	"github.com/multica-ai/multicode/server/pkg/redact"
 )
 
 // ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ type DaemonRegisterRequest struct {
 	DaemonID    string `json:"daemon_id"`
 	InstanceID  string `json:"instance_id"` // per-terminal unique ID
 	DeviceName  string `json:"device_name"`
-	CLIVersion  string `json:"cli_version"` // multica CLI version
+	CLIVersion  string `json:"cli_version"` // multicode CLI version
 	Runtimes    []struct {
 		Name    string `json:"name"`
 		Type    string `json:"type"`

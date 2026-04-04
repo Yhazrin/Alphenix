@@ -10,6 +10,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Printf("multica %s (commit: %s)\n", version, commit)
+		fmt.Printf("multicode %s (commit: %s)\n", version, commit)
 	},
 }

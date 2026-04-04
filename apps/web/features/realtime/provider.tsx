@@ -41,7 +41,7 @@ export function WSProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || !workspace) return;
 
-    const token = localStorage.getItem("multica_token");
+    const token = localStorage.getItem("multicode_token");
     if (!token) return;
 
     const ws = new WSClient(WS_URL, { logger: createLogger("ws") });

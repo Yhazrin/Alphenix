@@ -15,10 +15,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multica/server/internal/auth"
-	"github.com/multica-ai/multica/server/internal/logger"
-	"github.com/multica-ai/multica/server/internal/realtime"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multicode/server/internal/auth"
+	"github.com/multica-ai/multicode/server/internal/logger"
+	"github.com/multica-ai/multicode/server/internal/realtime"
+	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 )
 
 type UserResponse struct {

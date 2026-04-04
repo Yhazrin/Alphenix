@@ -21,10 +21,10 @@ type GitHubRelease struct {
 	HTMLURL string `json:"html_url"`
 }
 
-// FetchLatestRelease fetches the latest release tag from the multica GitHub repo.
+// FetchLatestRelease fetches the latest release tag from the multicode GitHub repo.
 func FetchLatestRelease() (*GitHubRelease, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/multica-ai/multica/releases/latest", nil)
+	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/multicode-ai/multicode/releases/latest", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func FetchLatestRelease() (*GitHubRelease, error) {
 	return &release, nil
 }
 
-// IsBrewInstall checks whether the running multica binary was installed via Homebrew.
+// IsBrewInstall checks whether the running multicode binary was installed via Homebrew.
 func IsBrewInstall() bool {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -80,10 +80,10 @@ func GetBrewPrefix() string {
 	return strings.TrimSpace(string(out))
 }
 
-// UpdateViaBrew runs `brew upgrade multica-ai/tap/multica`.
+// UpdateViaBrew runs `brew upgrade multica-ai/tap/multicode`.
 // Returns the combined output and any error.
 func UpdateViaBrew() (string, error) {
-	cmd := exec.Command("brew", "upgrade", "multica-ai/tap/multica")
+	cmd := exec.Command("brew", "upgrade", "multica-ai/tap/multicode")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), fmt.Errorf("brew upgrade failed: %w", err)
@@ -104,13 +104,13 @@ func UpdateViaDownload(targetVersion string) (string, error) {
 		return "", fmt.Errorf("resolve symlink: %w", err)
 	}
 
-	// Build download URL: multica_{os}_{arch}.tar.gz
+	// Build download URL: multicode_{os}_{arch}.tar.gz
 	tag := targetVersion
 	if !strings.HasPrefix(tag, "v") {
 		tag = "v" + tag
 	}
-	assetName := fmt.Sprintf("multica_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
-	downloadURL := fmt.Sprintf("https://github.com/multica-ai/multica/releases/download/%s/%s", tag, assetName)
+	assetName := fmt.Sprintf("multicode_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
+	downloadURL := fmt.Sprintf("https://github.com/multica-ai/multicode/releases/download/%s/%s", tag, assetName)
 
 	// Download the tarball.
 	client := &http.Client{Timeout: 120 * time.Second}
@@ -124,15 +124,15 @@ func UpdateViaDownload(targetVersion string) (string, error) {
 		return "", fmt.Errorf("download failed: HTTP %d from %s", resp.StatusCode, downloadURL)
 	}
 
-	// Extract the "multica" binary from the tarball.
-	binaryData, err := extractBinaryFromTarGz(resp.Body, "multica")
+	// Extract the "multicode" binary from the tarball.
+	binaryData, err := extractBinaryFromTarGz(resp.Body, "multicode")
 	if err != nil {
 		return "", fmt.Errorf("extract binary: %w", err)
 	}
 
 	// Atomic replace: write to temp file, then rename over the original.
 	dir := filepath.Dir(exePath)
-	tmpFile, err := os.CreateTemp(dir, "multica-update-*")
+	tmpFile, err := os.CreateTemp(dir, "multicode-update-*")
 	if err != nil {
 		return "", fmt.Errorf("create temp file: %w", err)
 	}

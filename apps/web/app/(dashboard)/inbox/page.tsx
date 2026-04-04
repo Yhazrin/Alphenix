@@ -233,7 +233,7 @@ export default function InboxPage() {
   const loading = useInboxStore((s) => s.loading);
 
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: "multica_inbox_layout",
+    id: "multicode_inbox_layout",
   });
 
   const selected = useMemo(
@@ -456,7 +456,7 @@ export default function InboxPage() {
             key={selected.id}
             issueId={selected.issue_id}
             defaultSidebarOpen={false}
-            layoutId="multica_inbox_issue_detail_layout"
+            layoutId="multicode_inbox_issue_detail_layout"
             highlightCommentId={selected.details?.comment_id ?? undefined}
             onDelete={() => {
               handleArchive(selected.id);

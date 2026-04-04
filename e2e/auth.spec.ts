@@ -5,7 +5,7 @@ test.describe("Authentication", () => {
   test("login page renders correctly", async ({ page }) => {
     await page.goto("/login");
 
-    await expect(page.locator("h1")).toContainText("Multica");
+    await expect(page.locator("h1")).toContainText("Multicode");
     await expect(page.locator('input[placeholder="Email"]')).toBeVisible();
     await expect(page.locator('input[placeholder="Name"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toContainText(
@@ -23,8 +23,8 @@ test.describe("Authentication", () => {
   test("unauthenticated user is redirected to /login", async ({ page }) => {
     await page.goto("/login");
     await page.evaluate(() => {
-      localStorage.removeItem("multica_token");
-      localStorage.removeItem("multica_workspace_id");
+      localStorage.removeItem("multicode_token");
+      localStorage.removeItem("multicode_workspace_id");
     });
 
     await page.goto("/issues");

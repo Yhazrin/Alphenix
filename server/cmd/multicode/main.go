@@ -13,16 +13,16 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "multica",
-	Short: "Multica CLI — local agent runtime and management tool",
-	Long:  "multica manages local agent runtimes and provides control commands for the Multica platform.",
+	Use:   "multicode",
+	Short: "Multicode CLI — local agent runtime and management tool",
+	Long:  "multicode manages local agent runtimes and provides control commands for the Multicode platform.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
 
 func init() {
-	rootCmd.PersistentFlags().String("server-url", "", "Multica server URL (env: MULTICA_SERVER_URL)")
-	rootCmd.PersistentFlags().String("workspace-id", "", "Workspace ID (env: MULTICA_WORKSPACE_ID)")
+	rootCmd.PersistentFlags().String("server-url", "", "Multicode server URL (env: MULTICODE_SERVER_URL)")
+	rootCmd.PersistentFlags().String("workspace-id", "", "Workspace ID (env: MULTICODE_WORKSPACE_ID)")
 	rootCmd.PersistentFlags().String("profile", "", "Configuration profile name (e.g. dev) — isolates config, daemon state, and workspaces")
 
 	rootCmd.AddCommand(loginCmd)

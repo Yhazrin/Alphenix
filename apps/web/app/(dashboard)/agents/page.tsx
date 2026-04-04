@@ -44,7 +44,7 @@ export default function AgentsPage() {
   const runtimes = useRuntimeStore((s) => s.runtimes);
   const fetchRuntimes = useRuntimeStore((s) => s.fetchRuntimes);
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: "multica_agents_layout",
+    id: "multicode_agents_layout",
   });
 
   useEffect(() => {

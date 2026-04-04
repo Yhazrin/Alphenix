@@ -11,10 +11,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/multica-ai/multica/server/internal/events"
-	"github.com/multica-ai/multica/server/internal/logger"
-	"github.com/multica-ai/multica/server/internal/realtime"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multicode/server/internal/events"
+	"github.com/multica-ai/multicode/server/internal/logger"
+	"github.com/multica-ai/multicode/server/internal/realtime"
+	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 )
 
 // outboxPollInterval defines how often the outbox worker checks for new events.
@@ -30,7 +30,7 @@ func main() {
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://multica:multica@localhost:5432/multica?sslmode=disable"
+		dbURL = "postgres://multicode:multicode@localhost:5432/multicode?sslmode=disable"
 	}
 
 	// Connect to database with configured connection pool.
