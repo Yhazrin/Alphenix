@@ -39,8 +39,20 @@ export function CollaborationPanel({ issueId }: CollaborationPanelProps) {
 
   const depStatuses = useDependencyStatuses(dependencies);
 
-  // Don't render if no task context
-  if (!taskId && !agentId) return null;
+  // Show empty state if no task context
+  if (!taskId && !agentId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Bot className="h-8 w-8 text-muted-foreground/40 mb-3" />
+        <p className="text-sm font-medium text-muted-foreground">
+          No active collaboration session
+        </p>
+        <p className="text-xs text-muted-foreground/70 mt-1">
+          Assign an agent to this issue to see collaboration activity.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2.5">

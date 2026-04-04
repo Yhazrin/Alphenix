@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -45,6 +46,7 @@ type Handler struct {
 	UpdateStore          *UpdateStore
 	Storage              *storage.S3Storage
 	CFSigner             *auth.CloudFrontSigner
+	prefixCache          sync.Map // workspace UUID string → issue prefix string
 }
 
 func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *events.Bus, emailService *service.EmailService, s3 *storage.S3Storage, cfSigner *auth.CloudFrontSigner) *Handler {
@@ -326,18 +328,24 @@ func splitIdentifier(id string) *identifierParts {
 	return &identifierParts{prefix: id[:idx], number: int32(num)}
 }
 
-// getIssuePrefix fetches the issue_prefix for a workspace.
-// Falls back to generating a prefix from the workspace name if the stored
-// prefix is empty (e.g. workspaces created before the prefix was introduced).
+// getIssuePrefix fetches the issue_prefix for a workspace, using an in-memory
+// cache to avoid repeated DB lookups for the same workspace. Falls back to
+// generating a prefix from the workspace name if the stored prefix is empty.
 func (h *Handler) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
+	key := uuidToString(workspaceID)
+	if cached, ok := h.prefixCache.Load(key); ok {
+		return cached.(string)
+	}
 	ws, err := h.Queries.GetWorkspace(ctx, workspaceID)
 	if err != nil {
 		return ""
 	}
-	if ws.IssuePrefix != "" {
-		return ws.IssuePrefix
+	prefix := ws.IssuePrefix
+	if prefix == "" {
+		prefix = generateIssuePrefix(ws.Name)
 	}
-	return generateIssuePrefix(ws.Name)
+	h.prefixCache.Store(key, prefix)
+	return prefix
 }
 
 func (h *Handler) loadAgentForUser(w http.ResponseWriter, r *http.Request, agentID string) (db.Agent, bool) {
