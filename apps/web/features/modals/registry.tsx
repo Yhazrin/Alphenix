@@ -1,8 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useModalStore } from "./store";
-import { CreateWorkspaceModal } from "./create-workspace";
-import { CreateIssueModal } from "./create-issue";
+
+const CreateWorkspaceModal = dynamic(
+  () => import("./create-workspace").then((m) => m.CreateWorkspaceModal),
+  { ssr: false, loading: () => null },
+);
+
+const CreateIssueModal = dynamic(
+  () => import("./create-issue").then((m) => m.CreateIssueModal),
+  { ssr: false, loading: () => null },
+);
 
 export function ModalRegistry() {
   const modal = useModalStore((s) => s.modal);

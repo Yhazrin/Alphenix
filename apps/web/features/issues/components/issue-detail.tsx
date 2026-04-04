@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -202,7 +203,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
   const didHighlightRef = useRef<string | null>(null);
 
   // Single source of truth: read issue directly from global store
-  const issue = useIssueStore((s) => s.issues.find((i) => i.id === id)) ?? null;
+  const issue = useIssueStore(useShallow((s) => s.issues.find((i) => i.id === id))) ?? null;
   const [issueLoading, setIssueLoading] = useState(!issue);
 
   // If issue isn't in the store yet, fetch and upsert it

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useSearchParams } from "next/navigation";
 import { useDefaultLayout } from "react-resizable-panels";
 import { useInboxStore } from "@/features/inbox";
@@ -235,7 +236,7 @@ export default function InboxPage() {
     window.history.replaceState(null, "", url);
   }, []);
 
-  const items = useInboxStore((s) => s.dedupedItems());
+  const items = useInboxStore(useShallow((s) => s.dedupedItems()));
   const loading = useInboxStore((s) => s.loading);
 
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
