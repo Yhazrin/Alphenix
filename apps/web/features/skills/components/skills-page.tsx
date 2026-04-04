@@ -234,7 +234,7 @@ function SkillListItem({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         isSelected ? "bg-accent" : "hover:bg-accent/50"
       }`}
     >
@@ -737,6 +737,7 @@ export default function SkillsPage() {
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => setShowCreate(true)}
+                    aria-label="Create skill"
                   >
                     <Plus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   </Button>

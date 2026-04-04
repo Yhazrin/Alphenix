@@ -75,14 +75,14 @@ export function SkillsTab({
           onClick={() => setShowPicker(true)}
           disabled={saving || availableSkills.length === 0}
         >
-          <Plus className="h-3 w-3" />
+          <Plus className="h-3 w-3" aria-hidden="true" />
           Add Skill
         </Button>
       </div>
 
       {agent.skills.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-          <FileText className="h-8 w-8 text-muted-foreground/40" />
+          <FileText className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
           <p className="mt-3 text-sm text-muted-foreground">No skills assigned</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Add skills from the workspace to this agent.
@@ -94,7 +94,7 @@ export function SkillsTab({
               className="mt-3"
               disabled={saving}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3 w-3" aria-hidden="true" />
               Add Skill
             </Button>
           )}
@@ -107,7 +107,7 @@ export function SkillsTab({
               className="flex items-center gap-3 rounded-lg border px-4 py-3"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <FileText className="h-4 w-4 text-muted-foreground" />
+                <FileText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{skill.name}</div>
@@ -123,8 +123,9 @@ export function SkillsTab({
                 onClick={() => handleRemove(skill.id)}
                 disabled={saving}
                 className="text-muted-foreground hover:text-destructive"
+                aria-label={`Remove ${skill.name}`}
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             </div>
           ))}
@@ -147,9 +148,9 @@ export function SkillsTab({
                   key={skill.id}
                   onClick={() => handleAdd(skill.id)}
                   disabled={saving}
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent/50"
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">{skill.name}</div>
                     {skill.description && (

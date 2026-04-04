@@ -125,7 +125,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
     let globalIndex = 0;
 
     return (
-      <div className="rounded-md border bg-popover py-1 shadow-md w-72 max-h-[300px] overflow-y-auto">
+      <div className="rounded-md border bg-popover py-1 shadow-md w-72 max-h-[300px] overflow-y-auto" role="listbox" aria-label="Mention suggestions">
         {groups.map((group) => (
           <div key={group.label}>
             <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
@@ -169,13 +169,13 @@ function MentionRow({
     return (
       <button
         ref={buttonRef}
-        className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs transition-colors ${
+        className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
           selected ? "bg-accent" : "hover:bg-accent/50"
         }`}
         onClick={onSelect}
       >
         {item.status && (
-          <StatusIcon status={item.status} className="h-3.5 w-3.5 shrink-0" />
+          <StatusIcon status={item.status} className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         )}
         <span className="shrink-0 text-muted-foreground">{item.label}</span>
         {item.description && (
@@ -188,7 +188,7 @@ function MentionRow({
   return (
     <button
       ref={buttonRef}
-      className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs transition-colors ${
+      className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
         selected ? "bg-accent" : "hover:bg-accent/50"
       }`}
       onClick={onSelect}
