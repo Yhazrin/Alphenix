@@ -300,3 +300,33 @@ func (h *Handler) ArchiveCompletedInbox(w http.ResponseWriter, r *http.Request) 
 
 	writeJSON(w, http.StatusOK, map[string]any{"count": count})
 }
+
+// loadInboxItemForUser resolves an inbox item by ID, verifying the caller is the
+// designated recipient.
+func (h *Handler) loadInboxItemForUser(w http.ResponseWriter, r *http.Request, itemID string) (db.InboxItem, bool) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return db.InboxItem{}, false
+	}
+
+	workspaceID := resolveWorkspaceID(r)
+	if workspaceID == "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required")
+		return db.InboxItem{}, false
+	}
+
+	item, err := h.Queries.GetInboxItemInWorkspace(r.Context(), db.GetInboxItemInWorkspaceParams{
+		ID:          parseUUID(itemID),
+		WorkspaceID: parseUUID(workspaceID),
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "inbox item not found")
+		return db.InboxItem{}, false
+	}
+
+	if item.RecipientType != "member" || uuidToString(item.RecipientID) != userID {
+		writeError(w, http.StatusNotFound, "inbox item not found")
+		return db.InboxItem{}, false
+	}
+	return item, true
+}

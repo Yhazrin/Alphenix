@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -896,4 +897,168 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 	deleted := len(issues)
 	slog.Info("batch delete issues", append(logger.RequestAttrs(r), "count", deleted)...)
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": deleted})
+}
+
+// ── Issue identifier helpers ──────────────────────────────────────────────────
+
+type identifierParts struct {
+	prefix string
+	number int32
+}
+
+// splitIdentifier parses "PREFIX-NUMBER" into its components.
+// Returns nil if the string is not in that format.
+func splitIdentifier(id string) *identifierParts {
+	idx := -1
+	for i := len(id) - 1; i >= 0; i-- {
+		if id[i] == '-' {
+			idx = i
+			break
+		}
+	}
+	if idx <= 0 || idx >= len(id)-1 {
+		return nil
+	}
+	numStr := id[idx+1:]
+	num := 0
+	for _, c := range numStr {
+		if c < '0' || c > '9' {
+			return nil
+		}
+		num = num*10 + int(c-'0')
+	}
+	if num <= 0 {
+		return nil
+	}
+	return &identifierParts{prefix: id[:idx], number: int32(num)}
+}
+
+// getIssuePrefix fetches the issue_prefix for a workspace, using an in-memory
+// cache to avoid repeated DB lookups. Falls back to generating a prefix from
+// the workspace name if the stored prefix is empty.
+func (h *Handler) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
+	key := uuidToString(workspaceID)
+	if cached, ok := h.prefixCache.Load(key); ok {
+		return cached.(string)
+	}
+	ws, err := h.Queries.GetWorkspace(ctx, workspaceID)
+	if err != nil {
+		return ""
+	}
+	prefix := ws.IssuePrefix
+	if prefix == "" {
+		prefix = generateIssuePrefix(ws.Name)
+	}
+	h.prefixCache.Store(key, prefix)
+	return prefix
+}
+
+// resolveIssueByIdentifier tries to look up an issue by "PREFIX-NUMBER" format.
+// The prefix must match the workspace's actual issue_prefix, preventing ambiguous
+// resolution (e.g. MUL-42 vs XXX-42 both resolving to number 42).
+func (h *Handler) resolveIssueByIdentifier(ctx context.Context, id, workspaceID string) (db.Issue, bool) {
+	parts := splitIdentifier(id)
+	if parts == nil {
+		return db.Issue{}, false
+	}
+	if workspaceID == "" {
+		return db.Issue{}, false
+	}
+	wsUUID := parseUUID(workspaceID)
+	expectedPrefix := h.getIssuePrefix(ctx, wsUUID)
+	if expectedPrefix != "" && !strings.EqualFold(parts.prefix, expectedPrefix) {
+		return db.Issue{}, false
+	}
+	issue, err := h.Queries.GetIssueByNumber(ctx, db.GetIssueByNumberParams{
+		WorkspaceID: wsUUID,
+		Number:      parts.number,
+	})
+	if err != nil {
+		return db.Issue{}, false
+	}
+	return issue, true
+}
+
+// loadIssueForUser resolves an issue by ID or "PREFIX-NUMBER" identifier,
+// verifying the caller is authenticated and the issue belongs to their workspace.
+func (h *Handler) loadIssueForUser(w http.ResponseWriter, r *http.Request, issueID string) (db.Issue, bool) {
+	if _, ok := requireUserID(w, r); !ok {
+		return db.Issue{}, false
+	}
+
+	workspaceID := resolveWorkspaceID(r)
+	if workspaceID == "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required")
+		return db.Issue{}, false
+	}
+
+	if issue, ok := h.resolveIssueByIdentifier(r.Context(), issueID, workspaceID); ok {
+		return issue, true
+	}
+
+	issue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
+		ID:          parseUUID(issueID),
+		WorkspaceID: parseUUID(workspaceID),
+	})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "issue not found")
+		return db.Issue{}, false
+	}
+	return issue, true
+}
+
+// batchGetIssuesByIDs fetches multiple issues in a single query, returning only
+// those that belong to the given workspace. Avoids N+1 queries in batch operations.
+func (h *Handler) batchGetIssuesByIDs(ctx context.Context, issueIDs []string, workspaceID string) ([]db.Issue, error) {
+	if h.DB == nil || len(issueIDs) == 0 {
+		return nil, nil
+	}
+	uuids := make([]pgtype.UUID, len(issueIDs))
+	for i, id := range issueIDs {
+		uuids[i] = parseUUID(id)
+	}
+	rows, err := h.DB.Query(ctx,
+		`SELECT id, workspace_id, title, description, status, priority,
+		        assignee_type, assignee_id, creator_type, creator_id,
+		        parent_issue_id, acceptance_criteria, context_refs,
+		        position, due_date, created_at, updated_at, number
+		 FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
+		uuids, parseUUID(workspaceID),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []db.Issue
+	for rows.Next() {
+		var i db.Issue
+		err := rows.Scan(
+			&i.ID, &i.WorkspaceID, &i.Title, &i.Description, &i.Status, &i.Priority,
+			&i.AssigneeType, &i.AssigneeID, &i.CreatorType, &i.CreatorID,
+			&i.ParentIssueID, &i.AcceptanceCriteria, &i.ContextRefs,
+			&i.Position, &i.DueDate, &i.CreatedAt, &i.UpdatedAt, &i.Number,
+		)
+		if err != nil {
+			return nil, err
+		}
+		issues = append(issues, i)
+	}
+	return issues, rows.Err()
+}
+
+// batchDeleteIssues deletes multiple issues in a single SQL statement.
+func (h *Handler) batchDeleteIssues(ctx context.Context, issueIDs []string, workspaceID string) error {
+	if h.DB == nil || len(issueIDs) == 0 {
+		return nil
+	}
+	uuids := make([]pgtype.UUID, len(issueIDs))
+	for i, id := range issueIDs {
+		uuids[i] = parseUUID(id)
+	}
+	_, err := h.DB.Exec(ctx,
+		`DELETE FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
+		uuids, parseUUID(workspaceID),
+	)
+	return err
 }

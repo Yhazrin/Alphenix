@@ -274,7 +274,8 @@ type codexClient struct {
 	cfg       Config
 	stdin     interface{ Write([]byte) (int, error) }
 	ctx       context.Context
-	mu        sync.Mutex
+	mu        sync.Mutex   // protects pending map and nextID
+	stdinMu   sync.Mutex   // protects stdin writes (request/notify/respond)
 	nextID    int
 	pending   map[int]*pendingRPC
 	threadID  string
@@ -322,7 +323,10 @@ func (c *codexClient) request(ctx context.Context, method string, params any) (j
 		return nil, err
 	}
 	data = append(data, '\n')
-	if _, err := c.stdin.Write(data); err != nil {
+	c.stdinMu.Lock()
+	_, writeErr := c.stdin.Write(data)
+	c.stdinMu.Unlock()
+	if writeErr != nil {
 		c.mu.Lock()
 		delete(c.pending, id)
 		c.mu.Unlock()
@@ -347,7 +351,9 @@ func (c *codexClient) notify(method string) {
 	}
 	data, _ := json.Marshal(msg)
 	data = append(data, '\n')
+	c.stdinMu.Lock()
 	_, _ = c.stdin.Write(data)
+	c.stdinMu.Unlock()
 }
 
 func (c *codexClient) respond(id int, result any) {
@@ -358,7 +364,9 @@ func (c *codexClient) respond(id int, result any) {
 	}
 	data, _ := json.Marshal(msg)
 	data = append(data, '\n')
+	c.stdinMu.Lock()
 	_, _ = c.stdin.Write(data)
+	c.stdinMu.Unlock()
 }
 
 func (c *codexClient) closeAllPending(err error) {
@@ -689,8 +697,12 @@ func (c *codexClient) handleItemNotification(method string, params map[string]an
 				CallID: itemID,
 			})
 		}
+		// PostToolUse hook — observe file change result after execution.
+		if c.toolHooks.PostToolUse != nil {
+			c.toolHooks.PostToolUse(c.ctx, "patch_apply", nil, "")
+		}
 
-	case method == "item/completed" && itemType == "agentMessage":
+		case method == "item/completed" && itemType == "agentMessage":
 		text, _ := item["text"].(string)
 		if text != "" && c.onMessage != nil {
 			c.onMessage(Message{Type: MessageText, Content: text})

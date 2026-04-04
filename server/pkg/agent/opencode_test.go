@@ -96,7 +96,7 @@ func TestOpencodeHandleToolUseEventCompleted(t *testing.T) {
 		},
 	}
 
-	b.handleToolUseEvent(event, ch)
+	b.handleToolUseEvent(event, ch, ToolHooks{})
 
 	// Should emit both a tool-use and a tool-result message.
 	if len(ch) != 2 {
@@ -150,7 +150,7 @@ func TestOpencodeHandleToolUseEventPending(t *testing.T) {
 		},
 	}
 
-	b.handleToolUseEvent(event, ch)
+	b.handleToolUseEvent(event, ch, ToolHooks{})
 
 	if len(ch) != 1 {
 		t.Fatalf("expected 1 message for pending tool, got %d", len(ch))
@@ -184,7 +184,7 @@ func TestOpencodeHandleToolUseEventStructuredOutput(t *testing.T) {
 		},
 	}
 
-	b.handleToolUseEvent(event, ch)
+	b.handleToolUseEvent(event, ch, ToolHooks{})
 
 	// tool-use + tool-result
 	if len(ch) != 2 {
@@ -215,7 +215,7 @@ func TestOpencodeHandleToolUseEventNilState(t *testing.T) {
 		},
 	}
 
-	b.handleToolUseEvent(event, ch)
+	b.handleToolUseEvent(event, ch, ToolHooks{})
 
 	if len(ch) != 1 {
 		t.Fatalf("expected 1 message, got %d", len(ch))
@@ -504,7 +504,7 @@ func TestOpencodeProcessEventsHappyPath(t *testing.T) {
 		`{"type":"step_finish","timestamp":1004,"sessionID":"ses_happy","part":{"type":"step-finish"}}`,
 	}, "\n")
 
-	result := b.processEvents(strings.NewReader(lines), ch)
+	result := b.processEvents(strings.NewReader(lines), ch, ToolHooks{})
 
 	// Verify result.
 	if result.status != "completed" {
@@ -563,7 +563,7 @@ func TestOpencodeProcessEventsErrorCausesFailedStatus(t *testing.T) {
 		`{"type":"step_finish","timestamp":1002,"sessionID":"ses_err","part":{"type":"step-finish"}}`,
 	}, "\n")
 
-	result := b.processEvents(strings.NewReader(lines), ch)
+	result := b.processEvents(strings.NewReader(lines), ch, ToolHooks{})
 
 	if result.status != "failed" {
 		t.Errorf("status: got %q, want %q", result.status, "failed")
@@ -599,7 +599,7 @@ func TestOpencodeProcessEventsSessionIDExtracted(t *testing.T) {
 		`{"type":"text","timestamp":1001,"sessionID":"ses_updated","part":{"type":"text","text":"hi"}}`,
 	}, "\n")
 
-	result := b.processEvents(strings.NewReader(lines), ch)
+	result := b.processEvents(strings.NewReader(lines), ch, ToolHooks{})
 
 	if result.sessionID != "ses_updated" {
 		t.Errorf("sessionID: got %q, want %q (should use last seen)", result.sessionID, "ses_updated")
@@ -618,7 +618,7 @@ func TestOpencodeProcessEventsScannerError(t *testing.T) {
 	// triggers scanner.Err() and should set status to "failed".
 	result := b.processEvents(&ioErrReader{
 		data: `{"type":"text","sessionID":"ses_scan","part":{"text":"before error"}}` + "\n",
-	}, ch)
+	}, ch, ToolHooks{})
 
 	if result.status != "failed" {
 		t.Errorf("status: got %q, want %q", result.status, "failed")
@@ -664,7 +664,7 @@ func TestOpencodeProcessEventsEmptyLines(t *testing.T) {
 		"",
 	}, "\n")
 
-	result := b.processEvents(strings.NewReader(lines), ch)
+	result := b.processEvents(strings.NewReader(lines), ch, ToolHooks{})
 
 	if result.status != "completed" {
 		t.Errorf("status: got %q, want %q", result.status, "completed")
@@ -698,7 +698,7 @@ func TestOpencodeProcessEventsErrorDoesNotRevertToCompleted(t *testing.T) {
 		`{"type":"text","sessionID":"ses_x","part":{"text":"recovered?"}}`,
 	}, "\n")
 
-	result := b.processEvents(strings.NewReader(lines), ch)
+	result := b.processEvents(strings.NewReader(lines), ch, ToolHooks{})
 
 	if result.status != "failed" {
 		t.Errorf("status: got %q, want %q (error should stick)", result.status, "failed")
