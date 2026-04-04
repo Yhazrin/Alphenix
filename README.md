@@ -17,9 +17,9 @@
 Open-source platform that turns coding agents into real teammates.<br/>
 Assign tasks, track progress, compound skills — manage your human + agent workforce in one place.
 
-[![CI](https://github.com/multica-ai/multica/actions/workflows/ci.yml/badge.svg)](https://github.com/multica-ai/multica/actions/workflows/ci.yml)
+[![CI](https://github.com/multica-ai/multicode/actions/workflows/ci.yml/badge.svg)](https://github.com/multica-ai/multicode/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub stars](https://img.shields.io/github/stars/multica-ai/multica?style=flat)](https://github.com/multica-ai/multica/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/multica-ai/multicode?style=flat)](https://github.com/multica-ai/multicode/stargazers)
 
 [Website](https://multicode.ai) · [Cloud](https://multicode.ai/app) · [Self-Hosting](SELF_HOSTING.md) · [Contributing](CONTRIBUTING.md)
 
@@ -54,7 +54,7 @@ The fastest way to get started — no setup required: **[multicode.ai](https://m
 ### Self-Host with Docker
 
 ```bash
-git clone https://github.com/multica-ai/multica.git
+git clone https://github.com/multica-ai/multicode.git
 cd multicode
 cp .env.example .env
 # Edit .env — at minimum, change JWT_SECRET

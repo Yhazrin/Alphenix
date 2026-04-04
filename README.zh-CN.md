@@ -17,9 +17,9 @@
 开源平台，将编码 Agent 变成真正的队友。<br/>
 分配任务、跟踪进度、积累技能——在一个地方管理你的人类 + Agent 团队。
 
-[![CI](https://github.com/multica-ai/multica/actions/workflows/ci.yml/badge.svg)](https://github.com/multica-ai/multica/actions/workflows/ci.yml)
+[![CI](https://github.com/multica-ai/multicode/actions/workflows/ci.yml/badge.svg)](https://github.com/multica-ai/multicode/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub stars](https://img.shields.io/github/stars/multica-ai/multica?style=flat)](https://github.com/multica-ai/multica/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/multica-ai/multicode?style=flat)](https://github.com/multica-ai/multicode/stargazers)
 
 [官网](https://multicode.ai) · [云服务](https://multicode.ai/app) · [自部署指南](SELF_HOSTING.md) · [参与贡献](CONTRIBUTING.md)
 
@@ -54,7 +54,7 @@ Multicode 将编码 Agent 变成真正的队友。像分配给同事一样分配
 ### Docker 自部署
 
 ```bash
-git clone https://github.com/multica-ai/multica.git
+git clone https://github.com/multica-ai/multicode.git
 cd multicode
 cp .env.example .env
 # 编辑 .env — 至少修改 JWT_SECRET
