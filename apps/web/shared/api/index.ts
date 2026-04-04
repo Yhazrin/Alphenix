@@ -18,12 +18,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export const api = new ApiClient(API_BASE_URL, { logger: createLogger("api") });
 
-// Initialize token from localStorage on load
+// Initialize workspace_id from localStorage on load.
+// Auth uses HttpOnly cookie — no token stored in localStorage.
 if (typeof window !== "undefined") {
-  const token = localStorage.getItem("multicode_token");
-  if (token) {
-    api.setToken(token);
-  }
   const wsId = localStorage.getItem("multicode_workspace_id");
   if (wsId) {
     api.setWorkspaceId(wsId);

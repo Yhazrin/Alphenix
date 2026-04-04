@@ -10,22 +10,15 @@ import { setLoggedInCookie, clearLoggedInCookie } from "./auth-cookie";
 const logger = createLogger("auth");
 
 /**
- * Initializes auth + workspace state from localStorage on mount.
- * Fires getMe() and listWorkspaces() in parallel when a cached token exists.
+ * Initializes auth + workspace state on mount using HttpOnly cookie.
+ * Fires getMe() and listWorkspaces() in parallel.
+ * If the cookie is missing/expired, the user stays on the login page.
  */
 export function AuthInitializer({ children }: { children: ReactNode }) {
   useEffect(() => {
-    const token = localStorage.getItem("multicode_token");
-    if (!token) {
-      clearLoggedInCookie();
-      useAuthStore.setState({ isLoading: false });
-      return;
-    }
-
-    api.setToken(token);
     const wsId = localStorage.getItem("multicode_workspace_id");
 
-    // Fire getMe and listWorkspaces in parallel
+    // Fire getMe and listWorkspaces in parallel — cookie is sent automatically
     const mePromise = api.getMe();
     const wsPromise = api.listWorkspaces();
 
@@ -37,9 +30,7 @@ export function AuthInitializer({ children }: { children: ReactNode }) {
       })
       .catch((err) => {
         logger.error("auth init failed", err);
-        api.setToken(null);
         api.setWorkspaceId(null);
-        localStorage.removeItem("multicode_token");
         localStorage.removeItem("multicode_workspace_id");
         clearLoggedInCookie();
         useAuthStore.setState({ user: null, isLoading: false });

@@ -1,17 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useAuthStore } from "../store";
 
-// Mock the api module
-vi.mock("@/shared/api", () => {
-  const mockApi = {
-    setToken: vi.fn(),
-    setWorkspaceId: vi.fn(),
+// Mock authApi
+vi.mock("@/shared/api", () => ({
+  authApi: {
     getMe: vi.fn(),
     sendCode: vi.fn(),
     verifyCode: vi.fn(),
-  };
-  return { api: mockApi };
-});
+    logout: vi.fn(),
+  },
+}));
 
 // Mock the cookie helpers
 vi.mock("../auth-cookie", () => ({
@@ -19,80 +17,60 @@ vi.mock("../auth-cookie", () => ({
   clearLoggedInCookie: vi.fn(),
 }));
 
-import { api } from "@/shared/api";
+import { authApi } from "@/shared/api";
 import { setLoggedInCookie, clearLoggedInCookie } from "../auth-cookie";
 
 describe("auth store", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    // Reset store state
     useAuthStore.setState({ user: null, isLoading: true });
   });
 
   describe("initialize", () => {
-    it("sets isLoading false when no token in localStorage", async () => {
-      await useAuthStore.getState().initialize();
-      const state = useAuthStore.getState();
-      expect(state.isLoading).toBe(false);
-      expect(state.user).toBeNull();
-    });
-
-    it("loads user when token exists", async () => {
-      localStorage.setItem("multicode_token", "existing-token");
+    it("loads user from cookie-based session", async () => {
       const mockUser = { id: "u-1", email: "test@example.com", name: "Test" };
-      vi.mocked(api.getMe).mockResolvedValueOnce(mockUser as any);
+      vi.mocked(authApi.getMe).mockResolvedValueOnce(mockUser as any);
 
       await useAuthStore.getState().initialize();
 
-      expect(api.setToken).toHaveBeenCalledWith("existing-token");
+      expect(authApi.getMe).toHaveBeenCalled();
       expect(useAuthStore.getState().user).toEqual(mockUser);
       expect(useAuthStore.getState().isLoading).toBe(false);
     });
 
-    it("clears token on failed getMe", async () => {
-      localStorage.setItem("multicode_token", "bad-token");
-      vi.mocked(api.getMe).mockRejectedValueOnce(new Error("unauthorized"));
+    it("sets isLoading false on failed getMe", async () => {
+      vi.mocked(authApi.getMe).mockRejectedValueOnce(new Error("unauthorized"));
 
       await useAuthStore.getState().initialize();
 
-      expect(api.setToken).toHaveBeenCalledWith(null);
-      expect(api.setWorkspaceId).toHaveBeenCalledWith(null);
-      expect(localStorage.getItem("multicode_token")).toBeNull();
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().isLoading).toBe(false);
     });
   });
 
   describe("verifyCode", () => {
-    it("stores token, sets user, and sets cookie", async () => {
+    it("sets user after successful verification", async () => {
       const mockUser = { id: "u-1", email: "test@example.com", name: "Test" };
-      vi.mocked(api.verifyCode).mockResolvedValueOnce({ token: "new-token", user: mockUser } as any);
+      vi.mocked(authApi.verifyCode).mockResolvedValueOnce({ token: "new-token", user: mockUser } as any);
 
       const user = await useAuthStore.getState().verifyCode("test@example.com", "123456");
 
-      expect(api.verifyCode).toHaveBeenCalledWith("test@example.com", "123456");
-      expect(localStorage.getItem("multicode_token")).toBe("new-token");
-      expect(api.setToken).toHaveBeenCalledWith("new-token");
-      expect(setLoggedInCookie).toHaveBeenCalled();
+      expect(authApi.verifyCode).toHaveBeenCalledWith("test@example.com", "123456");
       expect(user).toEqual(mockUser);
       expect(useAuthStore.getState().user).toEqual(mockUser);
+      // Cookie is set by server response, not by client code
     });
   });
 
   describe("logout", () => {
-    it("clears all auth state", () => {
+    it("clears all auth state", async () => {
+      vi.mocked(authApi.logout).mockResolvedValueOnce(undefined);
       useAuthStore.setState({ user: { id: "u-1", email: "test@example.com", name: "Test" } as any });
-      localStorage.setItem("multicode_token", "token");
-      localStorage.setItem("multicode_workspace_id", "ws-1");
 
-      useAuthStore.getState().logout();
+      await useAuthStore.getState().logout();
 
-      expect(localStorage.getItem("multicode_token")).toBeNull();
-      expect(localStorage.getItem("multicode_workspace_id")).toBeNull();
-      expect(api.setToken).toHaveBeenCalledWith(null);
-      expect(api.setWorkspaceId).toHaveBeenCalledWith(null);
-      expect(clearLoggedInCookie).toHaveBeenCalled();
+      expect(authApi.logout).toHaveBeenCalled();
       expect(useAuthStore.getState().user).toBeNull();
     });
   });

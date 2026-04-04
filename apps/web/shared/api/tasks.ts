@@ -36,8 +36,6 @@ function authHeaders(): Record<string, string> {
 
 function handleUnauthorized() {
   if (typeof window !== "undefined") {
-    localStorage.removeItem("multicode_token");
-    localStorage.removeItem("multicode_workspace_id");
     _token = null;
     _workspaceId = null;
     if (window.location.pathname !== "/") {

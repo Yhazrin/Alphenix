@@ -99,15 +99,18 @@ export class WSClient {
   }
 
   private async _fetchTicket(): Promise<{ ticket: string } | null> {
-    if (!this.token || !this.workspaceId) return null;
+    if (!this.workspaceId) return null;
     try {
       const baseUrl = this.baseUrl.replace(/^ws/, "http").replace(/\/ws$/, "");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      // Include Bearer token if available (CLI/PAT flows), otherwise
+      // the HttpOnly cookie is sent via credentials: "include".
+      if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
       const res = await fetch(`${baseUrl}/auth/ws-ticket`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.token}`,
-        },
+        headers,
         body: JSON.stringify({ workspace_id: this.workspaceId }),
         credentials: "include",
       });
@@ -129,22 +132,15 @@ export class WSClient {
     this._setState(ConnectionState.Connecting);
 
     const url = new URL(this.baseUrl);
-    let usedTicket = false;
 
-    // Try ticket-based auth first (new flow)
-    if (this.token && this.workspaceId) {
+    // Fetch a short-lived ticket for WS auth.
+    // Uses HttpOnly cookie (credentials: "include") or Bearer token if set.
+    if (this.workspaceId) {
       const ticketResult = await this._fetchTicket();
       if (ticketResult) {
         url.searchParams.set("ticket", ticketResult.ticket);
         url.searchParams.set("workspace_id", this.workspaceId);
-        usedTicket = true;
       }
-    }
-
-    // Fall back to token-based auth (legacy)
-    if (!usedTicket) {
-      if (this.token) url.searchParams.set("token", this.token);
-      if (this.workspaceId) url.searchParams.set("workspace_id", this.workspaceId);
     }
 
     this.ws = new WebSocket(url.toString());

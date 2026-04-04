@@ -22,7 +22,6 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import type { User } from "@/shared/types";
 
 function validateCliCallback(cliCallback: string): boolean {
   try {
@@ -61,53 +60,19 @@ function LoginPageContent() {
     }
   }, [isLoading, user, router, searchParams]);
 
-  const [step, setStep] = useState<"email" | "code" | "cli_confirm">("email");
+  const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [existingUser, setExistingUser] = useState<User | null>(null);
-
-  // Check for existing session when CLI callback is present.
-  useEffect(() => {
-    const cliCallback = searchParams.get("cli_callback");
-    if (!cliCallback) return;
-
-    const token = localStorage.getItem("multicode_token");
-    if (!token) return;
-
-    if (!validateCliCallback(cliCallback)) return;
-
-    // Verify the existing token is still valid.
-    api.setToken(token);
-    api
-      .getMe()
-      .then((user) => {
-        setExistingUser(user);
-        setStep("cli_confirm");
-      })
-      .catch(() => {
-        // Token expired/invalid — clear and fall through to normal login.
-        api.setToken(null);
-        localStorage.removeItem("multicode_token");
-      });
-  }, [searchParams]);
+  const isCli = !!searchParams.get("cli_callback");
 
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
-
-  const handleCliAuthorize = async () => {
-    const cliCallback = searchParams.get("cli_callback");
-    const token = localStorage.getItem("multicode_token");
-    if (!cliCallback || !token) return;
-    const cliState = searchParams.get("cli_state") || "";
-    setSubmitting(true);
-    redirectToCliCallback(cliCallback, token, cliState);
-  };
 
   const handleSendCode = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -179,47 +144,6 @@ function LoginPageContent() {
       );
     }
   };
-
-  // CLI confirm step: user is already logged in, just authorize.
-  if (step === "cli_confirm" && existingUser) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="items-center text-center">
-            <MulticodeIcon className="mb-1 size-8 text-foreground" noSpin />
-            <CardTitle className="text-2xl">Authorize CLI</CardTitle>
-            <CardDescription>
-              Allow the CLI to access Multicode as{" "}
-              <span className="font-medium text-foreground">
-                {existingUser.email}
-              </span>
-              ?
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Button
-              onClick={handleCliAuthorize}
-              disabled={submitting}
-              className="w-full"
-              size="lg"
-            >
-              {submitting ? "Authorizing..." : "Authorize"}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => {
-                setExistingUser(null);
-                setStep("email");
-              }}
-            >
-              Use a different account
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   if (step === "code") {
     return (
