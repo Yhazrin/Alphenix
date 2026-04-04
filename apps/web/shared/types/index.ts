@@ -23,6 +23,9 @@ export type {
   RuntimePingStatus,
   RuntimeUpdate,
   RuntimeUpdateStatus,
+  PromptSection,
+  PromptPreviewResponse,
+  TaskContextPreviewResponse,
 } from "./agent";
 export type {
   Team,

@@ -546,6 +546,7 @@ func (h *Handler) ListAgentTasks(w http.ResponseWriter, r *http.Request) {
 type PromptSectionPreview struct {
 	Name    string `json:"name"`
 	Phase   string `json:"phase"` // "static" or "dynamic"
+	Order   int    `json:"order"`
 	Content string `json:"content"`
 }
 
@@ -598,11 +599,18 @@ func (h *Handler) PreviewAgentPrompt(w http.ResponseWriter, r *http.Request) {
 }
 
 // extractSections returns the sections from a PromptRegistry for preview purposes.
-// This relies on the daemon package exposing the sections; we reconstruct from the prompt.
 func extractSections(registry *daemon.PromptRegistry) []PromptSectionPreview {
-	// The registry doesn't expose sections directly, so we return nil here
-	// and rely on the full prompt. A future enhancement could add an export method.
-	return nil
+	exported := registry.ExportSections()
+	sections := make([]PromptSectionPreview, len(exported))
+	for i, s := range exported {
+		sections[i] = PromptSectionPreview{
+			Name:    s.Name,
+			Phase:   s.Phase,
+			Order:   s.Order,
+			Content: s.Content,
+		}
+	}
+	return sections
 }
 
 // PreviewTaskContext shows what context would be assembled for a task execution,
@@ -674,6 +682,7 @@ func (h *Handler) PreviewTaskContext(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"full_prompt":  fullPrompt,
+		"sections":     extractSections(registry),
 		"task_id":      taskID,
 		"agent_id":     uuidToString(agent.ID),
 		"agent_name":   agent.Name,

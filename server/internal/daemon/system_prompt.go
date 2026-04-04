@@ -162,6 +162,37 @@ func (r *PromptRegistry) Resolve() string {
 	return b.String()
 }
 
+// ExportedSection holds resolved section metadata for preview/UI purposes.
+type ExportedSection struct {
+	Name    string `json:"name"`
+	Phase   string `json:"phase"` // "static" or "dynamic"
+	Order   int    `json:"order"`
+	Content string `json:"content"`
+}
+
+// ExportSections resolves all registered sections and returns them individually.
+// Used by handler preview endpoints to expose section-level breakdown.
+func (r *PromptRegistry) ExportSections() []ExportedSection {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	result := make([]ExportedSection, 0, len(r.sections))
+	for _, s := range r.sections {
+		content := r.computeSection(s)
+		phase := "static"
+		if s.Phase == PhaseDynamic {
+			phase = "dynamic"
+		}
+		result = append(result, ExportedSection{
+			Name:    s.Name,
+			Phase:   phase,
+			Order:   s.Order,
+			Content: content,
+		})
+	}
+	return result
+}
+
 func (r *PromptRegistry) computeSection(s PromptSection) string {
 	if cached, ok := r.cache[s.Name]; ok {
 		return cached

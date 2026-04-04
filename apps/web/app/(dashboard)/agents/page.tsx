@@ -9,6 +9,7 @@ import {
   Search,
   Sparkles,
   ChevronRight,
+  Eye,
 } from "lucide-react";
 import {
   PRESET_AGENTS,
@@ -38,6 +39,7 @@ import { useRuntimeStore } from "@/features/runtimes";
 import { useIssueStore } from "@/features/issues";
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import { useFileUpload } from "@/shared/hooks/use-file-upload";
+import { PromptPreviewTab } from "./_components/agent-prompt-preview";
 
 
 // ---------------------------------------------------------------------------
@@ -1472,7 +1474,7 @@ function SettingsTab({
 // Agent Detail
 // ---------------------------------------------------------------------------
 
-type DetailTab = "instructions" | "skills" | "tools" | "triggers" | "tasks" | "settings";
+type DetailTab = "instructions" | "skills" | "tools" | "triggers" | "tasks" | "prompt" | "settings";
 
 const detailTabs: { id: DetailTab; label: string; icon: typeof FileText }[] = [
   { id: "instructions", label: "Instructions", icon: FileText },
@@ -1480,6 +1482,7 @@ const detailTabs: { id: DetailTab; label: string; icon: typeof FileText }[] = [
   { id: "tools", label: "Tools", icon: Wrench },
   { id: "triggers", label: "Triggers", icon: Timer },
   { id: "tasks", label: "Tasks", icon: ListTodo },
+  { id: "prompt", label: "Prompt", icon: Eye },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -1605,6 +1608,7 @@ function AgentDetail({
           />
         )}
         {activeTab === "tasks" && <TasksTab agent={agent} />}
+        {activeTab === "prompt" && <PromptPreviewTab agent={agent} />}
         {activeTab === "settings" && (
           <SettingsTab
             agent={agent}

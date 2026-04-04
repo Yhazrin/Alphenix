@@ -194,3 +194,30 @@ export interface RuntimeUpdate {
   created_at: string;
   updated_at: string;
 }
+
+// Prompt Preview
+
+export interface PromptSection {
+  name: string;
+  phase: "static" | "dynamic";
+  order: number;
+  content: string;
+}
+
+export interface PromptPreviewResponse {
+  full_prompt: string;
+  sections: PromptSection[];
+  agent_id: string;
+  agent_name: string;
+}
+
+export interface TaskContextPreviewResponse {
+  full_prompt: string;
+  sections: PromptSection[];
+  task_id: string;
+  agent_id: string;
+  agent_name: string;
+  issue_id: string;
+  skills: string[];
+  task_status: string;
+}
