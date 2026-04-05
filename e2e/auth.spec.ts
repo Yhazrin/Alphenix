@@ -5,11 +5,9 @@ test.describe("Authentication", () => {
   test("login page renders correctly", async ({ page }) => {
     await page.goto("/login");
 
-    await expect(page.locator('input[placeholder="Email"]')).toBeVisible();
-    await expect(page.locator('input[placeholder="Email"]')).toBeVisible();
-    await expect(page.locator('input[placeholder="Name"]')).toBeVisible();
+    await expect(page.locator('input[placeholder="you@example.com"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toContainText(
-      "Sign in",
+      "Continue",
     );
   });
 
@@ -37,8 +35,8 @@ test.describe("Authentication", () => {
     // Open the workspace dropdown menu
     await openWorkspaceMenu(page);
 
-    // Click Sign out
-    await page.locator("text=Sign out").click();
+    // Click Log out
+    await page.locator("text=Log out").click();
 
     await page.waitForURL("**/login", { timeout: 10000 });
     await expect(page).toHaveURL(/\/login/);
