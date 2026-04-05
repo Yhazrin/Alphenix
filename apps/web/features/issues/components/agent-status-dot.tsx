@@ -1,11 +1,11 @@
 import type { Issue } from "@/shared/types";
 
-export type AgentIssueStatus = "working" | "failed" | "blocked" | "idle";
+export type AgentIssueStatus = "working" | "queued" | "failed" | "blocked" | "idle";
 
 export function getAgentIssueStatus(issue: Issue): AgentIssueStatus {
   if (issue.status === "in_progress") return "working";
   if (issue.latest_task_status === "failed") return "failed";
-  if (issue.latest_task_status === "queued") return "blocked";
+  if (issue.latest_task_status === "queued") return "queued";
   return "idle";
 }
 
@@ -14,6 +14,11 @@ const STATUS_CONFIG: Record<Exclude<AgentIssueStatus, "idle">, { dot: string; pi
     dot: "bg-info",
     ping: true,
     title: "Agent is working",
+  },
+  queued: {
+    dot: "bg-info",
+    ping: false,
+    title: "Agent task is queued",
   },
   failed: {
     dot: "bg-destructive",
