@@ -15,6 +15,7 @@ import (
 	"github.com/multica-ai/multicode/server/internal/logger"
 	"github.com/multica-ai/multicode/server/internal/middleware"
 	"github.com/multica-ai/multicode/server/internal/realtime"
+	"github.com/multica-ai/multicode/server/internal/tool"
 	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 )
 
@@ -83,6 +84,11 @@ func main() {
 	registerActivityListeners(bus, queries)
 	registerNotificationListeners(bus, queries)
 
+	// Initialize MCP Client Manager — connects to active MCP servers and
+	// registers their tools in the shared registry for agent use.
+	toolRegistry := tool.DefaultRegistry()
+	mcpManager := initMCPClientManager(ctx, queries, toolRegistry)
+
 	r := NewRouter(pool, hub, bus)
 
 	srv := &http.Server{
@@ -114,6 +120,7 @@ func main() {
 	slog.Info("shutting down server")
 	sweepCancel()
 	outboxCancel()
+	shutdownMCPClientManager(mcpManager)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
