@@ -253,6 +253,125 @@ func TestPromptRegistry(t *testing.T) {
 			t.Errorf("all-empty registry should resolve to empty string, got %q", result)
 		}
 	})
+
+	t.Run("static cache persists across resolve calls", func(t *testing.T) {
+		r := NewPromptRegistry()
+		count := 0
+		r.Register(PromptSection{
+			Name:  "static-cached",
+			Phase: PhaseStatic,
+			Order: 10,
+			Compute: func() string {
+				count++
+				return "STATIC"
+			},
+		})
+
+		r.Resolve()
+		r.Resolve()
+		r.Resolve()
+		if count != 1 {
+			t.Errorf("static section should be computed once and cached, got %d calls", count)
+		}
+	})
+
+	t.Run("dynamic sections recomputed each cycle", func(t *testing.T) {
+		r := NewPromptRegistry()
+		count := 0
+		r.Register(PromptSection{
+			Name:  "dynamic-cached",
+			Phase: PhaseDynamic,
+			Order: 10,
+			Compute: func() string {
+				count++
+				return "DYNAMIC"
+			},
+		})
+
+		r.Resolve()
+		r.Resolve()
+		// Dynamic cache persists within same registry (per-cycle).
+		// But Invalidate() clears it for next cycle.
+		if count != 1 {
+			t.Errorf("dynamic section should be cached within registry, got %d calls", count)
+		}
+		// Invalidate clears dynamic cache only — next resolve recomputes.
+		r.Invalidate()
+		r.Resolve()
+		if count != 2 {
+			t.Errorf("after Invalidate, dynamic section should recompute, got %d calls", count)
+		}
+	})
+
+	t.Run("invalidate static clears only static cache", func(t *testing.T) {
+		r := NewPromptRegistry()
+		staticCount := 0
+		dynamicCount := 0
+		r.Register(PromptSection{
+			Name:  "static-s",
+			Phase: PhaseStatic,
+			Order: 10,
+			Compute: func() string {
+				staticCount++
+				return "S"
+			},
+		})
+		r.Register(PromptSection{
+			Name:  "dynamic-d",
+			Phase: PhaseDynamic,
+			Order: 10,
+			Compute: func() string {
+				dynamicCount++
+				return "D"
+			},
+		})
+
+		r.Resolve()
+		if staticCount != 1 || dynamicCount != 1 {
+			t.Fatal("first resolve should compute both")
+		}
+
+		// InvalidateStatic should only clear static cache.
+		r.InvalidateStatic()
+		r.Resolve()
+		if staticCount != 2 {
+			t.Errorf("static should be recomputed after InvalidateStatic, got %d calls", staticCount)
+		}
+		if dynamicCount != 1 {
+			t.Errorf("dynamic should stay cached after InvalidateStatic, got %d calls", dynamicCount)
+		}
+	})
+
+	t.Run("content hash is consistent", func(t *testing.T) {
+		s := PromptSection{
+			Name:  "hash-test",
+			Phase: PhaseStatic,
+			Order: 10,
+			Compute: func() string {
+				return "stable content"
+			},
+		}
+		h1 := s.ContentHash()
+		h2 := s.ContentHash()
+		if h1 != h2 {
+			t.Errorf("ContentHash should be deterministic, got %q and %q", h1, h2)
+		}
+		if h1 == "" {
+			t.Error("ContentHash should not be empty for non-nil Compute")
+		}
+	})
+
+	t.Run("content hash empty for nil compute", func(t *testing.T) {
+		s := PromptSection{
+			Name:    "nil-compute",
+			Phase:   PhaseStatic,
+			Order:   10,
+			Compute: nil,
+		}
+		if s.ContentHash() != "" {
+			t.Error("ContentHash should be empty for nil Compute")
+		}
+	})
 }
 
 func TestCoordinatorForkGuidance(t *testing.T) {

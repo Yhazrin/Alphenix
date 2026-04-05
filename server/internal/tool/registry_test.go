@@ -91,6 +91,85 @@ func TestDefaultRegistry_SourceIsBuiltin(t *testing.T) {
 	}
 }
 
+func TestRegistryOnChange(t *testing.T) {
+	t.Run("register triggers OnChange", func(t *testing.T) {
+		r := NewRegistry()
+		var events []ChangeEvent
+		r.OnChange = func(e ChangeEvent) {
+			events = append(events, e)
+		}
+
+		_ = r.Register(ToolDef{Name: "tool1", Source: SourceBuiltin})
+		if len(events) != 1 {
+			t.Fatalf("expected 1 event, got %d", len(events))
+		}
+		if events[0].Action != "register" {
+			t.Errorf("expected action 'register', got %q", events[0].Action)
+		}
+		if len(events[0].Names) != 1 || events[0].Names[0] != "tool1" {
+			t.Errorf("expected names [tool1], got %v", events[0].Names)
+		}
+	})
+
+	t.Run("unregister triggers OnChange", func(t *testing.T) {
+		r := NewRegistry()
+		_ = r.Register(ToolDef{Name: "tool1"})
+
+		var events []ChangeEvent
+		r.OnChange = func(e ChangeEvent) {
+			events = append(events, e)
+		}
+
+		r.Unregister("tool1")
+		if len(events) != 1 {
+			t.Fatalf("expected 1 event, got %d", len(events))
+		}
+		if events[0].Action != "unregister" {
+			t.Errorf("expected action 'unregister', got %q", events[0].Action)
+		}
+	})
+
+	t.Run("unregister nonexistent does not trigger OnChange", func(t *testing.T) {
+		r := NewRegistry()
+		called := false
+		r.OnChange = func(e ChangeEvent) {
+			called = true
+		}
+
+		r.Unregister("nonexistent")
+		if called {
+			t.Error("OnChange should not be called for nonexistent tool")
+		}
+	})
+
+	t.Run("register dynamic triggers OnChange with namespaced name", func(t *testing.T) {
+		r := NewRegistry()
+		var events []ChangeEvent
+		r.OnChange = func(e ChangeEvent) {
+			events = append(events, e)
+		}
+
+		_ = r.RegisterDynamic(ToolDef{
+			Name:   "calc",
+			Source: SourceMCP,
+			SourceConfig: MCPSourceConfig("math-server", "calc", "srv-1"),
+		})
+		if len(events) != 1 {
+			t.Fatalf("expected 1 event, got %d", len(events))
+		}
+		if events[0].Names[0] != "mcp.math-server.calc" {
+			t.Errorf("expected namespaced name 'mcp.math-server.calc', got %q", events[0].Names[0])
+		}
+	})
+
+	t.Run("nil OnChange does not panic", func(t *testing.T) {
+		r := NewRegistry()
+		// OnChange is nil — should not panic.
+		_ = r.Register(ToolDef{Name: "tool1"})
+		r.Unregister("tool1")
+	})
+}
+
 func TestRegistry_RegisterDynamic_MCPTool(t *testing.T) {
 	r := DefaultRegistry()
 	err := r.RegisterDynamic(ToolDef{

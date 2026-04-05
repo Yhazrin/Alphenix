@@ -19,6 +19,7 @@ import (
 	"github.com/multica-ai/multicode/server/internal/realtime"
 	"github.com/multica-ai/multicode/server/internal/service"
 	"github.com/multica-ai/multicode/server/internal/storage"
+	"github.com/multica-ai/multicode/server/internal/tool"
 	"github.com/multica-ai/multicode/server/internal/util"
 )
 
@@ -47,10 +48,11 @@ type Handler struct {
 	UpdateStore          *UpdateStore
 	Storage              *storage.S3Storage
 	CFSigner             *auth.CloudFrontSigner
+	ToolRegistry         *tool.Registry
 	prefixCache          sync.Map // workspace UUID string → issue prefix string
 }
 
-func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *events.Bus, emailService *service.EmailService, s3 *storage.S3Storage, cfSigner *auth.CloudFrontSigner) *Handler {
+func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *events.Bus, emailService *service.EmailService, s3 *storage.S3Storage, cfSigner *auth.CloudFrontSigner, toolReg *tool.Registry) *Handler {
 	var executor dbExecutor
 	if candidate, ok := txStarter.(dbExecutor); ok {
 		executor = candidate
@@ -75,6 +77,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		UpdateStore:          NewUpdateStore(),
 		Storage:              s3,
 		CFSigner:             cfSigner,
+		ToolRegistry:         toolReg,
 	}
 }
 

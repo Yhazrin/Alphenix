@@ -1,7 +1,9 @@
 package daemon
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -62,20 +64,51 @@ type PromptSection struct {
 	Compute func() string // lazy content generator
 }
 
+// ContentHash returns a stable hash of the section's computed content.
+// Used for cache key generation and change detection.
+func (s PromptSection) ContentHash() string {
+	if s.Compute == nil {
+		return ""
+	}
+	content := s.Compute()
+	h := sha256.Sum256([]byte(content))
+	return fmt.Sprintf("%x", h[:8])
+}
+
 // PromptRegistry holds ordered prompt sections with memoization.
 // Sections are resolved once per assembly cycle and cached until invalidated.
 type PromptRegistry struct {
-	mu       sync.RWMutex
-	sections []PromptSection
-	cache    map[string]string // name → computed content
-	dirty    bool
+	mu          sync.RWMutex
+	sections    []PromptSection
+	cache       map[string]string // dynamic sections: per-cycle cache
+	staticCache map[string]string // static sections: persistent cache, cleared only on explicit invalidation
+	dirty       bool
 }
 
 // NewPromptRegistry creates a fresh prompt section registry.
 func NewPromptRegistry() *PromptRegistry {
 	return &PromptRegistry{
-		cache: make(map[string]string),
+		cache:       make(map[string]string),
+		staticCache: make(map[string]string),
 	}
+}
+
+// sharedRegistry is the process-wide prompt registry used by the server.
+// It enables external callers (e.g. toolRegistry.OnChange) to invalidate
+// cached static sections when tool definitions change.
+var (
+	sharedRegistry   *PromptRegistry
+	sharedRegistryMu sync.Mutex
+)
+
+// SharedRegistry returns the process-wide PromptRegistry, creating it on first call.
+func SharedRegistry() *PromptRegistry {
+	sharedRegistryMu.Lock()
+	defer sharedRegistryMu.Unlock()
+	if sharedRegistry == nil {
+		sharedRegistry = NewPromptRegistry()
+	}
+	return sharedRegistry
 }
 
 // Register adds a section to the registry. Duplicate names are replaced.
@@ -96,24 +129,36 @@ func (r *PromptRegistry) Register(section PromptSection) {
 	r.dirty = true
 }
 
-// Invalidate clears the memoization cache, forcing recomputation on next Resolve.
+// Invalidate clears both static and dynamic caches, forcing full recomputation on next Resolve.
 func (r *PromptRegistry) Invalidate() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.cache = make(map[string]string)
+	r.staticCache = make(map[string]string)
 	r.dirty = true
 }
 
-// InvalidateSection clears cache for a single section.
+// InvalidateStatic clears only the static cache, leaving dynamic cache intact.
+// Use this when a static section's content has changed (e.g. tool registry update)
+// but dynamic sections don't need recomputation.
+func (r *PromptRegistry) InvalidateStatic() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.staticCache = make(map[string]string)
+	r.dirty = true
+}
+
+// InvalidateSection clears cache for a single section in both caches.
 func (r *PromptRegistry) InvalidateSection(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.cache, name)
+	delete(r.staticCache, name)
 	r.dirty = true
 }
 
 // Resolve computes all sections and returns the assembled prompt.
-// Static sections come first (cacheable), then dynamic sections.
+// Static sections come first (persistent cache), then dynamic sections (per-cycle cache).
 func (r *PromptRegistry) Resolve() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -130,14 +175,14 @@ func (r *PromptRegistry) Resolve() string {
 		}
 	}
 
-	sortByOrder := func(a, b PromptSection) bool { return a.Order < b.Order }
-	_ = sortByOrder // used implicitly via insertion-order + Order field
+	sort.Slice(statics, func(i, j int) bool { return statics[i].Order < statics[j].Order })
+	sort.Slice(dynamics, func(i, j int) bool { return dynamics[i].Order < dynamics[j].Order })
 
 	var b strings.Builder
 
-	// Static sections (cacheable boundary).
+	// Static sections (persistent cache — survives across Resolve calls).
 	for _, s := range statics {
-		content := r.computeSection(s)
+		content := r.computeStaticSection(s)
 		if content != "" {
 			b.WriteString(content)
 		}
@@ -151,9 +196,9 @@ func (r *PromptRegistry) Resolve() string {
 		b.WriteString("## Task-Specific Context\n\n")
 	}
 
-	// Dynamic sections (per-task).
+	// Dynamic sections (per-cycle cache — cleared each assembly).
 	for _, s := range dynamics {
-		content := r.computeSection(s)
+		content := r.computeDynamicSection(s)
 		if content != "" {
 			b.WriteString(content)
 		}
@@ -178,7 +223,12 @@ func (r *PromptRegistry) ExportSections() []ExportedSection {
 
 	result := make([]ExportedSection, 0, len(r.sections))
 	for _, s := range r.sections {
-		content := r.computeSection(s)
+		var content string
+		if s.Phase == PhaseStatic {
+			content = r.computeStaticSection(s)
+		} else {
+			content = r.computeDynamicSection(s)
+		}
 		phase := "static"
 		if s.Phase == PhaseDynamic {
 			phase = "dynamic"
@@ -193,7 +243,19 @@ func (r *PromptRegistry) ExportSections() []ExportedSection {
 	return result
 }
 
-func (r *PromptRegistry) computeSection(s PromptSection) string {
+func (r *PromptRegistry) computeStaticSection(s PromptSection) string {
+	if cached, ok := r.staticCache[s.Name]; ok {
+		return cached
+	}
+	if s.Compute == nil {
+		return ""
+	}
+	content := s.Compute()
+	r.staticCache[s.Name] = content
+	return content
+}
+
+func (r *PromptRegistry) computeDynamicSection(s PromptSection) string {
 	if cached, ok := r.cache[s.Name]; ok {
 		return cached
 	}

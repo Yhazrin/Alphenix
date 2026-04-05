@@ -103,10 +103,21 @@ func SkillSourceConfig(skillName, skillID string) map[string]any {
 	}
 }
 
+// ChangeEvent describes a tool registry mutation.
+type ChangeEvent struct {
+	Action string   // "register" or "unregister"
+	Names  []string // affected tool names (namespaced)
+	Source ToolSource
+}
+
 // Registry is a thread-safe tool catalog.
 type Registry struct {
 	mu    sync.RWMutex
 	tools map[string]ToolDef
+
+	// OnChange is called after tools are registered or unregistered.
+	// Implementations should be fast and non-blocking (e.g. publish to event bus).
+	OnChange func(ChangeEvent)
 }
 
 // NewRegistry creates an empty tool registry.
@@ -122,8 +133,13 @@ func (r *Registry) Register(def ToolDef) error {
 		return fmt.Errorf("tool name must not be empty")
 	}
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.tools[def.Name] = def
+	r.mu.Unlock()
+	r.notifyChange(ChangeEvent{
+		Action: "register",
+		Names:  []string{def.Name},
+		Source: def.Source,
+	})
 	return nil
 }
 
@@ -194,10 +210,17 @@ func (r *Registry) Names() []string {
 // Unregister removes a tool by name. Returns true if the tool existed.
 func (r *Registry) Unregister(name string) bool {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	_, ok := r.tools[name]
+	def, ok := r.tools[name]
 	if ok {
 		delete(r.tools, name)
+	}
+	r.mu.Unlock()
+	if ok {
+		r.notifyChange(ChangeEvent{
+			Action: "unregister",
+			Names:  []string{name},
+			Source: def.Source,
+		})
 	}
 	return ok
 }
@@ -210,8 +233,13 @@ func (r *Registry) RegisterDynamic(def ToolDef) error {
 	}
 	key := def.NamespacedName()
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.tools[key] = def
+	r.mu.Unlock()
+	r.notifyChange(ChangeEvent{
+		Action: "register",
+		Names:  []string{key},
+		Source: def.Source,
+	})
 	return nil
 }
 
@@ -219,15 +247,22 @@ func (r *Registry) RegisterDynamic(def ToolDef) error {
 // For MCP tools, sourceConfigKey "server_name" with sourceConfigVal removes all tools from that server.
 func (r *Registry) UnregisterBySource(source ToolSource) int {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	count := 0
+	var names []string
 	for name, def := range r.tools {
 		if def.Source == source {
 			delete(r.tools, name)
-			count++
+			names = append(names, name)
 		}
 	}
-	return count
+	r.mu.Unlock()
+	if len(names) > 0 {
+		r.notifyChange(ChangeEvent{
+			Action: "unregister",
+			Names:  names,
+			Source: source,
+		})
+	}
+	return len(names)
 }
 
 // ListBySource returns all tools from a specific source.
@@ -267,4 +302,11 @@ func DefaultRegistry() *Registry {
 		_ = r.Register(def) // all pre-populated names are non-empty
 	}
 	return r
+}
+
+// notifyChange calls the OnChange callback if set. Non-blocking by convention.
+func (r *Registry) notifyChange(event ChangeEvent) {
+	if r.OnChange != nil {
+		r.OnChange(event)
+	}
 }

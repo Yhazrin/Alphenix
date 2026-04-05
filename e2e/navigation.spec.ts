@@ -18,7 +18,7 @@ test.describe("Navigation", () => {
     await expect(page).toHaveURL(/\/agents/);
 
     // Click Issues
-    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Issues" }).click();
+    await page.getByRole('link', { name: 'Issues', exact: true }).click();
     await page.waitForURL("**/issues");
     await expect(page).toHaveURL(/\/issues/);
   });

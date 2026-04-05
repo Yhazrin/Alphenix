@@ -44,29 +44,44 @@ export async function loginAsDefault(page: Page) {
     }
   }
 
-  // Step 2: Verify using the master code (888888) via the Next.js proxy.
-  // We navigate to /login first so page.evaluate has a same-origin context,
-  // then use fetch("/auth/verify-code") (relative URL) which goes through
-  // Next.js rewrites → API server. The Set-Cookie response header is set
-  // on localhost:3000 (same origin as the frontend page).
-  // NOTE: page.request.post to an absolute URL (http://localhost:8080/...)
-  // would set the cookie on the API server domain, which the browser won't
-  // send on subsequent page loads to localhost:3000.
+  // Step 2: Verify using the master code (888888).
+  // Use page.request.post through the Next.js proxy to get the JWT.
+  // Then manually add cookies to the browser context on the frontend origin,
+  // since Playwright's API client sets cookies on the proxy target origin.
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
   await page.goto("/login");
-  const verifyResult = await page.evaluate(async ({ email }) => {
-    const res = await fetch("/auth/verify-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code: "888888" }),
-      credentials: "include",
-    });
-    return res.json();
-  }, { email });
+  const verifyRes = await page.request.post(`${baseUrl}/auth/verify-code`, {
+    headers: { "Content-Type": "application/json" },
+    data: JSON.stringify({ email, code: "888888" }),
+  });
+  const verifyResult = await verifyRes.json();
   const token = verifyResult.token;
 
   if (!token) {
     throw new Error(`verify-code returned no token: ${JSON.stringify(verifyResult)}`);
   }
+
+  // Set the HttpOnly "token" cookie and "multicode_logged_in" cookie on the
+  // frontend origin so the browser sends them on subsequent page loads.
+  const url = new URL(baseUrl);
+  await page.context().addCookies([
+    {
+      name: "token",
+      value: token,
+      domain: url.hostname,
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+    {
+      name: "multicode_logged_in",
+      value: "1",
+      domain: url.hostname,
+      path: "/",
+      httpOnly: false,
+      sameSite: "Lax",
+    },
+  ]);
 
   // Update user name if needed
   if (verifyResult.user?.name !== DEFAULT_E2E_NAME) {
@@ -103,7 +118,8 @@ export async function loginAsDefault(page: Page) {
   }
   if (!workspace) throw new Error(`Failed to ensure workspace ${slug}`);
 
-  // Set workspace ID in localStorage — we're on /login so localStorage is accessible
+  // Set workspace ID in localStorage — navigate to /login for same-origin access
+  await page.goto("/login");
   await page.evaluate((wsId) => {
     localStorage.setItem("multicode_workspace_id", wsId);
   }, workspace.id);

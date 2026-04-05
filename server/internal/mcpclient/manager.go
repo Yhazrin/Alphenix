@@ -227,21 +227,19 @@ func (m *Manager) CallTool(ctx context.Context, serverID, toolName string, args 
 }
 
 // registerTools registers discovered MCP tools into the shared registry.
-// Tools are namespaced as "mcp.{serverName}.{toolName}" to avoid collisions.
+// Tools are namespaced as "mcp.{serverName}.{toolName}" via RegisterDynamic.
 // Must be called with m.mu held.
 func (m *Manager) registerTools(cfg ServerConfig, tools []ToolDescriptor) {
 	for _, td := range tools {
-		namespacedName := fmt.Sprintf("mcp.%s.%s", cfg.Name, td.Name)
-		if _, exists := m.registry.Get(namespacedName); exists {
-			slog.Warn("MCP tool name conflict, overwriting", "server", cfg.Name, "tool", td.Name)
-		}
 		def := tool.ToolDef{
-			Name:        namespacedName,
+			Name:        td.Name,
 			Description: td.Description,
 			Schema:      td.InputSchema,
 			Permission:  tool.PermissionNetwork,
+			Source:      tool.SourceMCP,
+			SourceConfig: tool.MCPSourceConfig(cfg.Name, td.Name, cfg.ID),
 		}
-		if err := m.registry.Register(def); err != nil {
+		if err := m.registry.RegisterDynamic(def); err != nil {
 			slog.Warn("failed to register MCP tool", "server", cfg.Name, "tool", td.Name, "error", err)
 		}
 	}
