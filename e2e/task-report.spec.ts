@@ -200,19 +200,19 @@ test.describe("Task Report — inline panel via agent detail (P0-2)", () => {
 
     // Summary → Timeline
     await page.locator('[role="tab"]:has-text("Timeline")').click();
-    await expect(page.locator('[role="tab"][data-state="active"]')).toHaveText(
+    await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveText(
       /Timeline/,
     );
 
     // Timeline → Output
     await page.locator('[role="tab"]:has-text("Output")').click();
-    await expect(page.locator('[role="tab"][data-state="active"]')).toHaveText(
+    await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveText(
       /Output/,
     );
 
     // Output → Summary
     await page.locator('[role="tab"]:has-text("Summary")').click();
-    await expect(page.locator('[role="tab"][data-state="active"]')).toHaveText(
+    await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveText(
       /Summary/,
     );
   });

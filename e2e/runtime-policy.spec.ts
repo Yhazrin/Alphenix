@@ -118,13 +118,13 @@ test.describe("Runtime Policy (P0-3)", () => {
     });
 
     // Find and toggle Active/Inactive switch
-    const switchEl = page.locator('button[role="switch"]');
+    const switchEl = page.locator('[role="switch"]');
     if (await switchEl.isVisible()) {
-      const initialState = await switchEl.getAttribute("data-state");
+      const initialState = await switchEl.getAttribute("aria-checked");
       await switchEl.click();
 
       // State should have changed
-      const newState = await switchEl.getAttribute("data-state");
+      const newState = await switchEl.getAttribute("aria-checked");
       expect(newState).not.toEqual(initialState);
     }
   });

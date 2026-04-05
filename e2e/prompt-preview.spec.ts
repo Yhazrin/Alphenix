@@ -67,7 +67,7 @@ test.describe("Prompt Preview (P0-1)", () => {
       await sectionRow.locator("..").click();
 
       // Should show pre element with content
-      await expect(page.locator("pre.whitespace-pre-wrap").first()).toBeVisible(
+      await expect(page.locator("pre.font-mono").first()).toBeVisible(
         { timeout: 5000 },
       );
 
@@ -85,7 +85,7 @@ test.describe("Prompt Preview (P0-1)", () => {
     const sectionRow = page.locator("text=/order: \\d+/").first();
     if (await sectionRow.isVisible()) {
       await sectionRow.locator("..").click();
-      await expect(page.locator("pre.whitespace-pre-wrap").first()).toBeVisible(
+      await expect(page.locator("pre.font-mono").first()).toBeVisible(
         { timeout: 5000 },
       );
 
