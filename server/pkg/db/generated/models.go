@@ -267,6 +267,24 @@ type Member struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type McpServer struct {
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	Transport       string             `json:"transport"`
+	Url             string             `json:"url"`
+	Command         string             `json:"command"`
+	Args            []byte             `json:"args"`
+	Env             []byte             `json:"env"`
+	Status          string             `json:"status"`
+	LastConnectedAt pgtype.Timestamptz `json:"last_connected_at"`
+	LastError       string             `json:"last_error"`
+	Config          []byte             `json:"config"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Outbox struct {
 	ID          int64              `json:"id"`
 	EventType   string             `json:"event_type"`
