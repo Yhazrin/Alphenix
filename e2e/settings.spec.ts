@@ -28,7 +28,7 @@ test.describe("Settings", () => {
     await page.locator("button", { hasText: "Save" }).click();
 
     // Wait for confirmation toast
-    await expect(page.locator("text=Workspace settings saved")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("text=Workspace settings saved").first()).toBeVisible({ timeout: 5000 });
 
     // Sidebar should reflect the new name WITHOUT page refresh
     await expect(sidebarName).toContainText(newName);
@@ -37,6 +37,6 @@ test.describe("Settings", () => {
     await nameInput.clear();
     await nameInput.fill(originalName.trim());
     await page.locator("button", { hasText: "Save" }).click();
-    await expect(page.locator("text=Workspace settings saved")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("text=Workspace settings saved").first()).toBeVisible({ timeout: 5000 });
   });
 });
