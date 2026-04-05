@@ -13,45 +13,38 @@ interface SchemeColors {
   accent: string;
 }
 
-const LIGHT_COLORS: SchemeColors = {
+// Base zinc preview colors — grays are consistent across all themes
+const LIGHT_GRAY = {
   titleBar: "#e8e8e8",
   content: "#ffffff",
   sidebar: "#f4f4f5",
   bar: "#e4e4e7",
   barMuted: "#d4d4d8",
-  accent: "#3b82f6",
 };
 
-const DARK_COLORS: SchemeColors = {
+const DARK_GRAY = {
   titleBar: "#333338",
   content: "#27272a",
   sidebar: "#1e1e21",
   bar: "#3f3f46",
   barMuted: "#52525b",
-  accent: "#60a5fa",
 };
 
-const SCHEME_COLORS: Record<ThemeScheme, { light: SchemeColors; dark: SchemeColors }> = {
-  zinc: { light: LIGHT_COLORS, dark: DARK_COLORS },
-  morandi: {
-    light: { titleBar: "#e8e0d8", content: "#f5f0eb", sidebar: "#efe8e0", bar: "#d8cfc4", barMuted: "#c8bfb4", accent: "#b07898" },
-    dark: { titleBar: "#48403a", content: "#38302a", sidebar: "#3e3630", bar: "#58504a", barMuted: "#68605a", accent: "#c88aaa" },
-  },
-  ocean: {
-    light: { titleBar: "#e0eaf0", content: "#f5f9fc", sidebar: "#eaf0f5", bar: "#c8d8e4", barMuted: "#b8c8d4", accent: "#2888c8" },
-    dark: { titleBar: "#283848", content: "#1e3040", sidebar: "#243545", bar: "#3a5060", barMuted: "#4a6070", accent: "#4aa8e8" },
-  },
-  rose: {
-    light: { titleBar: "#f0e4e8", content: "#fcf5f7", sidebar: "#f5eaee", bar: "#e4c8d0", barMuted: "#d4b8c0", accent: "#d04870" },
-    dark: { titleBar: "#482838", content: "#3a2030", sidebar: "#422838", bar: "#5a3a4a", barMuted: "#6a4a5a", accent: "#e86888" },
-  },
+// Theme accent colors — only these change per scheme
+const SCHEME_ACCENTS: Record<ThemeScheme, { light: string; dark: string }> = {
+  zinc: { light: "#3b82f6", dark: "#60a5fa" },
+  morandi: { light: "#b07898", dark: "#c88aaa" },
+  ocean: { light: "#2888c8", dark: "#4aa8e8" },
+  rose: { light: "#d04870", dark: "#e86888" },
 };
 
 function WindowMockup({
-  colors,
+  gray,
+  accent,
   className,
 }: {
-  colors: SchemeColors;
+  gray: typeof LIGHT_GRAY;
+  accent: string;
   className?: string;
 }) {
   return (
@@ -59,44 +52,41 @@ function WindowMockup({
       {/* Title bar */}
       <div
         className="flex items-center gap-[3px] px-2 py-1.5"
-        style={{ backgroundColor: colors.titleBar }}
+        style={{ backgroundColor: gray.titleBar }}
       >
         <span className="size-[6px] rounded-full bg-[#ff5f57]" aria-hidden="true" />
         <span className="size-[6px] rounded-full bg-[#febc2e]" aria-hidden="true" />
         <span className="size-[6px] rounded-full bg-[#28c840]" aria-hidden="true" />
       </div>
       {/* Content area */}
-      <div
-        className="flex flex-1"
-        style={{ backgroundColor: colors.content }}
-      >
+      <div className="flex flex-1" style={{ backgroundColor: gray.content }}>
         {/* Sidebar */}
         <div
           className="w-[30%] space-y-1 p-2"
-          style={{ backgroundColor: colors.sidebar }}
+          style={{ backgroundColor: gray.sidebar }}
         >
           <div
             className="h-1 w-3/4 rounded-full"
-            style={{ backgroundColor: colors.bar }}
+            style={{ backgroundColor: gray.bar }}
           />
           <div
             className="h-1 w-1/2 rounded-full"
-            style={{ backgroundColor: colors.accent }}
+            style={{ backgroundColor: accent }}
           />
         </div>
         {/* Main */}
         <div className="flex-1 space-y-1.5 p-2">
           <div
             className="h-1.5 w-4/5 rounded-full"
-            style={{ backgroundColor: colors.accent }}
+            style={{ backgroundColor: accent }}
           />
           <div
             className="h-1 w-full rounded-full"
-            style={{ backgroundColor: colors.barMuted }}
+            style={{ backgroundColor: gray.barMuted }}
           />
           <div
             className="h-1 w-3/5 rounded-full"
-            style={{ backgroundColor: colors.barMuted }}
+            style={{ backgroundColor: gray.barMuted }}
           />
         </div>
       </div>
@@ -120,6 +110,8 @@ const schemeOptions: { value: ThemeScheme; label: string }[] = [
 export function AppearanceTab() {
   const { theme, setTheme } = useTheme();
   const { scheme, setScheme } = useScheme();
+
+  const accent = SCHEME_ACCENTS[scheme];
 
   return (
     <div className="space-y-8">
@@ -149,16 +141,20 @@ export function AppearanceTab() {
                   {opt.value === "system" ? (
                     <div className="relative h-full w-full">
                       <WindowMockup
-                        colors={SCHEME_COLORS[scheme].light}
+                        gray={LIGHT_GRAY}
+                        accent={accent.light}
                         className="absolute inset-0"
                       />
                       <WindowMockup
-                        colors={SCHEME_COLORS[scheme].dark}
+                        gray={DARK_GRAY}
+                        accent={accent.dark}
                         className="absolute inset-0 [clip-path:inset(0_0_0_50%)]"
                       />
                     </div>
+                  ) : opt.value === "light" ? (
+                    <WindowMockup gray={LIGHT_GRAY} accent={accent.light} />
                   ) : (
-                    <WindowMockup colors={SCHEME_COLORS[scheme][opt.value]} />
+                    <WindowMockup gray={DARK_GRAY} accent={accent.dark} />
                   )}
                 </div>
                 <span
@@ -183,7 +179,7 @@ export function AppearanceTab() {
         <div className="flex gap-6" role="radiogroup" aria-label="Color scheme">
           {schemeOptions.map((opt) => {
             const active = scheme === opt.value;
-            const colors = SCHEME_COLORS[opt.value];
+            const schemeAccent = SCHEME_ACCENTS[opt.value];
             return (
               <button
                 key={opt.value}
@@ -203,11 +199,13 @@ export function AppearanceTab() {
                 >
                   <div className="relative h-full w-full">
                     <WindowMockup
-                      colors={colors.light}
+                      gray={LIGHT_GRAY}
+                      accent={schemeAccent.light}
                       className="absolute inset-0"
                     />
                     <WindowMockup
-                      colors={colors.dark}
+                      gray={DARK_GRAY}
+                      accent={schemeAccent.dark}
                       className="absolute inset-0 [clip-path:inset(0_0_0_50%)]"
                     />
                   </div>
