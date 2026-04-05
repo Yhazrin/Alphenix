@@ -11,7 +11,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/multica-ai/multicode/server/internal/daemon"
 	"github.com/multica-ai/multicode/server/internal/events"
 	"github.com/multica-ai/multicode/server/internal/logger"
 	"github.com/multica-ai/multicode/server/internal/middleware"
@@ -88,10 +87,6 @@ func main() {
 	// Initialize MCP Client Manager — connects to active MCP servers and
 	// registers their tools in the shared registry for agent use.
 	toolRegistry := tool.DefaultRegistry()
-	// Wire tool registry changes to prompt cache invalidation (#19).
-	toolRegistry.OnChange = func(e tool.ChangeEvent) {
-		daemon.SharedRegistry().InvalidateStatic()
-	}
 	mcpManager := initMCPClientManager(ctx, queries, toolRegistry)
 
 	r := NewRouter(pool, hub, bus, toolRegistry)

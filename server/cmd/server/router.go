@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/multica-ai/multicode/server/internal/auth"
+	"github.com/multica-ai/multicode/server/internal/daemon"
 	"github.com/multica-ai/multicode/server/internal/events"
 	"github.com/multica-ai/multicode/server/internal/handler"
 	"github.com/multica-ai/multicode/server/internal/middleware"
@@ -55,9 +56,10 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, toolReg *
 	cfSigner := auth.NewCloudFrontSignerFromEnv()
 	h := handler.New(queries, pool, hub, bus, emailSvc, s3, cfSigner, toolReg)
 
-	// Wire tool registry changes to event bus for downstream consumers (e.g. prompt invalidation).
+	// Wire tool registry changes to event bus + prompt cache invalidation (#19).
 	if toolReg != nil {
 		toolReg.OnChange = func(e tool.ChangeEvent) {
+			daemon.SharedRegistry().InvalidateStatic()
 			bus.Publish(events.Event{
 				Type: "tool_registry.changed",
 				Payload: map[string]any{
