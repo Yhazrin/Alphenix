@@ -167,6 +167,8 @@ func (m *Manager) ConnectAll(ctx context.Context, configs []ServerConfig) int {
 }
 
 // DisconnectAll disconnects from all connected MCP servers.
+// Each disconnect uses its own derived context so that a single failure
+// or timeout does not prevent other servers from being shut down gracefully.
 func (m *Manager) DisconnectAll(ctx context.Context) {
 	m.mu.Lock()
 	ids := make([]string, 0, len(m.clients))
@@ -176,9 +178,13 @@ func (m *Manager) DisconnectAll(ctx context.Context) {
 	m.mu.Unlock()
 
 	for _, id := range ids {
-		if err := m.Disconnect(ctx, id); err != nil {
+		// Derive per-server context: respects parent deadline but isolates
+		// cancellation so one slow disconnect doesn't cancel the rest.
+		dCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := m.Disconnect(dCtx, id); err != nil {
 			slog.Warn("error disconnecting MCP server", "id", id, "error", err)
 		}
+		cancel()
 	}
 }
 
@@ -226,6 +232,9 @@ func (m *Manager) CallTool(ctx context.Context, serverID, toolName string, args 
 func (m *Manager) registerTools(cfg ServerConfig, tools []ToolDescriptor) {
 	for _, td := range tools {
 		namespacedName := fmt.Sprintf("mcp.%s.%s", cfg.Name, td.Name)
+		if _, exists := m.registry.Get(namespacedName); exists {
+			slog.Warn("MCP tool name conflict, overwriting", "server", cfg.Name, "tool", td.Name)
+		}
 		def := tool.ToolDef{
 			Name:        namespacedName,
 			Description: td.Description,
