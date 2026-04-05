@@ -49,6 +49,8 @@ import type {
   RecallMemoryRequest,
   ChainTaskRequest,
   SubmitReviewRequest,
+  CreateWorkspaceRepoRequest,
+  UpdateWorkspaceRepoRequest,
 } from "@/shared/types";
 import { type Logger, noopLogger } from "@/shared/logger";
 
@@ -527,6 +529,39 @@ export class ApiClient {
     await this.fetch(`/api/workspaces/${workspaceId}`, {
       method: "DELETE",
     });
+  }
+
+  // Workspace Repos
+  async listWorkspaceRepos(workspaceId: string): Promise<WorkspaceRepo[]> {
+    return this.fetch(`/api/workspaces/${workspaceId}/repos`);
+  }
+
+  async createWorkspaceRepo(workspaceId: string, data: CreateWorkspaceRepoRequest): Promise<WorkspaceRepo> {
+    return this.fetch(`/api/workspaces/${workspaceId}/repos`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getWorkspaceRepo(workspaceId: string, repoId: string): Promise<WorkspaceRepo> {
+    return this.fetch(`/api/workspaces/${workspaceId}/repos/${repoId}`);
+  }
+
+  async updateWorkspaceRepo(workspaceId: string, repoId: string, data: UpdateWorkspaceRepoRequest): Promise<WorkspaceRepo> {
+    return this.fetch(`/api/workspaces/${workspaceId}/repos/${repoId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteWorkspaceRepo(workspaceId: string, repoId: string): Promise<void> {
+    await this.fetch(`/api/workspaces/${workspaceId}/repos/${repoId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async listIssuesByRepo(workspaceId: string, repoId: string): Promise<ListIssuesResponse> {
+    return this.fetch(`/api/workspaces/${workspaceId}/repos/${repoId}/issues`);
   }
 
   // Skills

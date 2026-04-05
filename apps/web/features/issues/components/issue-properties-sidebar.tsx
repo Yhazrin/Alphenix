@@ -11,7 +11,7 @@ import {
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import type { UpdateIssueRequest } from "@/shared/types";
 import { ALL_STATUSES, STATUS_CONFIG, PRIORITY_ORDER, PRIORITY_CONFIG } from "@/features/issues/config";
-import { StatusIcon, PriorityIcon, AssigneePicker, DueDatePicker } from "@/features/issues/components";
+import { StatusIcon, PriorityIcon, AssigneePicker, DueDatePicker, RepoPicker } from "@/features/issues/components";
 import type { Issue } from "@/shared/types";
 import { shortDate } from "@/shared/utils";
 
@@ -128,6 +128,15 @@ export function IssuePropertiesSidebar({
               <DueDatePicker
                 dueDate={issue.due_date}
                 onUpdate={onUpdateField}
+              />
+            </PropRow>
+
+            {/* Repository */}
+            <PropRow label="Repo">
+              <RepoPicker
+                repoId={issue.repo_id}
+                onUpdate={onUpdateField}
+                align="start"
               />
             </PropRow>
           </div>}
