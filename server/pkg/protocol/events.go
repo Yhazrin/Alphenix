@@ -79,13 +79,18 @@ const (
 	EventDaemonRegister  = "daemon:register"
 
 	// Agent lifecycle events (hook-driven, published by daemon)
-	EventAgentToolUse    = "agent:tool_use"
-	EventAgentToolResult = "agent:tool_result"
-	EventAgentStarted    = "agent:started"
-	EventAgentCompleted  = "agent:completed"
-	EventAgentFailed     = "agent:failed"
-	EventAgentStop       = "agent:stop"
+	EventAgentToolUse      = "agent:tool_use"
+	EventAgentToolResult   = "agent:tool_result"
+	EventAgentStarted      = "agent:started"
+	EventAgentCompleted    = "agent:completed"
+	EventAgentFailed       = "agent:failed"
+	EventAgentStop         = "agent:stop"
 	EventAgentSessionStart = "agent:session_start"
+
+	// Fork lifecycle events (multi-agent parallel orchestration)
+	EventForkStarted   = "agent:fork_started"
+	EventForkCompleted = "agent:fork_completed"
+	EventForkFailed    = "agent:fork_failed"
 
 	// Run events (RunOrchestrator lifecycle)
 	EventRunCreated       = "run:created"

@@ -116,6 +116,50 @@ func (hs *HookService) PublishAgentSessionStart(workspaceID, taskID, agentID, se
 	})
 }
 
+// PublishForkStarted publishes an agent:fork_started event on the bus.
+func (hs *HookService) PublishForkStarted(workspaceID, taskID, agentID, forkID string) {
+	hs.bus.Publish(events.Event{
+		Type:        protocol.EventForkStarted,
+		WorkspaceID: workspaceID,
+		ActorType:   "agent",
+		ActorID:     agentID,
+		Payload: map[string]any{
+			"task_id": taskID,
+			"fork_id": forkID,
+		},
+	})
+}
+
+// PublishForkCompleted publishes an agent:fork_completed event on the bus.
+func (hs *HookService) PublishForkCompleted(workspaceID, taskID, agentID, forkID string, durationMs int64) {
+	hs.bus.Publish(events.Event{
+		Type:        protocol.EventForkCompleted,
+		WorkspaceID: workspaceID,
+		ActorType:   "agent",
+		ActorID:     agentID,
+		Payload: map[string]any{
+			"task_id":     taskID,
+			"fork_id":     forkID,
+			"duration_ms": durationMs,
+		},
+	})
+}
+
+// PublishForkFailed publishes an agent:fork_failed event on the bus.
+func (hs *HookService) PublishForkFailed(workspaceID, taskID, agentID, forkID, errMsg string) {
+	hs.bus.Publish(events.Event{
+		Type:        protocol.EventForkFailed,
+		WorkspaceID: workspaceID,
+		ActorType:   "agent",
+		ActorID:     agentID,
+		Payload: map[string]any{
+			"task_id": taskID,
+			"fork_id": forkID,
+			"error":   errMsg,
+		},
+	})
+}
+
 // PublishAgentStop publishes an agent:stop event on the bus.
 func (hs *HookService) PublishAgentStop(workspaceID, taskID, agentID string, result agent.Result) {
 	hs.bus.Publish(events.Event{

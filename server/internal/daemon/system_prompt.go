@@ -413,10 +413,22 @@ func registerDefaultSections(registry *PromptRegistry, cfg SystemPromptConfig) {
 					"- Do NOT read the sub-agent's output file while it is running (\"Don't peek\" rule).\n" +
 					"- Wait for the fork result channel before using sub-agent output.\n" +
 					"- Combine sub-agent results and synthesize a final answer.\n\n" +
-					"Example fork prompt:\n" +
+					"**Multi-Fork (Parallel Delegation):**\n" +
+					"- You can launch multiple sub-agents in parallel for independent tasks.\n" +
+					"- Each sub-agent runs in an isolated worktree — they do not share files during execution.\n" +
+					"- After all forks complete, their results are aggregated into a summary for you.\n" +
+					"- Use multi-fork when tasks are independent and can run concurrently.\n" +
+					"- Example: fork 1 analyzes tests, fork 2 reviews code, fork 3 checks docs — all in parallel.\n\n" +
+					"Example single fork prompt:\n" +
 					"```\n" +
 					"Edit server/internal/handler/issue.go — add a 'priority' field to the createIssue\n" +
 					"handler. Follow the existing pattern for the 'status' field. Run go vet after.\n" +
+					"```\n\n" +
+					"Example multi-fork pattern:\n" +
+					"```\n" +
+					"Fork 1: Run all unit tests and report failures.\n" +
+					"Fork 2: Review server/internal/handler/ for error handling gaps.\n" +
+					"Fork 3: Check that all API endpoints have matching OpenAPI docs.\n" +
 					"```\n\n"
 			},
 		})

@@ -984,8 +984,31 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	// Coordinator agents use Fork mode: a lightweight sub-agent that inherits
 	// the parent's codebase context and writes results to an output file.
 	// The "Don't peek" rule applies — we wait for ForkSession.Result before reading.
+	//
+	// Coordinators also get a ForkManager for multi-agent parallel orchestration.
+	// The ForkManager is available via context for the coordinator to dispatch
+	// multiple sub-agents in isolated worktrees.
 	var session *agent.Session
 	if isCoordinator {
+		// Create ForkManager for multi-fork support.
+		forkMgr := agent.NewForkManager(backend, env.WorkDir, agent.ForkManagerOptions{
+			DefaultTimeout:  d.cfg.AgentTimeout,
+			Model:           entry.Model,
+			ToolPermissions: toolPerms,
+			ToolHooks:       toolHooks,
+			OnForkStarted: func(forkID string, spec agent.ForkSpec) {
+				d.hooks.PublishForkStarted(task.WorkspaceID, task.ID, task.AgentID, forkID)
+			},
+			OnForkCompleted: func(forkID string, output agent.ForkOutput) {
+				d.hooks.PublishForkCompleted(task.WorkspaceID, task.ID, task.AgentID, forkID, output.DurationMs)
+			},
+			OnForkFailed: func(forkID string, output agent.ForkOutput) {
+				d.hooks.PublishForkFailed(task.WorkspaceID, task.ID, task.AgentID, forkID, output.Error)
+			},
+		})
+		defer forkMgr.Close()
+
+		// Single fork path (default) — backward compatible with existing behavior.
 		forkOutput := filepath.Join(env.WorkDir, ".multicode", "fork_result.txt")
 		if mkErr := os.MkdirAll(filepath.Dir(forkOutput), 0o755); mkErr != nil {
 			return TaskResult{}, fmt.Errorf("create fork output dir: %w", mkErr)
@@ -1019,6 +1042,26 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 					output = string(data)
 				}
 			}
+
+			// Collect results from any additional forks launched via ForkManager.
+			forkResults := forkMgr.WaitAll()
+			if len(forkResults) > 0 {
+				var forkSummary strings.Builder
+				forkSummary.WriteString(output)
+				forkSummary.WriteString("\n\n## Sub-Agent Results\n\n")
+				for _, fr := range forkResults {
+					forkSummary.WriteString(fmt.Sprintf("### Fork: %s (status: %s, %dms)\n\n",
+						fr.Spec.ID, fr.Status, fr.DurationMs))
+					if fr.Output != "" {
+						forkSummary.WriteString(fr.Output)
+					} else if fr.Error != "" {
+						forkSummary.WriteString(fmt.Sprintf("Error: %s", fr.Error))
+					}
+					forkSummary.WriteString("\n\n")
+				}
+				output = forkSummary.String()
+			}
+
 			resCh <- agent.Result{
 				Status:     fr.Status,
 				Output:     output,
