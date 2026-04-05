@@ -35,6 +35,17 @@ func registerWorkspaceRoutes(r chi.Router, h *handler.Handler, queries *db.Queri
 			})
 			// Owner-only access
 			r.With(middleware.RequireWorkspaceRoleFromURL(queries, "id", "owner")).Delete("/", h.DeleteWorkspace)
+			// Workspace repo routes
+			r.Route("/repos", func(r chi.Router) {
+				r.Get("/", h.ListWorkspaceRepos)
+				r.Post("/", h.CreateWorkspaceRepo)
+				r.Route("/{repoID}", func(r chi.Router) {
+					r.Get("/", h.GetWorkspaceRepo)
+					r.Patch("/", h.UpdateWorkspaceRepo)
+					r.Delete("/", h.DeleteWorkspaceRepo)
+					r.Get("/issues", h.ListIssuesByRepoID)
+				})
+			})
 		})
 	})
 }

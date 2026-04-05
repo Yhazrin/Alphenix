@@ -1,0 +1,2 @@
+ALTER TABLE issue DROP COLUMN IF EXISTS repo_id;
+DROP TABLE IF EXISTS workspace_repo;

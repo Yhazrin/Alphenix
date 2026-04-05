@@ -32,6 +32,7 @@ type IssueResponse struct {
 	CreatorType        string                  `json:"creator_type"`
 	CreatorID          string                  `json:"creator_id"`
 	ParentIssueID      *string                 `json:"parent_issue_id"`
+	RepoID             *string                 `json:"repo_id"`
 	Position           float64                 `json:"position"`
 	DueDate            *string                 `json:"due_date"`
 	CreatedAt          string                  `json:"created_at"`
@@ -73,6 +74,7 @@ func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 		CreatorType:   i.CreatorType,
 		CreatorID:     uuidToString(i.CreatorID),
 		ParentIssueID: uuidToPtr(i.ParentIssueID),
+		RepoID:        uuidToPtr(i.RepoID),
 		Position:      i.Position,
 		DueDate:       timestampToPtr(i.DueDate),
 		CreatedAt:     timestampToString(i.CreatedAt),
@@ -184,6 +186,7 @@ type CreateIssueRequest struct {
 	AssigneeType       *string `json:"assignee_type"`
 	AssigneeID         *string `json:"assignee_id"`
 	ParentIssueID      *string `json:"parent_issue_id"`
+	RepoID             *string `json:"repo_id"`
 	DueDate            *string `json:"due_date"`
 }
 
@@ -253,6 +256,11 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		dueDate = pgtype.Timestamptz{Time: t, Valid: true}
 	}
 
+	var repoID pgtype.UUID
+	if req.RepoID != nil {
+		repoID = parseUUID(*req.RepoID)
+	}
+
 	// Use a transaction to atomically increment the workspace issue counter
 	// and create the issue with the assigned number.
 	tx, err := h.TxStarter.Begin(r.Context())
@@ -287,6 +295,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		Position:           0,
 		DueDate:            dueDate,
 		Number:             issueNumber,
+		RepoID:             repoID,
 	})
 	if err != nil {
 		slog.Warn("create issue failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", workspaceID)...)
@@ -326,6 +335,7 @@ type UpdateIssueRequest struct {
 	AssigneeType       *string  `json:"assignee_type"`
 	AssigneeID         *string  `json:"assignee_id"`
 	Position           *float64 `json:"position"`
+	RepoID			*string	`json:"repo_id"`
 	DueDate            *string  `json:"due_date"`
 }
 
@@ -365,6 +375,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 		AssigneeType: prevIssue.AssigneeType,
 		AssigneeID:   prevIssue.AssigneeID,
 		DueDate:      prevIssue.DueDate,
+		RepoID:       prevIssue.RepoID,
 	}
 
 	// COALESCE fields — only set when explicitly provided
@@ -408,6 +419,13 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 			params.DueDate = pgtype.Timestamptz{Time: t, Valid: true}
 		} else {
 			params.DueDate = pgtype.Timestamptz{Valid: false} // explicit null = clear date
+		}
+	}
+	if _, ok := rawFields["repo_id"]; ok {
+		if req.RepoID != nil {
+			params.RepoID = parseUUID(*req.RepoID)
+		} else {
+			params.RepoID = pgtype.UUID{Valid: false} // explicit null = unassign
 		}
 	}
 
@@ -1021,7 +1039,7 @@ func (h *Handler) batchGetIssuesByIDs(ctx context.Context, issueIDs []string, wo
 		`SELECT id, workspace_id, title, description, status, priority,
 		        assignee_type, assignee_id, creator_type, creator_id,
 		        parent_issue_id, acceptance_criteria, context_refs,
-		        position, due_date, created_at, updated_at, number
+		        position, due_date, created_at, updated_at, number, repo_id
 		 FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
 		uuids, parseUUID(workspaceID),
 	)
@@ -1038,6 +1056,7 @@ func (h *Handler) batchGetIssuesByIDs(ctx context.Context, issueIDs []string, wo
 			&i.AssigneeType, &i.AssigneeID, &i.CreatorType, &i.CreatorID,
 			&i.ParentIssueID, &i.AcceptanceCriteria, &i.ContextRefs,
 			&i.Position, &i.DueDate, &i.CreatedAt, &i.UpdatedAt, &i.Number,
+				&i.RepoID,
 		)
 		if err != nil {
 			return nil, err
