@@ -4,8 +4,8 @@ export type AgentIssueStatus = "working" | "failed" | "blocked" | "idle";
 
 export function getAgentIssueStatus(issue: Issue): AgentIssueStatus {
   if (issue.status === "in_progress") return "working";
-  // TODO: When Issue type includes latest_task_status, check for failed/blocked here.
-  // e.g. if ((issue as any).latest_task_status === "failed") return "failed";
+  if (issue.latest_task_status === "failed") return "failed";
+  if (issue.latest_task_status === "queued") return "blocked";
   return "idle";
 }
 
