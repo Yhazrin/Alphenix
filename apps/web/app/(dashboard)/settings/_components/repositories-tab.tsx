@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Plus, Trash2 } from "lucide-react";
+import { Save, Plus, Trash2, GitBranch } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { toast } from "sonner";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
@@ -66,39 +67,53 @@ export function RepositoriesTab() {
               GitHub repositories associated with this workspace. Agents use these to clone and work on code.
             </p>
 
-            {repos.map((repo, index) => (
-              <div key={index} className="flex gap-2">
-                <div className="flex-1 space-y-1.5">
-                  <Input
-                    type="url"
-                    value={repo.url}
-                    onChange={(e) => handleRepoChange(index, "url", e.target.value)}
-                    disabled={!canManageWorkspace}
-                    placeholder="https://github.com/org/repo"
-                    className="text-sm"
-                  />
-                  <Input
-                    type="text"
-                    value={repo.description}
-                    onChange={(e) => handleRepoChange(index, "description", e.target.value)}
-                    disabled={!canManageWorkspace}
-                    placeholder="Description (e.g. Go backend + Next.js frontend)"
-                    className="text-sm"
-                  />
+            {repos.length === 0 ? (
+              <Empty className="border-0 py-4">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <GitBranch aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle>No repositories</EmptyTitle>
+                  <EmptyDescription>
+                    Add a GitHub repository so agents can clone and work on code.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              repos.map((repo, index) => (
+                <div key={index} className="flex gap-2">
+                  <div className="flex-1 space-y-1.5">
+                    <Input
+                      type="url"
+                      value={repo.url}
+                      onChange={(e) => handleRepoChange(index, "url", e.target.value)}
+                      disabled={!canManageWorkspace}
+                      placeholder="https://github.com/org/repo"
+                      className="text-sm"
+                    />
+                    <Input
+                      type="text"
+                      value={repo.description}
+                      onChange={(e) => handleRepoChange(index, "description", e.target.value)}
+                      disabled={!canManageWorkspace}
+                      placeholder="Description (e.g. Go backend + Next.js frontend)"
+                      className="text-sm"
+                    />
+                  </div>
+                  {canManageWorkspace && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label="Remove repository"
+                      onClick={() => handleRemoveRepo(index)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
                 </div>
-                {canManageWorkspace && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="mt-0.5 shrink-0 text-muted-foreground hover:text-destructive"
-                    aria-label="Remove repository"
-                    onClick={() => handleRemoveRepo(index)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  </Button>
-                )}
-              </div>
-            ))}
+              ))
+            )}
 
             {canManageWorkspace && (
               <div className="flex items-center justify-between pt-1">

@@ -164,9 +164,10 @@ export function UsageSection({ runtimeId }: { runtimeId: string }) {
 
       {/* Daily breakdown table */}
       <div className="rounded-lg border">
-        <div className="grid grid-cols-[100px_1fr_80px_80px_80px_80px] gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+        <div className="grid grid-cols-[100px_1fr_80px_80px_80px_80px_80px] gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
           <div>Date</div>
           <div>Model</div>
+          <div>Provider</div>
           <div className="text-right">Input</div>
           <div className="text-right">Output</div>
           <div className="text-right">Cache R</div>
@@ -177,10 +178,11 @@ export function UsageSection({ runtimeId }: { runtimeId: string }) {
             rows.map((row, i) => (
               <div
                 key={`${date}-${row.model}-${i}`}
-                className="grid grid-cols-[100px_1fr_80px_80px_80px_80px] gap-2 px-3 py-1.5 text-xs"
+                className="grid grid-cols-[100px_1fr_80px_80px_80px_80px_80px] gap-2 px-3 py-1.5 text-xs"
               >
                 <div className="text-muted-foreground">{date}</div>
                 <div className="truncate font-mono">{row.model}</div>
+                <div className="truncate text-muted-foreground">{row.provider}</div>
                 <div className="text-right tabular-nums">
                   {formatTokens(row.input_tokens)}
                 </div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { ListTodo, Plus } from "lucide-react";
+import { AlertCircle, ListTodo, Plus } from "lucide-react";
 import type { IssueStatus } from "@/shared/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { BatchActionToolbar } from "./batch-action-toolbar";
 export function IssuesPage() {
   const allIssues = useIssueStore((s) => s.issues);
   const loading = useIssueStore((s) => s.loading);
+  const error = useIssueStore((s) => s.error);
   const workspace = useWorkspaceStore((s) => s.workspace);
   const scope = useIssuesScopeStore((s) => s.scope);
   const viewMode = useIssueViewStore((s) => s.viewMode);
@@ -116,6 +117,43 @@ export function IssuesPage() {
               <Skeleton className="h-24 w-full rounded-lg" />
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error && scopedIssues.length === 0) {
+    return (
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex h-12 shrink-0 items-center gap-1.5 border-b px-4">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <WorkspaceAvatar name={workspace?.name ?? "W"} size="sm" />
+                <span className="text-sm text-muted-foreground ml-1.5">
+                  {workspace?.name ?? "Workspace"}
+                </span>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-sm font-medium">Issues</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <AlertCircle className="size-8 text-destructive" />
+            <p className="text-sm font-medium">Failed to load issues</p>
+            <p className="text-xs text-muted-foreground">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => useIssueStore.getState().fetch()}
+            >
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     );

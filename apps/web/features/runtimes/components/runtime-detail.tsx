@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { AgentRuntime } from "@/shared/types";
 import { runtimesApi } from "@/shared/api";
-import { useWorkspaceStore } from "@/features/workspace";
+import { useWorkspaceStore, useActorName } from "@/features/workspace";
 import { formatLastSeen } from "../utils";
 import { timeAgo } from "@/shared/utils";
 import { RuntimeModeIcon, StatusBadge, InfoField, ApprovalStatusBadge } from "./shared";
@@ -35,6 +35,7 @@ function getTags(metadata: Record<string, unknown>): string[] {
 export function RuntimeDetail({ runtime, onUpdate }: { runtime: AgentRuntime; onUpdate?: (updated: AgentRuntime) => void }) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const workspace = useWorkspaceStore((s) => s.workspace);
+  const { getMemberName } = useActorName();
   const cliVersion =
     runtime.runtime_mode === "local" ? getCliVersion(runtime.metadata) : null;
   const tags = getTags(runtime.metadata);
@@ -168,6 +169,9 @@ export function RuntimeDetail({ runtime, onUpdate }: { runtime: AgentRuntime; on
           )}
           {runtime.drain_mode && (
             <InfoField label="Drain Mode" value="Active" />
+          )}
+          {runtime.owner_user_id && (
+            <InfoField label="Owner" value={getMemberName(runtime.owner_user_id)} />
           )}
         </div>
 

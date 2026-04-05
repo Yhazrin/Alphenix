@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
 import { api } from "@/shared/api";
+import { timeAgo } from "@/shared/utils";
 
 export function WorkspaceTab() {
   const user = useAuthStore((s) => s.user);
@@ -177,6 +178,10 @@ export function WorkspaceTab() {
               <Label className="text-xs text-muted-foreground">Slug</Label>
               <div className="mt-1 rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
                 {workspace.slug}
+              </div>
+              <div className="mt-1 flex gap-3 text-[10px] text-muted-foreground">
+                <span>Created {timeAgo(workspace.created_at)}</span>
+                <span>Updated {timeAgo(workspace.updated_at)}</span>
               </div>
             </div>
             <div>

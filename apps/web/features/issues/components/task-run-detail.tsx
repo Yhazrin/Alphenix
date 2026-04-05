@@ -104,7 +104,7 @@ function SummaryTab({ report }: { report: TaskReport }) {
 
   const fields: { label: string; value: React.ReactNode }[] = [
     { label: "Status", value: <Badge variant={statusBadgeVariant(report.status)}>{report.status}</Badge> },
-    { label: "Agent", value: report.agent_name },
+    { label: "Agent", value: <Link href={`/agents/${report.agent_id}`} className="underline underline-offset-2 hover:text-foreground">{report.agent_name}</Link> },
     { label: "Issue", value: <Link href={`/issues/${report.issue_id}`} className="underline underline-offset-2 hover:text-foreground">{report.issue_title}</Link> },
     { label: "Priority", value: String(report.priority) },
     { label: "Created", value: formatDate(report.created_at) },

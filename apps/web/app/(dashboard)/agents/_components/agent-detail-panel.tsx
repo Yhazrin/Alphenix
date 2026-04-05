@@ -51,6 +51,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import { statusConfig, getRuntimeDevice, generateId } from "./agent-configs";
+import { timeAgo } from "@/shared/utils";
 import { TasksTab } from "./agent-task-list";
 import { SkillsTab } from "./agent-skill-manager";
 import { SettingsTab } from "./agent-settings-form";
@@ -669,6 +670,7 @@ export function AgentDetail({
           {agent.description && (
             <p className="text-[11px] text-muted-foreground truncate">{agent.description}</p>
           )}
+          <p className="text-[11px] text-muted-foreground">Updated {timeAgo(agent.updated_at)}</p>
         </div>
         {!isArchived && (
           <DropdownMenu>

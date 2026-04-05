@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import { useFileUpload } from "@/shared/hooks/use-file-upload";
+import { useActorName } from "@/features/workspace/hooks";
 
 export function SettingsTab({
   agent,
@@ -80,6 +81,7 @@ export function SettingsTab({
   };
 
   const runtimeDevice = runtimes.find((r) => r.id === agent.runtime_id);
+  const { getMemberName } = useActorName();
 
   return (
     <div className="max-w-lg space-y-6">
@@ -173,6 +175,16 @@ export function SettingsTab({
           </button>
         </div>
       </div>
+
+      {agent.owner_id && (
+        <div>
+          <span className="text-xs text-muted-foreground">Owner</span>
+          <div className="mt-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
+            <ActorAvatar actorType="member" actorId={agent.owner_id} size={20} />
+            <span>{getMemberName(agent.owner_id)}</span>
+          </div>
+        </div>
+      )}
 
       <div>
         <Label htmlFor="agent-max-tasks" className="text-xs text-muted-foreground">Max Concurrent Tasks</Label>
