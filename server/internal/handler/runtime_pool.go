@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -599,8 +600,12 @@ func (h *Handler) GetRuntimeAuditLogs(w http.ResponseWriter, r *http.Request) {
 func generateRandomToken(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
+	randBytes := make([]byte, length)
+	if _, err := rand.Read(randBytes); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
 	for i := range b {
-		b[i] = charset[i%len(charset)]
+		b[i] = charset[randBytes[i]%byte(len(charset))]
 	}
 	return string(b)
 }

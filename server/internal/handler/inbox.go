@@ -91,7 +91,7 @@ func (h *Handler) ListInbox(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	workspaceID := r.Header.Get("X-Workspace-ID")
+	workspaceID := resolveWorkspaceID(r)
 
 	limit := int32(50)
 	if v := r.URL.Query().Get("limit"); v != "" {
@@ -161,12 +161,14 @@ func (h *Handler) ArchiveInboxItem(w http.ResponseWriter, r *http.Request) {
 
 	// Archive all sibling inbox items for the same issue (issue-level archive)
 	if item.IssueID.Valid {
-		h.Queries.ArchiveInboxByIssue(r.Context(), db.ArchiveInboxByIssueParams{
+		if _, err := h.Queries.ArchiveInboxByIssue(r.Context(), db.ArchiveInboxByIssueParams{
 			WorkspaceID:   item.WorkspaceID,
 			RecipientType: item.RecipientType,
 			RecipientID:   item.RecipientID,
 			IssueID:       item.IssueID,
-		})
+		}); err != nil {
+			slog.Warn("failed to archive sibling inbox items", "issue_id", item.IssueID, "error", err)
+		}
 	}
 
 	userID := requestUserID(r)
@@ -186,7 +188,7 @@ func (h *Handler) CountUnreadInbox(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	workspaceID := r.Header.Get("X-Workspace-ID")
+	workspaceID := resolveWorkspaceID(r)
 
 	count, err := h.Queries.CountUnreadInbox(r.Context(), db.CountUnreadInboxParams{
 		WorkspaceID:   parseUUID(workspaceID),
@@ -206,7 +208,7 @@ func (h *Handler) MarkAllInboxRead(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	workspaceID := r.Header.Get("X-Workspace-ID")
+	workspaceID := resolveWorkspaceID(r)
 
 	count, err := h.Queries.MarkAllInboxRead(r.Context(), db.MarkAllInboxReadParams{
 		WorkspaceID: parseUUID(workspaceID),
@@ -231,7 +233,7 @@ func (h *Handler) ArchiveAllInbox(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	workspaceID := r.Header.Get("X-Workspace-ID")
+	workspaceID := resolveWorkspaceID(r)
 
 	count, err := h.Queries.ArchiveAllInbox(r.Context(), db.ArchiveAllInboxParams{
 		WorkspaceID: parseUUID(workspaceID),
@@ -256,7 +258,7 @@ func (h *Handler) ArchiveAllReadInbox(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	workspaceID := r.Header.Get("X-Workspace-ID")
+	workspaceID := resolveWorkspaceID(r)
 
 	count, err := h.Queries.ArchiveAllReadInbox(r.Context(), db.ArchiveAllReadInboxParams{
 		WorkspaceID: parseUUID(workspaceID),
@@ -281,7 +283,7 @@ func (h *Handler) ArchiveCompletedInbox(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	workspaceID := r.Header.Get("X-Workspace-ID")
+	workspaceID := resolveWorkspaceID(r)
 
 	count, err := h.Queries.ArchiveCompletedInbox(r.Context(), db.ArchiveCompletedInboxParams{
 		WorkspaceID: parseUUID(workspaceID),

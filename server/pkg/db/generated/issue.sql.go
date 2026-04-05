@@ -203,6 +203,49 @@ func (q *Queries) GetIssueInWorkspace(ctx context.Context, arg GetIssueInWorkspa
 	return i, err
 }
 
+const getIssuesByIDs = `-- name: GetIssuesByIDs :many
+SELECT id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number FROM issue WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) GetIssuesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Issue, error) {
+	rows, err := q.db.Query(ctx, getIssuesByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Issue{}
+	for rows.Next() {
+		var i Issue
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Title,
+			&i.Description,
+			&i.Status,
+			&i.Priority,
+			&i.AssigneeType,
+			&i.AssigneeID,
+			&i.CreatorType,
+			&i.CreatorID,
+			&i.ParentIssueID,
+			&i.AcceptanceCriteria,
+			&i.ContextRefs,
+			&i.Position,
+			&i.DueDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Number,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssues = `-- name: ListIssues :many
 SELECT id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number FROM issue
 WHERE workspace_id = $1

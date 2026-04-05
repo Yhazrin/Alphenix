@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -60,7 +59,7 @@ func Auth(queries *db.Queries) func(http.Handler) http.Handler {
 				r.Header.Set("X-User-ID", uuidToString(pat.UserID))
 
 				// Best-effort: update last_used_at
-				go queries.UpdatePersonalAccessTokenLastUsed(context.Background(), pat.ID)
+				enqueuePATUpdate(pat.ID)
 
 				next.ServeHTTP(w, r)
 				return

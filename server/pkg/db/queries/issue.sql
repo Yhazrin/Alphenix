@@ -56,5 +56,8 @@ DELETE FROM issue WHERE id = $1;
 SELECT * FROM issue
 WHERE id = ANY($1::uuid[]) AND workspace_id = $2;
 
+-- name: GetIssuesByIDs :many
+SELECT * FROM issue WHERE id = ANY($1::uuid[]);
+
 -- name: BatchDeleteIssues :exec
 DELETE FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2;

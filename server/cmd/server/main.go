@@ -13,6 +13,7 @@ import (
 
 	"github.com/multica-ai/multicode/server/internal/events"
 	"github.com/multica-ai/multicode/server/internal/logger"
+	"github.com/multica-ai/multicode/server/internal/middleware"
 	"github.com/multica-ai/multicode/server/internal/realtime"
 	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 )
@@ -93,6 +94,9 @@ func main() {
 	sweepCtx, sweepCancel := context.WithCancel(context.Background())
 	go runRuntimeSweeper(sweepCtx, queries, bus)
 	go runMemorySweeper(sweepCtx, queries)
+
+	// Start PAT last-used update worker pool (3 workers, 256-deep buffer).
+	middleware.StartPATUpdatePool(queries, 3)
 
 	// Graceful shutdown
 	go func() {

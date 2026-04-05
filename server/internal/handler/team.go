@@ -229,7 +229,7 @@ func (h *Handler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("team created", append(logger.RequestAttrs(r), "team_id", uuidToString(team.ID), "name", team.Name)...)
-	h.publish(protocol.EventAgentCreated, workspaceID, "member", userID, map[string]any{"team": teamToResponse(team)})
+	h.publish(protocol.EventTeamCreated, workspaceID, "member", userID, map[string]any{"team": teamToResponse(team)})
 	writeJSON(w, http.StatusCreated, teamToResponse(team))
 }
 
@@ -364,31 +364,54 @@ func (h *Handler) SetTeamLead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update all members to "member" first
-	members, _ := h.Queries.ListTeamMembers(r.Context(), parseUUID(teamID))
+	members, err := h.Queries.ListTeamMembers(r.Context(), parseUUID(teamID))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list team members")
+		return
+	}
+
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	qtx := h.Queries.WithTx(tx)
+
 	for _, m := range members {
-		_, _ = h.Queries.UpdateTeamMemberRole(r.Context(), db.UpdateTeamMemberRoleParams{
+		if _, err := qtx.UpdateTeamMemberRole(r.Context(), db.UpdateTeamMemberRoleParams{
 			TeamID:  m.TeamID,
 			AgentID: m.AgentID,
 			Role:    "member",
-		})
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to demote team member")
+			return
+		}
 	}
 
 	// Set new lead
-	_, err := h.Queries.UpdateTeamMemberRole(r.Context(), db.UpdateTeamMemberRoleParams{
+	if _, err := qtx.UpdateTeamMemberRole(r.Context(), db.UpdateTeamMemberRoleParams{
 		TeamID:  parseUUID(teamID),
 		AgentID: parseUUID(req.AgentID),
 		Role:    "lead",
-	})
-	if err != nil {
+	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to set team lead")
 		return
 	}
 
 	// Update team lead_agent_id
-	h.Queries.UpdateTeamLead(r.Context(), db.UpdateTeamLeadParams{
+	if _, err := qtx.UpdateTeamLead(r.Context(), db.UpdateTeamLeadParams{
 		ID:          parseUUID(teamID),
 		LeadAgentID: parseUUID(req.AgentID),
-	})
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update team lead id")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit team lead change")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

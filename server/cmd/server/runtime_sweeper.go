@@ -133,14 +133,28 @@ func broadcastFailedTasks(ctx context.Context, queries *db.Queries, bus *events.
 		}
 	}
 
+	// Batch-fetch issues to resolve workspace IDs in a single query.
+	issueIDSet := make(map[pgtype.UUID]bool)
+	for _, ft := range items {
+		issueIDSet[ft.IssueID] = true
+	}
+	issueIDs := make([]pgtype.UUID, 0, len(issueIDSet))
+	for id := range issueIDSet {
+		issueIDs = append(issueIDs, id)
+	}
+	issueWorkspaceMap := make(map[string]string)
+	if len(issueIDs) > 0 {
+		if issues, err := queries.GetIssuesByIDs(ctx, issueIDs); err == nil {
+			for _, iss := range issues {
+				issueWorkspaceMap[util.UUIDToString(iss.ID)] = util.UUIDToString(iss.WorkspaceID)
+			}
+		}
+	}
+
 	affectedAgents := make(map[string]pgtype.UUID)
 
 	for _, ft := range items {
-		// Look up workspace ID from the issue so the event reaches the right WS room.
-		workspaceID := ""
-		if issue, err := queries.GetIssue(ctx, ft.IssueID); err == nil {
-			workspaceID = util.UUIDToString(issue.WorkspaceID)
-		}
+		workspaceID := issueWorkspaceMap[util.UUIDToString(ft.IssueID)]
 
 		bus.Publish(events.Event{
 			Type:        protocol.EventTaskFailed,

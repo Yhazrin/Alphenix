@@ -77,7 +77,7 @@ func DaemonAuth(queries *db.Queries) func(http.Handler) http.Handler {
 					return
 				}
 				r.Header.Set("X-User-ID", uuidToString(pat.UserID))
-				go queries.UpdatePersonalAccessTokenLastUsed(context.Background(), pat.ID)
+				enqueuePATUpdate(pat.ID)
 				next.ServeHTTP(w, r)
 				return
 			}
