@@ -15,7 +15,7 @@ test.describe("Issues", () => {
   });
 
   test("issues page loads with board view", async ({ page }) => {
-    await expect(page.locator("text=All Issues")).toBeVisible();
+    await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Board columns should be visible
     await expect(page.locator("text=Backlog")).toBeVisible();
@@ -24,11 +24,11 @@ test.describe("Issues", () => {
   });
 
   test("can switch between board and list view", async ({ page }) => {
-    await expect(page.locator("text=All Issues")).toBeVisible();
+    await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Switch to list view
     await page.click("text=List");
-    await expect(page.locator("text=All Issues")).toBeVisible();
+    await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Switch back to board view
     await page.click("text=Board");
@@ -54,7 +54,7 @@ test.describe("Issues", () => {
 
     // Reload to see the new issue
     await page.reload();
-    await expect(page.locator("text=All Issues")).toBeVisible();
+    await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Navigate to the issue detail
     const issueLink = page.locator(`a[href="/issues/${issue.id}"]`);

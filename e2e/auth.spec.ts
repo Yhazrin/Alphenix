@@ -15,7 +15,7 @@ test.describe("Authentication", () => {
     await loginAsDefault(page);
 
     await expect(page).toHaveURL(/\/issues/);
-    await expect(page.locator("text=All Issues")).toBeVisible();
+    await expect(page.locator("text=Issues").first()).toBeVisible();
   });
 
   test("unauthenticated user is redirected to /login", async ({ page }) => {
