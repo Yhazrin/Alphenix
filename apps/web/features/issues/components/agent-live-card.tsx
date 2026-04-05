@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { AlertCircle, Bot, ChevronUp, Loader2, ArrowDown, Square } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { AlertCircle, Bot, ChevronUp, Loader2, ArrowDown, Square, XCircle, X, RotateCcw, ChevronRight } from "lucide-react";
 import type { AgentTask } from "@/shared/types/agent";
 import { cn } from "@/lib/utils";
 import { ActorAvatar } from "@/components/common/actor-avatar";
@@ -9,6 +11,7 @@ import { useActorName } from "@/features/workspace";
 import { formatElapsed } from "./timeline-helpers";
 import { TimelineRow } from "./timeline-row";
 import { useLiveTask } from "../hooks/use-live-task";
+import { api } from "@/shared/api";
 
 // Re-export TaskRunHistory so existing imports from this module keep working.
 export { TaskRunHistory } from "./task-run-history";
@@ -24,10 +27,12 @@ interface AgentLiveCardProps {
 
 export function AgentLiveCard({ issueId, agentName, scrollContainerRef }: AgentLiveCardProps) {
   const { getActorName } = useActorName();
-  const { activeTask, items, progress, cancelling, error, handleCancel } = useLiveTask(issueId);
+  const { activeTask, items, progress, cancelling, error, lastError, clearError, handleCancel } = useLiveTask(issueId);
   const [elapsed, setElapsed] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
   const [isStuck, setIsStuck] = useState(false);
+  const [errorExpanded, setErrorExpanded] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +69,14 @@ export function AgentLiveCard({ issueId, agentName, scrollContainerRef }: AgentL
     sentinelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
+  // Auto-collapse error banner after 30s
+  useEffect(() => {
+    if (!lastError) return;
+    setErrorExpanded(true);
+    const timer = setTimeout(() => setErrorExpanded(false), 30000);
+    return () => clearTimeout(timer);
+  }, [lastError?.taskId, lastError?.timestamp]);
+
   // Auto-scroll
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
@@ -87,6 +100,89 @@ export function AgentLiveCard({ issueId, agentName, scrollContainerRef }: AgentL
       <div className="mt-4 flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs text-destructive">
         <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         {error}
+      </div>
+    );
+  }
+
+  // Error banner — persistent state after task failure
+  if (lastError && !activeTask) {
+    if (!errorExpanded) {
+      return (
+        <div
+          className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-1.5 text-xs cursor-pointer hover:bg-destructive/10 transition-colors"
+          onClick={() => setErrorExpanded(true)}
+          onMouseEnter={() => setErrorExpanded(true)}
+          role="status"
+          data-testid="task-error-banner"
+        >
+          <XCircle className="h-3 w-3 shrink-0 text-destructive" aria-hidden="true" />
+          <span className="text-destructive/80 truncate flex-1">
+            Task failed — {lastError.message.length > 60 ? lastError.message.slice(0, 60) + "..." : lastError.message}
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); clearError(); }}
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            aria-label="Dismiss"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3" data-testid="task-error-banner">
+        <div className="flex items-start gap-2">
+          <XCircle className="h-4 w-4 shrink-0 text-destructive mt-0.5" aria-hidden="true" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-destructive">Task failed</p>
+            <p className="text-xs text-destructive/80 mt-0.5 line-clamp-2">
+              {lastError.message}
+            </p>
+          </div>
+          <button
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded p-0.5"
+            onClick={clearError}
+            aria-label="Dismiss error"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 mt-2.5 ml-6">
+          <button
+            className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            disabled={retrying}
+            onClick={async () => {
+              if (!lastError) return;
+              setRetrying(true);
+              try {
+                await api.retryTask(issueId, lastError.taskId);
+                clearError();
+                toast.success("Task queued for retry");
+              } catch (err) {
+                toast.error("Failed to retry task", {
+                  description: err instanceof Error ? err.message : "Unknown error",
+                });
+              } finally {
+                setRetrying(false);
+              }
+            }}
+          >
+            {retrying ? (
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+            ) : (
+              <RotateCcw className="h-3 w-3" aria-hidden="true" />
+            )}
+            {retrying ? "Retrying..." : "Retry"}
+          </button>
+          <Link
+            href={`?task=${lastError.taskId}`}
+            className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-0.5"
+          >
+            View details
+            <ChevronRight className="h-3 w-3" aria-hidden="true" />
+          </Link>
+        </div>
       </div>
     );
   }

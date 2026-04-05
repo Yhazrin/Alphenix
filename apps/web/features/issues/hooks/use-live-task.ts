@@ -56,13 +56,21 @@ function isTaskProgressPayload(val: unknown): val is TaskProgressPayload {
 
 const MAX_SEEN_SEQS = 500;
 
+export interface LastError {
+  taskId: string;
+  message: string;
+  timestamp: number;
+}
+
 export interface UseLiveTaskResult {
   activeTask: AgentTask | null;
   items: TimelineItem[];
   progress: { summary: string; step: number; total: number } | null;
   cancelling: boolean;
   error: string | null;
+  lastError: LastError | null;
   handleCancel: () => Promise<void>;
+  clearError: () => void;
   seenSeqsRef: React.RefObject<Set<string>>;
 }
 
@@ -72,6 +80,7 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
   const [progress, setProgress] = useState<{ summary: string; step: number; total: number } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<LastError | null>(null);
   const seenSeqs = useRef(new Set<string>());
 
   // Check for active task on mount
@@ -159,11 +168,25 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
     useCallback((payload: unknown) => {
       if (!isTaskEventPayload(payload)) return;
       if (payload.issue_id !== issueId) return;
+
+      const failedPayload = payload as TaskFailedPayload;
+      const errorMsg = failedPayload.status ?? "Task execution failed";
+
+      setLastError({
+        taskId: failedPayload.task_id,
+        message: errorMsg,
+        timestamp: Date.now(),
+      });
+
       setActiveTask(null);
       setItems([]);
       setProgress(null);
       seenSeqs.current.clear();
       setCancelling(false);
+
+      toast.error("Agent task failed", {
+        description: errorMsg.length > 120 ? errorMsg.slice(0, 120) + "..." : errorMsg,
+      });
     }, [issueId]),
   );
 
@@ -172,11 +195,16 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
     useCallback((payload: unknown) => {
       if (!isTaskEventPayload(payload)) return;
       if (payload.issue_id !== issueId) return;
+
       setActiveTask(null);
       setItems([]);
       setProgress(null);
       seenSeqs.current.clear();
       setCancelling(false);
+
+      toast("Agent task cancelled", {
+        description: "The task was cancelled by a team member.",
+      });
     }, [issueId]),
   );
 
@@ -192,6 +220,7 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
           setActiveTask(task);
           setItems([]);
           setProgress(null);
+          setLastError(null);
           seenSeqs.current.clear();
         }
       }).catch((e) => {
@@ -222,5 +251,7 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
     }
   }, [activeTask, issueId, cancelling]);
 
-  return { activeTask, items, progress, cancelling, error, handleCancel, seenSeqsRef: seenSeqs };
+  const clearError = useCallback(() => setLastError(null), []);
+
+  return { activeTask, items, progress, cancelling, error, lastError, handleCancel, clearError, seenSeqsRef: seenSeqs };
 }

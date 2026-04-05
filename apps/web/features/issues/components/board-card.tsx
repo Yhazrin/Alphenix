@@ -14,6 +14,7 @@ import { useIssueStore } from "@/features/issues/store";
 import { PriorityIcon } from "./priority-icon";
 import { PriorityPicker, AssigneePicker, DueDatePicker } from "./pickers";
 import { PRIORITY_CONFIG } from "@/features/issues/config";
+import { AgentStatusDot, getAgentIssueStatus } from "./agent-status-dot";
 import { useViewStore } from "@/features/issues/stores/view-store-context";
 
 const PRIORITY_BORDER: Record<string, string> = {
@@ -76,11 +77,8 @@ export const BoardCardContent = memo(function BoardCardContent({
       {/* Row 1: Identifier + agent activity indicator */}
       <div className="flex items-center gap-1.5">
         <p className="text-xs text-muted-foreground">{issue.identifier}</p>
-        {issue.assignee_type === "agent" && issue.status === "in_progress" && (
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-info opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-info" />
-          </span>
+        {issue.assignee_type === "agent" && (
+          <AgentStatusDot status={getAgentIssueStatus(issue)} />
         )}
       </div>
 

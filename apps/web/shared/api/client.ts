@@ -786,4 +786,11 @@ export class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  // Task Retry
+  async retryTask(issueId: string, taskId: string): Promise<AgentTask> {
+    return this.fetch(`/api/issues/${issueId}/tasks/${taskId}/retry`, {
+      method: "POST",
+    });
+  }
 }

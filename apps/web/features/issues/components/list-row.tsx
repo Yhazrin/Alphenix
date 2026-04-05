@@ -8,6 +8,7 @@ import { useIssueSelectionStore } from "@/features/issues/stores/selection-store
 import { shortDate } from "@/shared/utils";
 import { PriorityIcon } from "./priority-icon";
 import { PRIORITY_CONFIG } from "@/features/issues/config";
+import { AgentStatusDot, getAgentIssueStatus } from "./agent-status-dot";
 
 export const ListRow = memo(function ListRow({ issue }: { issue: Issue }) {
   const selected = useIssueSelectionStore((s) => s.selectedIds.has(issue.id));
@@ -53,11 +54,16 @@ export const ListRow = memo(function ListRow({ issue }: { issue: Issue }) {
           </span>
         )}
         {issue.assignee_type && issue.assignee_id && (
-          <ActorAvatar
-            actorType={issue.assignee_type}
-            actorId={issue.assignee_id}
-            size={20}
-          />
+          <span className="flex items-center gap-1">
+            <ActorAvatar
+              actorType={issue.assignee_type}
+              actorId={issue.assignee_id}
+              size={20}
+            />
+            {issue.assignee_type === "agent" && (
+              <AgentStatusDot status={getAgentIssueStatus(issue)} />
+            )}
+          </span>
         )}
       </Link>
     </div>
