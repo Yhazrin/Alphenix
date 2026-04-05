@@ -332,8 +332,24 @@ func (o *RunOrchestrator) CreateHandoff(ctx context.Context, sourceRunID string,
 }
 
 // CreateContinuation saves a continuation packet for a run, enabling
-// structured resumption in a future run.
+// structured resumption in a future run. The summary is prepended with
+// compaction safety instructions so the agent knows to rely on structured
+// data (key_decisions, pending_todos, blockers) for recovery after context
+// loss.
 func (o *RunOrchestrator) CreateContinuation(ctx context.Context, runID string, summary string, pendingTodos, keyDecisions, changedFiles, blockers, openQuestions json.RawMessage, tokenBudgetUsed int64) (db.RunContinuation, error) {
+	// Compaction safety: ensure the summary is self-contained so the agent
+	// can resume work even after conversation history is truncated.
+	compactionPreamble := "### Compaction Safety\n\n" +
+		"IMPORTANT: Your conversation may be compacted (truncated) at any time.\n" +
+		"When this happens, only this continuation packet survives.\n\n" +
+		"Therefore:\n" +
+		"- Never rely on conversation history alone\n" +
+		"- Use key_decisions and pending_todos below as your primary context\n" +
+		"- If blockers are listed, address them before continuing new work\n" +
+		"- This packet should be enough to bootstrap your full context\n\n" +
+		"---\n\n"
+	summary = compactionPreamble + summary
+
 	cont, err := o.Queries.CreateRunContinuation(ctx, db.CreateRunContinuationParams{
 		RunID:           util.ParseUUID(runID),
 		CompactSummary:  summary,
@@ -489,28 +505,84 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 		}, nil
 	}
 
-	// 4. Drain messages — record each as a run step and track for compaction.
+	// 4. Drain messages — coalesce consecutive thinking/text events (350ms
+	//    window) into run steps, while tool_use/tool_result flush immediately.
 	var toolCount int
-	var pendingText string
-	var pendingThinking string
 	toolCallIDToName := map[string]string{} // call_id → tool name
+
+	// Coalescer state: accumulates same-kind text/thinking events and flushes
+	// them as a single run step after a quiet period or on kind change.
+	const (
+		coalesceWindow    = 350 * time.Millisecond
+		maxTrajectoryText = 2000
+	)
+	var coalKind string // "thinking" | "text" | ""
+	var coalText string
+	var coalTimer *time.Timer
+
+	flushCoalesced := func() {
+		if coalTimer != nil {
+			coalTimer.Stop()
+			coalTimer = nil
+		}
+		if coalKind == "" || coalText == "" {
+			coalKind = ""
+			coalText = ""
+			return
+		}
+		// Record as a run step.
+		stepInput, _ := json.Marshal(map[string]any{"kind": coalKind})
+		stepOutput := coalText
+		_, stepErr := o.RecordStep(ctx, runID, coalKind, stepInput, stepOutput, false)
+		if stepErr != nil {
+			log.Warn("record coalesced step failed", "error", stepErr)
+		}
+		// Add to conversation for compaction tracking.
+		addMessage("assistant", coalText)
+		coalKind = ""
+		coalText = ""
+	}
+
+	enqueueCoalesced := func(kind, text string) {
+		if text == "" {
+			return
+		}
+		// Truncate oversized text.
+		if len(text) > maxTrajectoryText {
+			text = text[:maxTrajectoryText] + "..."
+		}
+		if coalKind == kind {
+			// Same kind: append.
+			coalText += "\n" + text
+		} else {
+			// Different kind: flush previous, start new.
+			flushCoalesced()
+			coalKind = kind
+			coalText = text
+		}
+		// Reset the coalesce timer.
+		if coalTimer != nil {
+			coalTimer.Stop()
+		}
+		coalTimer = time.AfterFunc(coalesceWindow, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			flushCoalesced()
+		})
+	}
 
 	flushPending := func() {
 		mu.Lock()
-		if pendingThinking != "" {
-			addMessage("assistant", pendingThinking)
-			pendingThinking = ""
-		}
-		if pendingText != "" {
-			addMessage("assistant", pendingText)
-			pendingText = ""
-		}
+		flushCoalesced()
 		mu.Unlock()
 	}
 
 	for msg := range session.Messages {
 		switch msg.Type {
 		case agent.MessageToolUse:
+			// Tool calls flush any pending coalesced text immediately.
+			flushPending()
+
 			toolCount++
 			if msg.CallID != "" {
 				mu.Lock()
@@ -533,6 +605,9 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 			addMessage("assistant", fmt.Sprintf("[tool_use:%s] %s", msg.Tool, inputStr))
 
 		case agent.MessageToolResult:
+			// Tool results flush any pending coalesced text immediately.
+			flushPending()
+
 			toolName := msg.Tool
 			if toolName == "" && msg.CallID != "" {
 				mu.Lock()
@@ -560,20 +635,17 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 			addMessage("tool", fmt.Sprintf("[tool_result:%s] %s", toolName, resultPreview))
 
 		case agent.MessageText:
-			if msg.Content != "" {
-				mu.Lock()
-				pendingText += msg.Content
-				mu.Unlock()
-			}
+			mu.Lock()
+			enqueueCoalesced("text", msg.Content)
+			mu.Unlock()
 
 		case agent.MessageThinking:
-			if msg.Content != "" {
-				mu.Lock()
-				pendingThinking += msg.Content
-				mu.Unlock()
-			}
+			mu.Lock()
+			enqueueCoalesced("thinking", msg.Content)
+			mu.Unlock()
 
 		case agent.MessageError:
+			flushPending()
 			log.Error("agent error", "content", msg.Content)
 			addMessage("system", fmt.Sprintf("[error] %s", msg.Content))
 		}

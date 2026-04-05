@@ -371,6 +371,23 @@ func registerDefaultSections(registry *PromptRegistry, cfg SystemPromptConfig) {
 		},
 	})
 
+	registry.Register(PromptSection{
+		Name:  "startup-sequence",
+		Phase: PhaseStatic,
+		Order: 55,
+		Compute: func() string {
+			return "## Startup Sequence\n\n" +
+				"When you start (or restart), follow these steps:\n\n" +
+				"1. **Acknowledge** — Send a brief status update that you're starting work.\n" +
+				"2. **Review Context** — Read the shared context above (colleagues, pending messages,\n" +
+				"   dependencies) before proceeding.\n" +
+				"3. **Check Memory** — Search your memory for relevant past decisions and context.\n" +
+				"4. **Process** — Work through your assigned tasks in priority order.\n" +
+				"5. **Complete All Work** — Don't stop after one action. Keep going until all tasks\n" +
+				"   are done or you're blocked.\n\n"
+		},
+	})
+
 	// --- DYNAMIC SECTIONS (per-task, not cached) ---
 
 	// Custom prompt replaces default when set (mirrors Claude Code's --system-prompt).
