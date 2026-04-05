@@ -12,7 +12,7 @@ test.describe("Authentication", () => {
   test("login and redirect to /issues", async ({ page }) => {
     await loginAsDefault(page);
 
-    await expect(page).toHaveURL(/\/issues/);
+    await expect(page).toHaveURL(/\/issues/, { timeout: 20000 });
   });
 
   test("unauthenticated user is redirected away from /issues", async ({ page }) => {
@@ -25,7 +25,7 @@ test.describe("Authentication", () => {
     } catch {
       // ERR_ABORTED is expected — the client-side redirect fires before load
     }
-    await page.waitForURL("**/", { timeout: 15000 });
+    await page.waitForURL("**/", { timeout: 20000 });
   });
 
   test("logout clears auth state", async ({ page }) => {

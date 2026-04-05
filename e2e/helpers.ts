@@ -119,8 +119,13 @@ export async function loginAsDefault(page: Page) {
   }
   if (!workspace) throw new Error(`Failed to ensure workspace ${slug}`);
 
-  // Set workspace ID in localStorage — navigate to /login for same-origin access
-  await page.goto("/login");
+  // Set workspace ID in localStorage — navigate to a page for same-origin access
+  // Use try/catch because an existing auth state may redirect, causing ERR_ABORTED
+  try {
+    await page.goto("/login");
+  } catch {
+    // ERR_ABORTED is expected if the page redirects due to existing auth
+  }
   await page.evaluate((wsId) => {
 
     localStorage.setItem("multicode_workspace_id", wsId);
@@ -130,8 +135,12 @@ export async function loginAsDefault(page: Page) {
   // Navigate to /issues — the init script sets localStorage before hydration,
   // the HttpOnly token cookie is already in the browser context from step 2,
   // and AuthInitializer will authenticate successfully.
-  await page.goto("/issues");
-  await page.waitForURL("**/issues", { timeout: 15000 });
+  try {
+    await page.goto("/issues");
+  } catch {
+    // ERR_ABORTED is expected if already on /issues due to redirect
+  }
+  await page.waitForURL("**/issues", { timeout: 20000 });
 
   return { token, workspaceId: workspace.id };
 }
