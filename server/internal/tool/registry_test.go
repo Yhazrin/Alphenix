@@ -81,3 +81,169 @@ func TestRegistry_Names(t *testing.T) {
 		t.Errorf("Names() returned %d names, want 8", len(names))
 	}
 }
+
+func TestDefaultRegistry_SourceIsBuiltin(t *testing.T) {
+	r := DefaultRegistry()
+	for _, def := range r.List() {
+		if def.Source != SourceBuiltin {
+			t.Errorf("tool %s has source %q, want %q", def.Name, def.Source, SourceBuiltin)
+		}
+	}
+}
+
+func TestRegistry_RegisterDynamic_MCPTool(t *testing.T) {
+	r := DefaultRegistry()
+	err := r.RegisterDynamic(ToolDef{
+		Name:        "query",
+		Description: "Run a SQL query",
+		Permission:  PermissionNetwork,
+		Source:      SourceMCP,
+		SourceConfig: MCPSourceConfig("postgres", "query", "uuid-1"),
+	})
+	if err != nil {
+		t.Fatalf("RegisterDynamic() error = %v", err)
+	}
+
+	// Should be stored under namespaced key
+	def, ok := r.Get("mcp.postgres.query")
+	if !ok {
+		t.Fatal("Get(\"mcp.postgres.query\") returned false")
+	}
+	if def.Source != SourceMCP {
+		t.Errorf("Source = %q, want %q", def.Source, SourceMCP)
+	}
+
+	// Count should increase
+	if r.Count() != 9 {
+		t.Errorf("Count() = %d, want 9", r.Count())
+	}
+}
+
+func TestRegistry_RegisterDynamic_EmptyName(t *testing.T) {
+	r := NewRegistry()
+	err := r.RegisterDynamic(ToolDef{
+		Name:   "",
+		Source: SourceMCP,
+	})
+	if err == nil {
+		t.Error("expected error for empty name")
+	}
+}
+
+func TestRegistry_Unregister(t *testing.T) {
+	r := DefaultRegistry()
+
+	// Remove existing tool
+	if !r.Unregister("shell_exec") {
+		t.Error("Unregister(\"shell_exec\") returned false")
+	}
+	if r.Count() != 7 {
+		t.Errorf("Count() = %d, want 7", r.Count())
+	}
+	if r.IsAllowed("shell_exec", PermissionDangerous) {
+		t.Error("shell_exec should not exist after unregister")
+	}
+
+	// Remove non-existent tool
+	if r.Unregister("nonexistent") {
+		t.Error("Unregister(\"nonexistent\") returned true")
+	}
+}
+
+func TestRegistry_UnregisterBySource(t *testing.T) {
+	r := DefaultRegistry()
+
+	// Add MCP tools
+	_ = r.RegisterDynamic(ToolDef{Name: "query", Source: SourceMCP, SourceConfig: map[string]any{"server_name": "postgres"}})
+	_ = r.RegisterDynamic(ToolDef{Name: "search", Source: SourceMCP, SourceConfig: map[string]any{"server_name": "elastic"}})
+	// Add a Skill tool
+	_ = r.RegisterDynamic(ToolDef{Name: "lint", Source: SourceSkill, SourceConfig: map[string]any{"skill_name": "golang"}})
+
+	before := r.Count() // 8 builtin + 3 dynamic = 11
+	if before != 11 {
+		t.Errorf("Count() before unregister = %d, want 11", before)
+	}
+
+	// Remove all MCP tools
+	n := r.UnregisterBySource(SourceMCP)
+	if n != 2 {
+		t.Errorf("UnregisterBySource(mcp) removed %d, want 2", n)
+	}
+	if r.Count() != 9 {
+		t.Errorf("Count() after mcp unregister = %d, want 9", r.Count())
+	}
+
+	// Builtin and Skill tools should still be there
+	if _, ok := r.Get("read_file"); !ok {
+		t.Error("builtin tool read_file should still exist")
+	}
+	if _, ok := r.Get("skill.golang.lint"); !ok {
+		t.Error("skill tool should still exist")
+	}
+}
+
+func TestRegistry_ListBySource(t *testing.T) {
+	r := DefaultRegistry()
+	_ = r.RegisterDynamic(ToolDef{Name: "query", Source: SourceMCP, SourceConfig: map[string]any{"server_name": "postgres"}})
+	_ = r.RegisterDynamic(ToolDef{Name: "lint", Source: SourceSkill, SourceConfig: map[string]any{"skill_name": "golang"}})
+
+	mcpTools := r.ListBySource(SourceMCP)
+	if len(mcpTools) != 1 {
+		t.Errorf("ListBySource(mcp) returned %d tools, want 1", len(mcpTools))
+	}
+
+	skillTools := r.ListBySource(SourceSkill)
+	if len(skillTools) != 1 {
+		t.Errorf("ListBySource(skill) returned %d tools, want 1", len(skillTools))
+	}
+
+	builtinTools := r.ListBySource(SourceBuiltin)
+	if len(builtinTools) != 8 {
+		t.Errorf("ListBySource(builtin) returned %d tools, want 8", len(builtinTools))
+	}
+}
+
+func TestToolDef_NamespacedName(t *testing.T) {
+	tests := []struct {
+		name string
+		def  ToolDef
+		want string
+	}{
+		{
+			name: "builtin",
+			def:  ToolDef{Name: "read_file", Source: SourceBuiltin},
+			want: "read_file",
+		},
+		{
+			name: "mcp with server",
+			def: ToolDef{
+				Name:         "query",
+				Source:       SourceMCP,
+				SourceConfig: map[string]any{"server_name": "postgres"},
+			},
+			want: "mcp.postgres.query",
+		},
+		{
+			name: "mcp without server",
+			def:  ToolDef{Name: "query", Source: SourceMCP},
+			want: "query",
+		},
+		{
+			name: "skill with name",
+			def: ToolDef{
+				Name:         "lint",
+				Source:       SourceSkill,
+				SourceConfig: map[string]any{"skill_name": "golang"},
+			},
+			want: "skill.golang.lint",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.def.NamespacedName()
+			if got != tt.want {
+				t.Errorf("NamespacedName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

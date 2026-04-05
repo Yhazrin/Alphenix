@@ -39,7 +39,7 @@
 [data-variant="inset"] [data-slot="sidebar-inner"],
 [data-variant="floating"] [data-slot="sidebar-inner"] {
   background: color-mix(in oklch, var(--sidebar) 72%, transparent);
-  border: 1px solid oklch(0 0 0 / 0.06);
+  border: 1px solid var(--sidebar-border);
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-lg);
 }
@@ -50,11 +50,6 @@
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
-}
-
-.dark [data-variant="inset"] [data-slot="sidebar-inner"],
-.dark [data-variant="floating"] [data-slot="sidebar-inner"] {
-  border-color: oklch(1 0 0 / 0.08);
 }
 
 /* Active nav item — subtle glass inset accent */

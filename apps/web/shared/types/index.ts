@@ -74,3 +74,10 @@ export type {
   TaskContextSection,
   TaskContextPreviewResponse,
 } from "./prompt-preview";
+export type {
+  MCPServer,
+  MCPTransport,
+  MCPServerStatus,
+  CreateMCPServerRequest,
+  UpdateMCPServerRequest,
+} from "./mcp";

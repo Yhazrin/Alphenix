@@ -127,6 +127,7 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus) chi.Route
 			registerRunRoutes(r, h, queries)
 			registerTeamRoutes(r, h, queries)
 			registerRuntimePolicyRoutes(r, h, queries)
+			registerMCPServerRoutes(r, h, queries)
 		})
 	})
 

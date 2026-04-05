@@ -17,6 +17,7 @@ import {
   CircleUser,
   Users,
   Search,
+  Server,
 } from "lucide-react";
 import { WorkspaceAvatar } from "@/features/workspace";
 import { useIssueDraftStore } from "@/features/issues/stores/draft-store";
@@ -59,6 +60,7 @@ const workspaceNav = [
   { href: "/teams", label: "Teams", icon: Users },
   { href: "/runtimes", label: "Runtimes", icon: Monitor },
   { href: "/skills", label: "Skills", icon: BookOpenText },
+  { href: "/mcp", label: "MCP Servers", icon: Server },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

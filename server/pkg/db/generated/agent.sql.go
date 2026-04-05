@@ -279,6 +279,18 @@ func (q *Queries) CountRunningTasks(ctx context.Context, agentID pgtype.UUID) (i
 	return count, err
 }
 
+const countPendingTasksByRuntime = `-- name: CountPendingTasksByRuntime :one
+SELECT count(*) FROM agent_task_queue
+WHERE runtime_id = $1 AND status IN ('queued', 'dispatched')
+`
+
+func (q *Queries) CountPendingTasksByRuntime(ctx context.Context, runtimeID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countPendingTasksByRuntime, runtimeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAgent = `-- name: CreateAgent :one
 INSERT INTO agent (
     workspace_id, name, description, avatar_url, runtime_mode,

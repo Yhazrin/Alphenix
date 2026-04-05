@@ -112,6 +112,11 @@
     --scrollbar-thumb: oklch(0 0 0 / 10%);
     --scrollbar-thumb-hover: oklch(0 0 0 / 18%);
     --scrollbar-track: transparent;
+
+    /* Apple-inspired elevation tokens */
+    --shadow-card: 0 2px 20px oklch(0 0 0 / 0.08);
+    --shadow-card-hover: 0 4px 30px oklch(0 0 0 / 0.12);
+    --shadow-elevated: 0 8px 40px oklch(0 0 0 / 0.14);
 }
 
 .dark {
@@ -163,6 +168,11 @@
     --scrollbar-thumb: oklch(1 0 0 / 8%);
     --scrollbar-thumb-hover: oklch(1 0 0 / 18%);
     --scrollbar-track: transparent;
+
+    /* Apple-inspired elevation tokens (dark mode) */
+    --shadow-card: 0 2px 20px oklch(0 0 0 / 0.3);
+    --shadow-card-hover: 0 4px 30px oklch(0 0 0 / 0.4);
+    --shadow-elevated: 0 8px 40px oklch(0 0 0 / 0.5);
 }
 
 @layer base {
