@@ -138,6 +138,45 @@ func (q *Queries) GetRuntimePolicyByAgent(ctx context.Context, arg GetRuntimePol
 	return i, err
 }
 
+const listActiveRuntimePolicies = `-- name: ListActiveRuntimePolicies :many
+SELECT id, workspace_id, agent_id, team_id, required_tags, forbidden_tags, preferred_runtime_ids, fallback_runtime_ids, max_queue_depth, is_active, created_at, updated_at FROM runtime_assignment_policy
+WHERE workspace_id = $1 AND is_active = true
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListActiveRuntimePolicies(ctx context.Context, workspaceID pgtype.UUID) ([]RuntimeAssignmentPolicy, error) {
+	rows, err := q.db.Query(ctx, listActiveRuntimePolicies, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RuntimeAssignmentPolicy{}
+	for rows.Next() {
+		var i RuntimeAssignmentPolicy
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.AgentID,
+			&i.TeamID,
+			&i.RequiredTags,
+			&i.ForbiddenTags,
+			&i.PreferredRuntimeIds,
+			&i.FallbackRuntimeIds,
+			&i.MaxQueueDepth,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRuntimePolicies = `-- name: ListRuntimePolicies :many
 
 SELECT id, workspace_id, agent_id, team_id, required_tags, forbidden_tags, preferred_runtime_ids, fallback_runtime_ids, max_queue_depth, is_active, created_at, updated_at FROM runtime_assignment_policy

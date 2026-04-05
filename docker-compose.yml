@@ -11,6 +11,33 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-multicode} -d multicode"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    ports:
+      - "${PORT:-8080}:8080"
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-multicode}:${POSTGRES_PASSWORD:-multicode}@postgres:5432/multicode?sslmode=disable
+      PORT: "8080"
+      FRONTEND_PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      APP_ENV: ${APP_ENV:-production}
+      REMOTE_API_URL: http://localhost:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

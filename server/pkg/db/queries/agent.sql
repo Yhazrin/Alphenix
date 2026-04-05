@@ -162,6 +162,10 @@ WHERE issue_id = $1 AND status IN ('queued', 'dispatched');
 SELECT count(*) > 0 AS has_pending FROM agent_task_queue
 WHERE issue_id = $1 AND agent_id = $2 AND status IN ('queued', 'dispatched');
 
+-- name: CountPendingTasksByRuntime :one
+SELECT count(*) FROM agent_task_queue
+WHERE runtime_id = $1 AND status IN ('queued', 'dispatched');
+
 -- name: ListPendingTasksByRuntime :many
 SELECT * FROM agent_task_queue
 WHERE runtime_id = $1 AND status IN ('queued', 'dispatched')

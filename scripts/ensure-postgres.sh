@@ -24,8 +24,14 @@ echo "==> Ensuring shared PostgreSQL container is running on localhost:5432..."
 docker compose up -d postgres
 
 echo "==> Waiting for PostgreSQL to be ready..."
+pg_wait=0
 until docker compose exec -T postgres pg_isready -U "$POSTGRES_USER" -d postgres > /dev/null 2>&1; do
   sleep 1
+  pg_wait=$((pg_wait + 1))
+  if [ "$pg_wait" -ge 30 ]; then
+    echo "ERROR: PostgreSQL did not become ready within 30s"
+    exit 1
+  fi
 done
 
 echo "==> Ensuring database '$POSTGRES_DB' exists..."

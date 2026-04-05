@@ -259,6 +259,24 @@ type IssueToLabel struct {
 	LabelID pgtype.UUID `json:"label_id"`
 }
 
+type McpServer struct {
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	Transport       string             `json:"transport"`
+	Url             string             `json:"url"`
+	Command         string             `json:"command"`
+	Args            []byte             `json:"args"`
+	Env             []byte             `json:"env"`
+	Status          string             `json:"status"`
+	LastConnectedAt pgtype.Timestamptz `json:"last_connected_at"`
+	LastError       string             `json:"last_error"`
+	Config          []byte             `json:"config"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Member struct {
 	ID          pgtype.UUID        `json:"id"`
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`

@@ -22,7 +22,6 @@ import { agentsApi } from "@/shared/api/agents";
 import { api } from "@/shared/api";
 import { useWSEvent } from "@/features/realtime";
 import type { TaskReport, TaskTimelineEvent } from "@/shared/types/agent";
-import type { TaskMessagePayload } from "@/shared/types/events";
 import type { TaskCheckpoint } from "@/shared/types/collaboration";
 import type { TaskContextSection } from "@/shared/types/prompt-preview";
 import { cn } from "@/lib/utils";
@@ -171,7 +170,7 @@ function TimelineTab({ events }: { events: TaskTimelineEvent[] }) {
 
 function MessagesTab({ items }: { items: TimelineItem[] }) {
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground py-8 text-center">No messages recorded.</p>;
+    return <p className="text-sm text-muted-foreground py-8 text-center">No messages recorded yet. Messages appear as the agent works.</p>;
   }
 
   return (
@@ -355,7 +354,7 @@ function ContextPreviewTab({ taskId }: { taskId: string }) {
         <div>
           <h3 className="text-sm font-semibold">Context Preview</h3>
           <p className="text-xs text-muted-foreground">
-            Preview of the task context assembled for agent execution.
+            This is the exact context the agent received when executing this task.
           </p>
         </div>
         <div className="flex items-center gap-2">

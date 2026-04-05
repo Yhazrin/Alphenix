@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Shield, Plus, Trash2, Save, Loader2, Server } from "lucide-react";
+import { Shield, Plus, Trash2, Save, Loader2, Server, AlertCircle } from "lucide-react";
 import type { Agent, RuntimePolicy, RuntimeDevice } from "@/shared/types";
 import { runtimesApi } from "@/shared/api/runtimes";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/common/empty-state";
 
 function TagInput({
   label,
@@ -89,7 +90,16 @@ function RuntimeMultiSelect({
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <div className="mt-1.5 space-y-1">
         {runtimes.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No runtimes available</p>
+          <EmptyState
+            className="border-0 py-6"
+            icon={Server}
+            title="No runtimes connected"
+            description="Install the daemon first to make runtimes available for scheduling."
+          >
+            <code className="rounded bg-muted px-2 py-1 text-xs">
+              multicode daemon start
+            </code>
+          </EmptyState>
         ) : (
           runtimes.map((rt) => (
             <label
@@ -221,13 +231,12 @@ export function RuntimePolicyTab({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-2 py-12 text-center">
-        <Shield className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-destructive">{error}</p>
-        <Button variant="outline" size="sm" onClick={loadPolicy}>
-          Retry
-        </Button>
-      </div>
+      <EmptyState
+        icon={Shield}
+        title="Failed to load policy"
+        description={error}
+        actions={[{ label: "Retry", onClick: loadPolicy }]}
+      />
     );
   }
 
@@ -249,13 +258,11 @@ export function RuntimePolicyTab({
       </div>
 
       {!policy && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-8">
-          <Shield className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
-          <p className="mt-3 text-sm text-muted-foreground">No scheduling policy configured</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Without a policy, tasks are assigned to any available runtime.
-          </p>
-        </div>
+        <EmptyState
+          icon={AlertCircle}
+          title="No scheduling policy yet"
+          description="Tasks will run on any available runtime. Create a policy to control which runtimes this agent can use."
+        />
       )}
 
       {/* Tag Rules */}
@@ -263,6 +270,9 @@ export function RuntimePolicyTab({
         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Tag Rules
         </h4>
+        <p className="text-xs text-muted-foreground">
+          Tags control which runtimes can execute this agent&apos;s tasks.
+        </p>
         <TagInput
           label="Required Tags"
           tags={requiredTags}
@@ -335,8 +345,10 @@ export function RuntimePolicyTab({
         <Button onClick={handleSave} disabled={saving} size="sm">
           {saving ? (
             <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
+          ) : policy ? (
             <Save className="mr-1.5 h-3.5 w-3.5" />
+          ) : (
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
           )}
           {policy ? "Save Changes" : "Create Policy"}
         </Button>

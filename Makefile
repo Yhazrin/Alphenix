@@ -1,4 +1,4 @@
-.PHONY: dev daemon cli multicode build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
+.PHONY: dev daemon cli multicode build build-mcp-server build-all build-docker test test-coverage migrate-up migrate-down sqlc seed clean setup start stop check check-prereqs worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
 
 MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
@@ -76,6 +76,10 @@ check:
 	$(REQUIRE_ENV)
 	@ENV_FILE="$(ENV_FILE)" bash scripts/check.sh
 
+# Verify development prerequisites
+check-prereqs:
+	@bash scripts/check-prerequisites.sh
+
 db-up:
 	@$(COMPOSE) up -d postgres
 
@@ -134,6 +138,18 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 build:
 	cd server && go build -o bin/server ./cmd/server
 	cd server && go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o bin/multicode ./cmd/multicode
+
+build-mcp-server:
+	cd server && go build -o bin/mcp-server ./cmd/mcp-server
+
+build-all: build build-mcp-server
+
+build-docker:
+	$(COMPOSE) build --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT)
+
+test-coverage:
+	cd server && go test -coverprofile=coverage.out -covermode=atomic ./...
+	go tool cover -func=server/coverage.out | tail -1
 
 test:
 	$(REQUIRE_ENV)

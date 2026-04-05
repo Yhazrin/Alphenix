@@ -55,6 +55,14 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 		return db.AgentTaskQueue{}, fmt.Errorf("agent has no runtime")
 	}
 
+	// Use runtime selection policy if configured, otherwise fall back to agent default.
+	runtimeID, err := s.SelectRuntime(ctx, issue.WorkspaceID, issue.AssigneeID)
+	if err != nil {
+		slog.Warn("runtime selection failed, falling back to agent default",
+			"agent_id", util.UUIDToString(issue.AssigneeID), "error", err)
+		runtimeID = agent.RuntimeID
+	}
+
 	var commentID pgtype.UUID
 	if len(triggerCommentID) > 0 {
 		commentID = triggerCommentID[0]
@@ -62,7 +70,7 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 
 	task, err := s.Queries.CreateAgentTask(ctx, db.CreateAgentTaskParams{
 		AgentID:          issue.AssigneeID,
-		RuntimeID:        agent.RuntimeID,
+		RuntimeID:        runtimeID,
 		IssueID:          issue.ID,
 		Priority:         priorityToInt(issue.Priority),
 		TriggerCommentID: commentID,
@@ -95,9 +103,17 @@ func (s *TaskService) EnqueueTaskForMention(ctx context.Context, issue db.Issue,
 		return db.AgentTaskQueue{}, fmt.Errorf("agent has no runtime")
 	}
 
+	// Use runtime selection policy if configured, otherwise fall back to agent default.
+	runtimeID, err := s.SelectRuntime(ctx, issue.WorkspaceID, agentID)
+	if err != nil {
+		slog.Warn("runtime selection failed, falling back to agent default",
+			"agent_id", util.UUIDToString(agentID), "error", err)
+		runtimeID = agent.RuntimeID
+	}
+
 	task, err := s.Queries.CreateAgentTask(ctx, db.CreateAgentTaskParams{
 		AgentID:          agentID,
-		RuntimeID:        agent.RuntimeID,
+		RuntimeID:        runtimeID,
 		IssueID:          issue.ID,
 		Priority:         priorityToInt(issue.Priority),
 		TriggerCommentID: triggerCommentID,

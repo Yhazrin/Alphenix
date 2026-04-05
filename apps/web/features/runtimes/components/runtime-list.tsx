@@ -1,6 +1,7 @@
 import { Server, Clock } from "lucide-react";
 import type { AgentRuntime } from "@/shared/types";
 import { RuntimeModeIcon } from "./shared";
+import { EmptyState } from "@/components/common/empty-state";
 
 function RuntimeListItem({
   runtime,
@@ -71,19 +72,15 @@ export function RuntimeList({
         </span>
       </div>
       {runtimes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center px-4 py-12">
-          <Server className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            No runtimes registered
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground text-center">
-            Run{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              multicode daemon start
-            </code>{" "}
-            to register a local runtime.
-          </p>
-        </div>
+        <EmptyState
+          icon={Server}
+          title="Connect your first runtime"
+          description="Runtimes are local agents that execute tasks. Start one with the CLI to get going."
+        >
+          <code className="rounded bg-muted px-2 py-1 text-xs">
+            multicode daemon start
+          </code>
+        </EmptyState>
       ) : (
         <div className="divide-y">
           {runtimes.map((runtime) => (

@@ -255,6 +255,18 @@ func (q *Queries) CompleteTaskReview(ctx context.Context, arg CompleteTaskReview
 	return i, err
 }
 
+const countPendingTasksByRuntime = `-- name: CountPendingTasksByRuntime :one
+SELECT count(*) FROM agent_task_queue
+WHERE runtime_id = $1 AND status IN ('queued', 'dispatched')
+`
+
+func (q *Queries) CountPendingTasksByRuntime(ctx context.Context, runtimeID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countPendingTasksByRuntime, runtimeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countRunningTasks = `-- name: CountRunningTasks :one
 SELECT count(*) FROM agent_task_queue
 WHERE agent_id = $1 AND status IN ('dispatched', 'running')

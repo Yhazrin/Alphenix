@@ -8,6 +8,7 @@
     "build": "pnpm --filter @multicode/web build",
     "typecheck": "pnpm --filter @multicode/web typecheck",
     "test": "pnpm --filter @multicode/web test",
+    "test:coverage": "pnpm --filter @multicode/web test:coverage",
     "lint": "pnpm --filter @multicode/web lint",
     "clean": "pnpm --filter @multicode/web clean && rm -rf node_modules"
   },

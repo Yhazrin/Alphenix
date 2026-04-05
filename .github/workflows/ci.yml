@@ -56,8 +56,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build, type check, and test
-        run: pnpm build && pnpm typecheck && pnpm test
+      - name: Build and type check
+        run: pnpm build && pnpm typecheck
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: apps/web/coverage/
+          retention-days: 7
 
   backend:
     runs-on: ubuntu-latest
@@ -93,8 +103,18 @@ jobs:
       - name: Run migrations
         run: cd server && go run ./cmd/migrate up
 
-      - name: Test
-        run: cd server && go test ./...
+      - name: Test with coverage
+        run: cd server && go test -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Coverage summary
+        run: cd server && go tool cover -func=coverage.out | tail -1
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: server/coverage.out
+          retention-days: 7
 
   e2e:
     needs: [frontend, backend]

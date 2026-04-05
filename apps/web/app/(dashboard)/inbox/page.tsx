@@ -28,7 +28,7 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -442,7 +442,8 @@ export default function InboxPage() {
                 <EmptyMedia variant="icon">
                   <Inbox aria-hidden="true" />
                 </EmptyMedia>
-                <EmptyTitle>No notifications</EmptyTitle>
+                <EmptyTitle>Your inbox is clear</EmptyTitle>
+                <EmptyDescription>When issues you are watching get updates from agents or teammates, notifications will appear here.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           )

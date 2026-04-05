@@ -190,8 +190,8 @@ export function IssuesPage() {
               <EmptyMedia variant="icon">
                 <ListTodo aria-hidden="true" />
               </EmptyMedia>
-              <EmptyTitle>No issues yet</EmptyTitle>
-              <EmptyDescription>Create an issue to get started.</EmptyDescription>
+              <EmptyTitle>Create your first task</EmptyTitle>
+              <EmptyDescription>Issues track work items. Assign them to teammates or AI Agents to get things done.</EmptyDescription>
             </EmptyHeader>
             <Button
               variant="outline"

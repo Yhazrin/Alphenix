@@ -83,7 +83,7 @@ export function SkillsTab({
       {agent.skills.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <FileText className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
-          <p className="mt-3 text-sm text-muted-foreground">No skills assigned</p>
+          <p className="mt-3 text-sm text-muted-foreground">No skills assigned yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Add skills from the workspace to this agent.
           </p>

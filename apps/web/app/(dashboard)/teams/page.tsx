@@ -47,6 +47,7 @@ import { ActorAvatar } from "@/components/common/actor-avatar";
 import { PRESET_TEAMS, type PresetTeam } from "@/shared/data/preset-teams";
 import { PRESET_AGENTS } from "@/shared/data/preset-agents";
 import { timeAgo } from "@/shared/utils";
+import { EmptyState } from "@/components/common/empty-state";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -276,7 +277,7 @@ function CreateTeamDialog({
               <div className="mt-1.5 max-h-[200px] overflow-y-auto rounded-lg border border-border divide-y">
                 {availableAgents.length === 0 ? (
                   <div className="py-4 text-center text-sm text-muted-foreground">
-                    No agents available. Create agents first.
+                    No agents available. Create an agent first.
                   </div>
                 ) : (
                   availableAgents.map((agent) => {
@@ -801,18 +802,20 @@ export default function TeamsPage() {
           </div>
 
           {filteredTeams.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-4 py-12">
-              <Users className="h-8 w-8 text-muted-foreground/40" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {showArchived ? "No archived teams" : archivedCount > 0 ? "No active teams" : "No teams yet"}
-              </p>
-              {!showArchived && (
-                <Button onClick={() => setShowCreate(true)} size="xs" className="mt-3">
-                  <Plus className="h-3 w-3" />
-                  Create Team
-                </Button>
-              )}
-            </div>
+            <EmptyState
+              icon={Users}
+              title={showArchived ? "No archived teams" : "Build your first team"}
+              description={
+                showArchived
+                  ? undefined
+                  : "Teams group agents and members together for coordinated task execution."
+              }
+              actions={
+                showArchived
+                  ? undefined
+                  : [{ label: "Create Team", onClick: () => setShowCreate(true), icon: Plus }]
+              }
+            />
           ) : (
             <div className="divide-y">
               {filteredTeams.map((team) => (

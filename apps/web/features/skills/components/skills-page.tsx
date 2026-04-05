@@ -36,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/shared/api";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
+import { EmptyState } from "@/components/common/empty-state";
 
 import { FileTree } from "./file-tree";
 import { FileViewer } from "./file-viewer";
@@ -765,21 +766,14 @@ export default function SkillsPage() {
             </Tooltip>
           </div>
           {skills.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-4 py-12">
-              <Sparkles className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
-              <p className="mt-3 text-sm text-muted-foreground">No skills yet</p>
-              <p className="mt-1 text-xs text-muted-foreground text-center">
-                Skills define reusable instructions for agents.
-              </p>
-              <Button
-                onClick={() => setShowCreate(true)}
-                size="xs"
-                className="mt-3"
-              >
-                <Plus className="h-3 w-3" aria-hidden="true" />
-                Create Skill
-              </Button>
-            </div>
+            <EmptyState
+              icon={Sparkles}
+              title="Teach your agents new tricks"
+              description="Skills define reusable instructions that agents can apply across tasks."
+              actions={[
+                { label: "Create Skill", onClick: () => setShowCreate(true), icon: Plus },
+              ]}
+            />
           ) : (
             <div className="divide-y">
               {skills.map((skill) => (

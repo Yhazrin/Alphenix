@@ -16,6 +16,7 @@ import (
 	"github.com/multica-ai/multicode/server/internal/daemon/repocache"
 	"github.com/multica-ai/multicode/server/internal/daemon/usage"
 	"github.com/multica-ai/multicode/server/internal/events"
+	"github.com/multica-ai/multicode/server/internal/service"
 	"github.com/multica-ai/multicode/server/pkg/agent"
 )
 
@@ -1039,43 +1040,112 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		}
 	}
 
-	// Drain message channel — forward to server for live output + log locally.
-	// Uses priority-based flushing: errors flush immediately, text/thinking batches.
-	var toolCount atomic.Int32
-	go func() {
+		// Drain message channel — forward to server for live output + log locally.
+		// Uses Coalescer (350ms sliding window): thinking/text chunks are folded,
+		// tool_use/tool_result flush pending and pass through, errors flush immediately.
+		var toolCount atomic.Int32
 		var seq atomic.Int32
-		var mu sync.Mutex
-		var pendingText strings.Builder
-		var pendingThinking strings.Builder
+		var batchMu sync.Mutex
 		var batch []TaskMessageData
 		callIDToTool := map[string]string{} // track callID → tool name for tool_result
 
-		flush := func() {
-			mu.Lock()
-			// Flush any accumulated thinking as a single message.
-			if pendingThinking.Len() > 0 {
-				s := seq.Add(1)
-				batch = append(batch, TaskMessageData{
-					Seq:     int(s),
-					Type:    "thinking",
-					Content: pendingThinking.String(),
-				})
-				pendingThinking.Reset()
+		coalescer := service.NewCoalescer(350*time.Millisecond, func(ev service.CoalescedEvent) {
+			s := int(seq.Add(1))
+			msg := TaskMessageData{Seq: s, Type: ev.Type, Content: ev.Content}
+			switch ev.Type {
+			case "tool_use":
+				msg.CallID = ev.CallID
+				msg.Tool = ev.Tool
+				if m, ok := ev.Input.(map[string]any); ok {
+					msg.Input = m
+				}
+			case "tool_result":
+				msg.CallID = ev.CallID
+				msg.Tool = ev.Tool
+				msg.Output = ev.Output
 			}
-			// Flush any accumulated text as a single message.
-			if pendingText.Len() > 0 {
-				s := seq.Add(1)
-				batch = append(batch, TaskMessageData{
-					Seq:     int(s),
-					Type:    "text",
-					Content: pendingText.String(),
-				})
-				pendingText.Reset()
+			batchMu.Lock()
+			batch = append(batch, msg)
+			batchMu.Unlock()
+		})
+
+		go func() {
+			for msg := range session.Messages {
+				switch msg.Type {
+				case agent.MessageToolUse:
+					n := toolCount.Add(1)
+					taskLog.Info(fmt.Sprintf("tool #%d: %s", n, msg.Tool))
+					if msg.CallID != "" {
+						batchMu.Lock()
+						callIDToTool[msg.CallID] = msg.Tool
+						batchMu.Unlock()
+					}
+					coalescer.PushToolUse(msg.CallID, msg.Tool, msg.Input)
+
+					// Flush batch immediately after tool_use (avoids holding tool results).
+					batchMu.Lock()
+					toSend := batch
+					batch = nil
+					batchMu.Unlock()
+					if len(toSend) > 0 {
+						sendCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						if err := d.client.ReportTaskMessages(sendCtx, task.ID, toSend); err != nil {
+							taskLog.Debug("failed to report task messages", "error", err)
+						}
+						cancel()
+					}
+
+				case agent.MessageToolResult:
+					output := msg.Output
+					if len(output) > 8192 {
+						output = output[:8192]
+					}
+					toolName := msg.Tool
+					if toolName == "" && msg.CallID != "" {
+						batchMu.Lock()
+						toolName = callIDToTool[msg.CallID]
+						batchMu.Unlock()
+					}
+					coalescer.PushToolResult(msg.CallID, toolName, output)
+
+				case agent.MessageThinking:
+					if msg.Content != "" {
+						coalescer.Push("thinking", msg.Content, service.ClassFold)
+					}
+
+				case agent.MessageText:
+					if msg.Content != "" {
+						taskLog.Debug("agent", "text", truncateLog(msg.Content, 200))
+						coalescer.Push("text", msg.Content, service.ClassFold)
+
+						// Detect structured progress patterns and report to server.
+						if prog := DetectProgress(msg.Content); prog != nil {
+							step := prog.Current
+							total := prog.Total
+							if step == 0 && total > 0 {
+								step = 1
+							}
+							summary := prog.Summary
+							if summary == "" {
+								summary = prog.Phase
+							}
+							_ = d.client.ReportProgress(context.Background(), task.ID, summary, step, total)
+						}
+					}
+
+				case agent.MessageError:
+					taskLog.Error("agent error", "content", msg.Content)
+					coalescer.Push("error", msg.Content, service.ClassFlush)
+				}
 			}
+
+			coalescer.Close()
+
+			// Final flush — send any remaining batched messages.
+			batchMu.Lock()
 			toSend := batch
 			batch = nil
-			mu.Unlock()
-
+			batchMu.Unlock()
 			if len(toSend) > 0 {
 				sendCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				if err := d.client.ReportTaskMessages(sendCtx, task.ID, toSend); err != nil {
@@ -1083,116 +1153,8 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 				}
 				cancel()
 			}
-		}
-
-		// Periodically flush accumulated text/thinking messages.
-		ticker := time.NewTicker(500 * time.Millisecond)
-		defer ticker.Stop()
-
-		done := make(chan struct{})
-		go func() {
-			for {
-				select {
-				case <-ticker.C:
-					flush()
-				case <-done:
-					return
-				}
-			}
 		}()
 
-		for msg := range session.Messages {
-			class := ClassifyMessage(string(msg.Type))
-
-			switch msg.Type {
-			case agent.MessageToolUse:
-				n := toolCount.Add(1)
-				taskLog.Info(fmt.Sprintf("tool #%d: %s", n, msg.Tool))
-				if msg.CallID != "" {
-					mu.Lock()
-					callIDToTool[msg.CallID] = msg.Tool
-					mu.Unlock()
-				}
-				s := seq.Add(1)
-				mu.Lock()
-				batch = append(batch, TaskMessageData{
-					Seq:    int(s),
-					Type:   "tool_use",
-					CallID: msg.CallID,
-					Tool:   msg.Tool,
-					Input:  msg.Input,
-				})
-				mu.Unlock()
-			case agent.MessageToolResult:
-				s := seq.Add(1)
-				output := msg.Output
-				if len(output) > 8192 {
-					output = output[:8192]
-				}
-				// Resolve tool name from callID if not set directly.
-				toolName := msg.Tool
-				if toolName == "" && msg.CallID != "" {
-					mu.Lock()
-					toolName = callIDToTool[msg.CallID]
-					mu.Unlock()
-				}
-				mu.Lock()
-				batch = append(batch, TaskMessageData{
-					Seq:    int(s),
-					Type:   "tool_result",
-					CallID: msg.CallID,
-					Tool:   toolName,
-					Output: output,
-				})
-				mu.Unlock()
-			case agent.MessageThinking:
-				if msg.Content != "" {
-					mu.Lock()
-					pendingThinking.WriteString(msg.Content)
-					mu.Unlock()
-				}
-			case agent.MessageText:
-				if msg.Content != "" {
-					taskLog.Debug("agent", "text", truncateLog(msg.Content, 200))
-					mu.Lock()
-					pendingText.WriteString(msg.Content)
-					mu.Unlock()
-
-					// Detect structured progress patterns and report to server.
-					if prog := DetectProgress(msg.Content); prog != nil {
-						step := prog.Current
-						total := prog.Total
-						if step == 0 && total > 0 {
-							step = 1
-						}
-						summary := prog.Summary
-						if summary == "" {
-							summary = prog.Phase
-						}
-						_ = d.client.ReportProgress(context.Background(), task.ID, summary, step, total)
-					}
-				}
-			case agent.MessageError:
-				taskLog.Error("agent error", "content", msg.Content)
-				s := seq.Add(1)
-				mu.Lock()
-				batch = append(batch, TaskMessageData{
-					Seq:     int(s),
-					Type:    "error",
-					Content: msg.Content,
-				})
-				mu.Unlock()
-			}
-
-			// Priority-based flushing: urgent messages trigger immediate flush.
-			if class == ClassUrgent {
-				flush()
-			}
-		}
-
-		close(done)
-		flush() // Final flush after channel closes.
-	}()
 
 	result := <-session.Result
 	elapsed := time.Since(taskStart).Round(time.Second)

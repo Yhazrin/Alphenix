@@ -7,6 +7,7 @@ import { agentsApi } from "@/shared/api/agents";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/common/empty-state";
 
 export function PromptPreviewTab({ agent }: { agent: Agent }) {
   const [sections, setSections] = useState<PromptSection[] | null>(null);
@@ -53,17 +54,24 @@ export function PromptPreviewTab({ agent }: { agent: Agent }) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-2 py-12 text-center">
-        <Eye className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-destructive">{error}</p>
-        <Button variant="outline" size="sm" onClick={loadPreview}>
-          Retry
-        </Button>
-      </div>
+      <EmptyState
+        icon={Eye}
+        title="Failed to load prompt preview"
+        description={error}
+        actions={[{ label: "Retry", onClick: loadPreview }]}
+      />
     );
   }
 
-  if (!sections) return null;
+  if (!sections || sections.length === 0) {
+    return (
+      <EmptyState
+        icon={Eye}
+        title="No prompt content yet"
+        description="Add instructions and skills to your agent to see the assembled system prompt."
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -71,7 +79,7 @@ export function PromptPreviewTab({ agent }: { agent: Agent }) {
         <div>
           <h3 className="text-sm font-semibold">System Prompt Preview</h3>
           <p className="text-xs text-muted-foreground">
-            Preview of the assembled system prompt for this agent. Sections are composed in order.
+            See how your agent's system prompt is assembled from identity, instructions, and skills.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -150,7 +158,7 @@ export function PromptPreviewTab({ agent }: { agent: Agent }) {
                     {section.content}
                   </pre>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     className="mt-2 h-6 text-[10px]"
                     onClick={async (e) => {

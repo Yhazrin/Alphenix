@@ -42,6 +42,7 @@ e2e/
 
 # Scripts
 scripts/
+!scripts/docker-entrypoint.sh
 
 # Go
 server/bin/

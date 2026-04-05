@@ -14,7 +14,14 @@ if [ -z "$slug" ]; then
   slug="multicode"
 fi
 
-hash_value="$(printf '%s' "$PWD" | cksum | awk '{print $1}')"
+# Portable hash: sha256sum (Linux) → shasum (macOS) → cksum (fallback)
+if command -v sha256sum &>/dev/null; then
+  hash_value="$(printf '%s' "$PWD" | sha256sum | cut -c1-8)"
+elif command -v shasum &>/dev/null; then
+  hash_value="$(printf '%s' "$PWD" | shasum -a 256 | cut -c1-8)"
+else
+  hash_value="$(printf '%s' "$PWD" | cksum | awk '{print $1}')"
+fi
 offset=$((hash_value % 1000))
 
 postgres_db="multicode_${slug}_${offset}"

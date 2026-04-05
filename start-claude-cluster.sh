@@ -6,7 +6,12 @@ set -e
 
 COUNT=${1:-3}
 BASE_PORT=19514
-ANTHROPIC_TOKEN="sk-cp-TrkQEtR-nfG4JNBjfJon0t43R5NbY0aeVUOE-0UqmqgSq0L8ZUKNF_35fINHA8zzQx-4SPQhzzS42O961aLYbCyNW4ukFlPypu1RsY30SqRnAmVF7tLY8Wc"
+ANTHROPIC_TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
+if [ -z "$ANTHROPIC_TOKEN" ]; then
+    echo "ERROR: ANTHROPIC_AUTH_TOKEN environment variable is not set."
+    echo "Set it before running: export ANTHROPIC_AUTH_TOKEN=your-token-here"
+    exit 1
+fi
 
 echo "Stopping any existing daemons..."
 pkill -f "multicode daemon" 2>/dev/null || true

@@ -42,3 +42,8 @@ WHERE id = $1 AND workspace_id = $2;
 SELECT * FROM runtime_assignment_policy
 WHERE team_id = $1
 ORDER BY created_at ASC;
+
+-- name: ListActiveRuntimePolicies :many
+SELECT * FROM runtime_assignment_policy
+WHERE workspace_id = $1 AND is_active = true
+ORDER BY created_at ASC;

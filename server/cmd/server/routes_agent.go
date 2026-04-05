@@ -62,6 +62,7 @@ func registerAgentRoutes(r chi.Router, h *handler.Handler, queries *db.Queries) 
 	// Task report and timeline
 	r.Get("/api/tasks/{taskId}/report", h.GetTaskReport)
 	r.Get("/api/tasks/{taskId}/timeline", h.GetTaskTimeline)
+	r.Get("/api/tasks/{taskId}/artifacts", h.GetTaskArtifacts)
 
 	// Task review (manual)
 	r.Post("/api/tasks/{taskId}/review", h.SubmitReview)

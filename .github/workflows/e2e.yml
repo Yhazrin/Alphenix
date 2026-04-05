@@ -1,0 +1,127 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: multicode
+          POSTGRES_USER: multicode
+          POSTGRES_PASSWORD: multicode
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U multicode -d multicode"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://multicode:multicode@localhost:5432/multicode?sslmode=disable
+      PORT: 8080
+      FRONTEND_PORT: 3000
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      APP_ENV: development
+      JWT_SECRET: test-jwt-secret-for-ci-only
+      ALLOW_DEV_MASTER_CODE: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.1"
+          cache-dependency-path: server/go.sum
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Run backend migrations
+        run: cd server && go run ./cmd/migrate up
+
+      - name: Start backend
+        run: |
+          cd server
+          go run ./cmd/server > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+        shell: bash
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:${PORT}/health > /dev/null 2>&1; then
+              echo "Backend ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to start within 60s"
+          cat /tmp/backend.log
+          exit 1
+        shell: bash
+
+      - name: Start frontend
+        run: |
+          PORT=${FRONTEND_PORT} pnpm dev:web > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
+        shell: bash
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:${FRONTEND_PORT} > /dev/null 2>&1; then
+              echo "Frontend ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Frontend failed to start within 90s"
+          cat /tmp/frontend.log
+          exit 1
+        shell: bash
+
+      - name: Run E2E tests
+        run: pnpm exec playwright test
+        shell: bash
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Stop services
+        if: always()
+        run: |
+          [ -f /tmp/backend.pid ] && kill $(cat /tmp/backend.pid) 2>/dev/null || true
+          [ -f /tmp/frontend.pid ] && kill $(cat /tmp/frontend.pid) 2>/dev/null || true
+        shell: bash

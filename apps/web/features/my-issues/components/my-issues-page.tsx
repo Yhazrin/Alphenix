@@ -191,7 +191,7 @@ export function MyIssuesPage() {
                 <ListTodo aria-hidden="true" />
               </EmptyMedia>
               <EmptyTitle>No issues assigned to you</EmptyTitle>
-              <EmptyDescription>Issues you create or are assigned to will appear here.</EmptyDescription>
+              <EmptyDescription>Issues assigned to you by teammates or AI Agents will appear here.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (

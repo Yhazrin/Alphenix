@@ -78,12 +78,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { api } from "@/shared/api";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
 import { useRuntimeStore } from "@/features/runtimes";
 import { useIssueStore } from "@/features/issues";
+import { EmptyState } from "@/components/common/empty-state";
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import { useFileUpload } from "@/shared/hooks/use-file-upload";
 
@@ -1865,25 +1865,21 @@ export default function AgentsPage() {
             </div>
           </div>
           {filteredAgents.length === 0 ? (
-            <Empty className="border-0 px-4 py-12">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Bot />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {showArchived ? "No archived agents" : archivedCount > 0 ? "No active agents" : "No agents yet"}
-                </EmptyTitle>
-              </EmptyHeader>
-              {!showArchived && (
-                <Button
-                  onClick={() => setShowCreate(true)}
-                  size="xs"
-                >
-                  <Plus className="h-3 w-3" />
-                  Create Agent
-                </Button>
-              )}
-            </Empty>
+            <EmptyState
+              className="border-0 px-4 py-12"
+              icon={Bot}
+              title={showArchived ? "No archived agents" : "Create your first AI teammate"}
+              description={
+                showArchived
+                  ? undefined
+                  : "Agents are autonomous workers that execute tasks using configured skills and runtimes."
+              }
+              actions={
+                showArchived
+                  ? undefined
+                  : [{ label: "Create Agent", onClick: () => setShowCreate(true), icon: Plus }]
+              }
+            />
           ) : (
             <div className="divide-y">
               {filteredAgents.map((agent) => (
@@ -1913,21 +1909,15 @@ export default function AgentsPage() {
             onRestore={handleRestore}
           />
         ) : (
-          <Empty className="border-0">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Bot />
-              </EmptyMedia>
-              <EmptyTitle>Select an agent to view details</EmptyTitle>
-            </EmptyHeader>
-            <Button
-              onClick={() => setShowCreate(true)}
-              size="xs"
-            >
-              <Plus className="h-3 w-3" />
-              Create Agent
-            </Button>
-          </Empty>
+          <EmptyState
+            className="border-0"
+            icon={Bot}
+            title="Create your first AI teammate"
+            description="Agents are autonomous workers that execute tasks using configured skills and runtimes."
+            actions={[
+              { label: "Create Agent", onClick: () => setShowCreate(true), icon: Plus },
+            ]}
+          />
         )}
       </ResizablePanel>
 

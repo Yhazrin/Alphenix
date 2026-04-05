@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/common/empty-state";
 
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
@@ -153,7 +154,7 @@ function TimelineTab({ taskId }: { taskId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadTimeline = useCallback(() => {
     setLoading(true);
     setError(null);
     tasksApi
@@ -165,6 +166,10 @@ function TimelineTab({ taskId }: { taskId: string }) {
       })
       .finally(() => setLoading(false));
   }, [taskId]);
+
+  useEffect(() => {
+    loadTimeline();
+  }, [loadTimeline]);
 
   if (loading) {
     return (
@@ -184,19 +189,22 @@ function TimelineTab({ taskId }: { taskId: string }) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <AlertCircle className="h-8 w-8 text-destructive/60" />
-        <p className="mt-3 text-sm text-destructive">{error}</p>
-      </div>
+      <EmptyState
+        icon={AlertCircle}
+        title="Failed to load timeline"
+        description={error}
+        actions={[{ label: "Retry", onClick: loadTimeline }]}
+      />
     );
   }
 
   if (!events || events.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Clock className="h-8 w-8 text-muted-foreground/40" />
-        <p className="mt-3 text-sm text-muted-foreground">No timeline events</p>
-      </div>
+      <EmptyState
+        icon={Clock}
+        title="No timeline events yet"
+        description="Events will appear here as the task progresses."
+      />
     );
   }
 
@@ -234,7 +242,13 @@ function OutputTab({ report }: { report: TaskReport }) {
   const [copied, setCopied] = useState(false);
 
   if (!report.result && !report.error) {
-    return <p className="text-sm text-muted-foreground py-8 text-center">No output recorded.</p>;
+    return (
+      <EmptyState
+        icon={FileText}
+        title="No output yet"
+        description="Task output will appear here once the agent produces results."
+      />
+    );
   }
 
   const content = report.result
@@ -307,18 +321,15 @@ export function TaskReportPanel({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-2 py-12 text-center">
-        <FileText className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-destructive">{error}</p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadReport}>
-            Retry
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </div>
+      <EmptyState
+        icon={FileText}
+        title="Failed to load report"
+        description={error}
+        actions={[
+          { label: "Retry", onClick: loadReport },
+          { label: "Close", onClick: onClose, variant: "outline" },
+        ]}
+      />
     );
   }
 

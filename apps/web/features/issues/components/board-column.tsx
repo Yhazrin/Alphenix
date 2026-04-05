@@ -106,7 +106,7 @@ export const BoardColumn = memo(function BoardColumn({
         {issues.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8">
             <p className="text-center text-xs text-muted-foreground">
-              No issues
+              Drop issues here
             </p>
             <Button
               variant="ghost"

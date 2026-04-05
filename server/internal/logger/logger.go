@@ -10,25 +10,41 @@ import (
 	"github.com/lmittmann/tint"
 )
 
-// Init initializes the global slog logger with colored terminal output.
+// Init initializes the global slog logger.
+// In production (APP_ENV=production or LOG_FORMAT=json), outputs structured JSON.
+// Otherwise, outputs colored terminal text via tint.
 // Reads LOG_LEVEL env var (debug, info, warn, error). Default: debug.
 func Init() {
 	level := parseLevel(os.Getenv("LOG_LEVEL"))
-	handler := tint.NewHandler(os.Stderr, &tint.Options{
-		Level:      level,
-		TimeFormat: "15:04:05.000",
-	})
+	var handler slog.Handler
+	if useJSON() {
+		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+			Level: level,
+		})
+	} else {
+		handler = tint.NewHandler(os.Stderr, &tint.Options{
+			Level:      level,
+			TimeFormat: "15:04:05.000",
+		})
+	}
 	slog.SetDefault(slog.New(handler))
 }
 
-// NewLogger creates a named slog logger with colored terminal output.
+// NewLogger creates a named slog logger.
 // Useful for standalone processes (daemon, migrate) that want a component prefix.
 func NewLogger(component string) *slog.Logger {
 	level := parseLevel(os.Getenv("LOG_LEVEL"))
-	handler := tint.NewHandler(os.Stderr, &tint.Options{
-		Level:      level,
-		TimeFormat: "15:04:05.000",
-	})
+	var handler slog.Handler
+	if useJSON() {
+		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+			Level: level,
+		})
+	} else {
+		handler = tint.NewHandler(os.Stderr, &tint.Options{
+			Level:      level,
+			TimeFormat: "15:04:05.000",
+		})
+	}
 	return slog.New(handler).With("component", component)
 }
 
@@ -56,4 +72,11 @@ func parseLevel(s string) slog.Level {
 	default:
 		return slog.LevelDebug
 	}
+}
+
+func useJSON() bool {
+	if strings.ToLower(os.Getenv("LOG_FORMAT")) == "json" {
+		return true
+	}
+	return strings.ToLower(os.Getenv("APP_ENV")) == "production"
 }

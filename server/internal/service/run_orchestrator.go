@@ -489,24 +489,22 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 		}, nil
 	}
 
-	// 4. Drain messages — record each as a run step and track for compaction.
+	// 4. Drain messages — coalesce consecutive same-type events, record steps, track for compaction.
 	var toolCount int
-	var pendingText string
-	var pendingThinking string
 	toolCallIDToName := map[string]string{} // call_id → tool name
 
-	flushPending := func() {
-		mu.Lock()
-		if pendingThinking != "" {
-			addMessage("assistant", pendingThinking)
-			pendingThinking = ""
+	coalescer := NewCoalescer(350*time.Millisecond, func(ev CoalescedEvent) {
+		switch ev.Type {
+		case "thinking", "text":
+			if ev.Content != "" {
+				addMessage("assistant", ev.Content)
+			}
+		case "tool_use":
+			// Tool use steps are recorded immediately (not coalesced).
+		case "tool_result":
+			// Tool result steps are recorded immediately (not coalesced).
 		}
-		if pendingText != "" {
-			addMessage("assistant", pendingText)
-			pendingText = ""
-		}
-		mu.Unlock()
-	}
+	})
 
 	for msg := range session.Messages {
 		switch msg.Type {
@@ -517,6 +515,8 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 				toolCallIDToName[msg.CallID] = msg.Tool
 				mu.Unlock()
 			}
+
+			coalescer.PushToolUse(msg.CallID, msg.Tool, msg.Input)
 
 			// Record step start (no output yet).
 			inputJSON, _ := json.Marshal(msg.Input)
@@ -545,6 +545,8 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 				output = output[:8192]
 			}
 
+			coalescer.PushToolResult(msg.CallID, toolName, output)
+
 			// Record step completion.
 			inputJSON, _ := json.Marshal(map[string]any{"call_id": msg.CallID, "tool": toolName})
 			_, stepErr := o.RecordStep(ctx, runID, toolName, inputJSON, output, false)
@@ -561,26 +563,23 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 
 		case agent.MessageText:
 			if msg.Content != "" {
-				mu.Lock()
-				pendingText += msg.Content
-				mu.Unlock()
+				coalescer.Push("text", msg.Content, ClassFold)
 			}
 
 		case agent.MessageThinking:
 			if msg.Content != "" {
-				mu.Lock()
-				pendingThinking += msg.Content
-				mu.Unlock()
+				coalescer.Push("thinking", msg.Content, ClassFold)
 			}
 
 		case agent.MessageError:
 			log.Error("agent error", "content", msg.Content)
+			coalescer.Push("error", msg.Content, ClassFlush)
 			addMessage("system", fmt.Sprintf("[error] %s", msg.Content))
 		}
 
 		// Check compaction after each message batch.
 		if o.Compactor != nil && o.Compactor.NeedsCompaction(messages) {
-			flushPending()
+			coalescer.Close() // flush pending fold events before compaction
 			result, compErr := o.Compactor.Compact(ctx, messages, AutoCompact)
 			if compErr != nil {
 				log.Warn("compaction failed", "error", compErr)
@@ -597,8 +596,8 @@ func (o *RunOrchestrator) ExecuteRun(ctx context.Context, req ExecuteRunRequest)
 		}
 	}
 
-	// Flush any remaining pending text/thinking.
-	flushPending()
+	// Flush any remaining coalesced events.
+	coalescer.Close()
 
 	// 5. Wait for the final result.
 	result := <-session.Result

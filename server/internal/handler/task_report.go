@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	db "github.com/multica-ai/multicode/server/pkg/db/generated"
 )
 
 // TaskReportResponse is the JSON representation of a task execution report.
@@ -148,4 +149,64 @@ func (h *Handler) GetTaskTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, events)
+}
+
+// TaskArtifactResponse is a single artifact (attachment) produced during task execution.
+type TaskArtifactResponse struct {
+	ID           string `json:"id"`
+	Filename     string `json:"filename"`
+	URL          string `json:"url"`
+	DownloadURL  string `json:"download_url"`
+	ContentType  string `json:"content_type"`
+	SizeBytes    int64  `json:"size_bytes"`
+	UploaderType string `json:"uploader_type"`
+	CreatedAt    string `json:"created_at"`
+}
+
+// GetTaskArtifacts returns all attachments (artifacts) for the issue associated with a task.
+// GET /api/tasks/{taskId}/artifacts
+func (h *Handler) GetTaskArtifacts(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "taskId")
+
+	task, err := h.Queries.GetAgentTask(r.Context(), parseUUID(taskID))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+
+	issue, err := h.Queries.GetIssue(r.Context(), task.IssueID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+	if _, ok := h.workspaceMember(w, r, uuidToString(issue.WorkspaceID)); !ok {
+		return
+	}
+
+	attachments, err := h.Queries.ListAttachmentsByIssue(r.Context(), db.ListAttachmentsByIssueParams{
+		IssueID:     task.IssueID,
+		WorkspaceID: issue.WorkspaceID,
+	})
+	if err != nil {
+		slog.Error("get task artifacts failed", "task_id", taskID, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load task artifacts")
+		return
+	}
+
+	artifacts := make([]TaskArtifactResponse, len(attachments))
+	for i, a := range attachments {
+		att := h.attachmentToResponse(a)
+		artifacts[i] = TaskArtifactResponse{
+			ID:           att.ID,
+			Filename:     att.Filename,
+			URL:          att.URL,
+			DownloadURL:  att.DownloadURL,
+			ContentType:  att.ContentType,
+			SizeBytes:    att.SizeBytes,
+			UploaderType: att.UploaderType,
+			CreatedAt:    att.CreatedAt,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, artifacts)
 }
