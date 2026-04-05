@@ -1,9 +1,6 @@
 -- Collaboration enhancements: DAG task dependencies, agent messaging improvements,
 -- long-term agent memory (pgvector), and task checkpoints.
 
--- Enable pgvector extension for embeddings.
-CREATE EXTENSION IF NOT EXISTS vector;
-
 -- 1. Task dependency DAG — fine-grained task-level ordering within issue workflows.
 -- Unlike issue_dependency (issue-level blocking), this tracks individual task execution order.
 CREATE TABLE task_dependency (
@@ -31,22 +28,27 @@ CREATE INDEX idx_agent_message_unread ON agent_message(to_agent_id, read_at)
 
 -- 3. Agent long-term memory — cross-task knowledge using pgvector embeddings.
 -- Agents store observations, patterns, and learnings that persist across tasks.
-CREATE TABLE agent_memory (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-    agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
-    embedding vector(1536) NOT NULL,
-    metadata JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_agent_memory_agent ON agent_memory(agent_id);
-CREATE INDEX idx_agent_memory_workspace ON agent_memory(workspace_id);
-CREATE INDEX idx_agent_memory_embedding ON agent_memory
-    USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+-- Wrapped in DO block: requires pgvector extension which may not be available in all environments.
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
+        CREATE EXTENSION IF NOT EXISTS vector;
+        CREATE TABLE IF NOT EXISTS agent_memory (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            embedding vector(1536) NOT NULL,
+            metadata JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            expires_at TIMESTAMPTZ
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_memory_agent ON agent_memory(agent_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_memory_workspace ON agent_memory(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_memory_embedding ON agent_memory
+            USING ivfflat (embedding vector_cosine_ops)
+            WITH (lists = 100);
+    END IF;
+END $$;
 
 -- 4. Task checkpoints — persist intermediate agent execution state for resume capability.
 CREATE TABLE task_checkpoint (

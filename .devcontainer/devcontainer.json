@@ -1,0 +1,36 @@
+{
+  "name": "Multicode",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "dev-backend",
+  "workspaceFolder": "/src",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.26" }
+  },
+  "forwardPorts": [8080, 3000, 5432],
+  "postCreateCommand": "pnpm install && cd server && go mod download",
+  "postStartCommand": "make migrate-up",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        "go.lintTool": "golangci-lint",
+        "editor.formatOnSave": true,
+        "[go]": {
+          "editor.defaultFormatter": "golang.go"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
+      }
+    }
+  }
+}

@@ -56,19 +56,28 @@ start:
 	@echo "Using env file: $(ENV_FILE)"
 	@echo "Backend: http://localhost:$(PORT)"
 	@echo "Frontend: http://localhost:$(FRONTEND_PORT)"
+	@bash scripts/check-ports.sh $(PORT) $(FRONTEND_PORT)
 	@bash scripts/ensure-postgres.sh "$(ENV_FILE)"
 	@echo "Starting backend and frontend..."
-	@trap 'kill 0' EXIT; \
+	@trap 'echo ""; echo "==> Shutting down..."; kill $$! 2>/dev/null; wait $$! 2>/dev/null; echo "✓ Stopped."' EXIT INT TERM; \
 		(cd server && go run ./cmd/server) & \
 		pnpm dev:web & \
 		wait
+
+# Start with docker dev profile (hot reload)
+start-dev:
+	$(REQUIRE_ENV)
+	@echo "Starting dev environment with hot reload..."
+	@bash scripts/ensure-postgres.sh "$(ENV_FILE)"
+	docker compose --profile dev up dev-backend dev-frontend
 
 # Stop all services
 stop:
 	$(REQUIRE_ENV)
 	@echo "Stopping services..."
-	@-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null
-	@-lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null
+	@-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || true
+	@-docker compose --profile dev down 2>/dev/null || true
 	@echo "✓ App processes stopped. Shared PostgreSQL is still running on localhost:5432."
 
 # Full verification: typecheck + unit tests + Go tests + E2E

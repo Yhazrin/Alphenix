@@ -39,5 +39,57 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # --- Dev profile: hot reload for local development ---
+  dev-backend:
+    image: golang:1.26-alpine
+    working_dir: /src/server
+    volumes:
+      - .:/src
+      - go-build-cache:/root/.cache/go-build
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-multicode}:${POSTGRES_PASSWORD:-multicode}@postgres:5432/${POSTGRES_DB:-multicode}?sslmode=disable
+      PORT: "8080"
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      APP_ENV: development
+      MULTICODE_SERVER_URL: ws://localhost:8080/ws
+      MULTICODE_APP_URL: http://localhost:${FRONTEND_PORT:-3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Install air for hot reload, then run
+    command: >
+      sh -c "
+        go install github.com/air-verse/air@latest &&
+        air -c .air.toml
+      "
+    profiles:
+      - dev
+
+  dev-frontend:
+    image: node:22-alpine
+    working_dir: /src
+    volumes:
+      - .:/src
+      - pnpm-store:/root/.local/share/pnpm/store
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${PORT:-8080}
+      NEXT_PUBLIC_WS_URL: ws://localhost:${PORT:-8080}/ws
+    depends_on:
+      - dev-backend
+    command: >
+      sh -c "
+        corepack enable pnpm &&
+        pnpm install &&
+        pnpm dev:web
+      "
+    profiles:
+      - dev
+
 volumes:
   pgdata:
+  go-build-cache:
+  pnpm-store:

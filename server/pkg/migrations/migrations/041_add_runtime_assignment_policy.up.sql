@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS runtime_assignment_policy (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
     agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
-    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+    team_id UUID,
 
     required_tags JSONB NOT NULL DEFAULT '[]',
     forbidden_tags JSONB NOT NULL DEFAULT '[]',
