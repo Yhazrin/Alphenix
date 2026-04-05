@@ -34,6 +34,7 @@ type Daemon struct {
 	logger    *slog.Logger
 	bus       *events.Bus
 	hooks     *HookService
+	snapshot  *SnapshotService
 
 	mu           sync.Mutex
 	workspaces   map[string]*workspaceState
@@ -49,13 +50,15 @@ type Daemon struct {
 func New(cfg Config, logger *slog.Logger) *Daemon {
 	cacheRoot := filepath.Join(cfg.WorkspacesRoot, ".repos")
 	bus := events.New()
+	client := NewClient(cfg.ServerBaseURL)
 	return &Daemon{
 		cfg:          cfg,
-		client:       NewClient(cfg.ServerBaseURL),
+		client:       client,
 		repoCache:    repocache.New(cacheRoot, logger),
 		logger:       logger,
 		bus:          bus,
 		hooks:        NewHookService(bus, logger),
+		snapshot:     NewSnapshotService(client, logger),
 		workspaces:   make(map[string]*workspaceState),
 		runtimeIndex: make(map[string]Runtime),
 	}
@@ -1108,6 +1111,9 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 					}
 					coalescer.PushToolResult(msg.CallID, toolName, output)
 
+					// Capture post-tool snapshot for file-modifying tools.
+					d.snapshot.CaptureTool(ctx, task.ID, env.WorkDir, toolName)
+
 				case agent.MessageThinking:
 					if msg.Content != "" {
 						coalescer.Push("thinking", msg.Content, service.ClassFold)
@@ -1164,15 +1170,17 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		"tools", toolCount.Load(),
 	)
 
-	// Publish lifecycle completion event.
+	// Publish lifecycle completion event and capture final snapshot.
 	if result.Status == "completed" {
 		d.hooks.PublishAgentCompleted(task.WorkspaceID, task.ID, task.AgentID, result.DurationMs)
+		d.snapshot.CaptureDone(ctx, task.ID, env.WorkDir, "completed")
 	} else {
 		errMsg := result.Error
 		if errMsg == "" {
 			errMsg = fmt.Sprintf("%s %s", provider, result.Status)
 		}
 		d.hooks.PublishAgentFailed(task.WorkspaceID, task.ID, task.AgentID, errMsg)
+		d.snapshot.CaptureDone(ctx, task.ID, env.WorkDir, "failed")
 	}
 
 	switch result.Status {

@@ -190,6 +190,14 @@ func (c *Client) ListWorkspaces(ctx context.Context) ([]WorkspaceInfo, error) {
 	return workspaces, nil
 }
 
+// SaveCheckpoint persists a snapshot checkpoint for a task.
+func (c *Client) SaveCheckpoint(ctx context.Context, taskID, label string, filesChanged []string) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/tasks/%s/checkpoints", taskID), map[string]any{
+		"label":         label,
+		"files_changed": filesChanged,
+	}, nil)
+}
+
 func (c *Client) Deregister(ctx context.Context, runtimeIDs []string) error {
 	return c.postJSON(ctx, "/api/daemon/deregister", map[string]any{
 		"runtime_ids": runtimeIDs,
