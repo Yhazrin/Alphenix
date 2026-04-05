@@ -1,3 +1,4 @@
+import type React from "react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +13,7 @@ interface EmptyStateProps {
   title: string;
   description?: string;
   actions?: EmptyStateAction[];
+  children?: React.ReactNode;
 }
 
 export function EmptyState({
@@ -19,6 +21,7 @@ export function EmptyState({
   title,
   description,
   actions,
+  children,
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -33,6 +36,7 @@ export function EmptyState({
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </div>
+      {children}
       {actions && actions.length > 0 && (
         <div className="flex gap-2 pt-1">
           {actions.map((action) => (
