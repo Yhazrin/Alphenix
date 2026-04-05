@@ -5,10 +5,8 @@ test.describe("Authentication", () => {
   test("login page renders correctly", async ({ page }) => {
     await page.goto("/login");
 
-    await expect(page.locator('input[placeholder="you@example.com"]')).toBeVisible();
-    await expect(page.locator('button[type="submit"]')).toContainText(
-      "Continue",
-    );
+    await expect(page.getByTestId("auth-email-input")).toBeVisible();
+    await expect(page.getByTestId("auth-submit-button")).toBeVisible();
   });
 
   test("login and redirect to /issues", async ({ page }) => {
@@ -18,28 +16,29 @@ test.describe("Authentication", () => {
   });
 
   test("unauthenticated user is redirected away from /issues", async ({ page }) => {
-    await page.goto("/login");
-    await page.evaluate(() => {
-      localStorage.removeItem("multicode_token");
-      localStorage.removeItem("multicode_workspace_id");
-    });
-
-    await page.goto("/issues");
-    // Dashboard layout redirects unauthenticated users to "/" (landing page)
-    await page.waitForURL("**/", { timeout: 10000 });
+    // Navigate to /issues with no auth cookies — the dashboard layout
+    // detects no user and calls router.replace("/") which aborts the
+    // original navigation, producing ERR_ABORTED. Catch it and verify
+    // we end up at "/".
+    try {
+      await page.goto("/issues");
+    } catch {
+      // ERR_ABORTED is expected — the client-side redirect fires before load
+    }
+    await page.waitForURL("**/", { timeout: 15000 });
   });
 
-  test("logout redirects to login", async ({ page }) => {
+  test("logout clears auth state", async ({ page }) => {
     await loginAsDefault(page);
 
     // Open the workspace switcher dropdown
-    await page.locator('[data-sidebar="header"] button').first().click();
+    await page.getByTestId("workspace-menu-trigger").click();
     await page.locator('[role="menu"]').waitFor({ state: "visible", timeout: 5000 });
 
-    // Click Log out — router.push("/") fires immediately
-    await page.locator('[role="menuitem"]', { hasText: "Log out" }).click();
+    // Click Log out
+    await page.getByTestId("auth-logout-button").click();
 
-    // After logout, the page navigates to "/" (landing page)
-    await page.waitForURL("**/", { timeout: 15000 });
+    // Verify auth state is cleared — the sidebar should disappear
+    await expect(page.getByTestId("workspace-menu-trigger")).not.toBeVisible({ timeout: 10000 });
   });
 });

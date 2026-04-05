@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsDefault, openWorkspaceMenu } from "./helpers";
+import { loginAsDefault } from "./helpers";
 
 test.describe("Navigation", () => {
   test.beforeEach(async ({ page }) => {
@@ -17,20 +17,20 @@ test.describe("Navigation", () => {
     await page.waitForURL("**/agents");
     await expect(page).toHaveURL(/\/agents/);
 
-    // Click Issues
-    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Issues" }).click();
+    // Click Issues (use href to avoid matching "My Issues")
+    await page.locator('[data-sidebar="sidebar"] a[href="/issues"]').click();
     await page.waitForURL("**/issues");
     await expect(page).toHaveURL(/\/issues/);
   });
 
-  test("settings page loads via workspace menu", async ({ page }) => {
-    // Settings is inside the workspace dropdown menu
-    await openWorkspaceMenu(page);
-    await page.locator("text=Settings").click();
+  test("settings page loads via sidebar", async ({ page }) => {
+    // Settings is a sidebar nav link, not in the workspace dropdown
+    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Settings" }).click();
     await page.waitForURL("**/settings");
 
-    await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    // Default tab is Profile (My Account section)
+    await expect(page.locator("text=Profile").first()).toBeVisible();
   });
 
   test("agents page shows agent list", async ({ page }) => {

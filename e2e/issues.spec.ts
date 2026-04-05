@@ -15,15 +15,23 @@ test.describe("Issues", () => {
   });
 
   test("issues page loads with board view", async ({ page }) => {
+    // Create a test issue so board columns render (empty board shows no columns)
+    await api.createIssue("E2E Board Fixture " + Date.now());
+    await page.reload();
+
     await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Board columns use div[role="region"] with aria-label containing column name
-    await expect(page.locator('div[role="region"]').filter({ hasText: /^Backlog/ }).first()).toBeVisible();
-    await expect(page.locator('div[role="region"]').filter({ hasText: /^Todo/ }).first()).toBeVisible();
-    await expect(page.locator('div[role="region"]').filter({ hasText: /^In Progress/ }).first()).toBeVisible();
+    await expect(page.locator('[role="region"][aria-label*="Backlog column"]')).toBeVisible();
+    await expect(page.locator('[role="region"][aria-label*="Todo column"]')).toBeVisible();
+    await expect(page.locator('[role="region"][aria-label*="In Progress column"]')).toBeVisible();
   });
 
   test("can switch between board and list view", async ({ page }) => {
+    // Create a test issue so board columns render
+    await api.createIssue("E2E View Fixture " + Date.now());
+    await page.reload();
+
     await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Switch to list view — open dropdown then click List option
@@ -34,7 +42,7 @@ test.describe("Issues", () => {
     // Switch back to board view
     await page.locator('button[aria-label="List view"]').click();
     await page.locator('[role="menuitem"]', { hasText: "Board" }).click();
-    await expect(page.locator('div[role="region"]').filter({ hasText: /^Backlog/ }).first()).toBeVisible();
+    await expect(page.locator('[role="region"][aria-label*="Backlog column"]')).toBeVisible();
   });
 
   test("can create a new issue", async ({ page }) => {

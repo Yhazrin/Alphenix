@@ -6,6 +6,9 @@ import { useIssueStore } from "@/features/issues";
 import { useInboxStore } from "@/features/inbox";
 import { toast } from "sonner";
 import { api } from "@/shared/api";
+import { configureAgentsApi } from "@/shared/api/agents";
+import { configureTasksApi } from "@/shared/api/tasks";
+import { configureRuntimesApi } from "@/shared/api/runtimes";
 import { createLogger } from "@/shared/logger";
 import { resetStores } from "./orchestration";
 
@@ -66,12 +69,18 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     if (!nextWorkspace) {
       api.setWorkspaceId(null);
+      configureAgentsApi({ workspaceId: null });
+      configureTasksApi({ workspaceId: null });
+      configureRuntimesApi({ workspaceId: null });
       localStorage.removeItem("multicode_workspace_id");
       set({ workspace: null, members: [], agents: [], skills: [] });
       return null;
     }
 
     api.setWorkspaceId(nextWorkspace.id);
+    configureAgentsApi({ workspaceId: nextWorkspace.id });
+    configureTasksApi({ workspaceId: nextWorkspace.id });
+    configureRuntimesApi({ workspaceId: nextWorkspace.id });
     localStorage.setItem("multicode_workspace_id", nextWorkspace.id);
     set({ workspace: nextWorkspace });
 
@@ -112,6 +121,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     // (e.g. triggered by a WS event during the async gap) already
     // targets the new workspace.
     api.setWorkspaceId(ws.id);
+    configureAgentsApi({ workspaceId: ws.id });
+    configureTasksApi({ workspaceId: ws.id });
+    configureRuntimesApi({ workspaceId: ws.id });
     localStorage.setItem("multicode_workspace_id", ws.id);
 
     // Clear ALL stale data across every store before hydrating.
@@ -253,6 +265,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   clearWorkspace: () => {
     api.setWorkspaceId(null);
+    configureAgentsApi({ workspaceId: null });
+    configureTasksApi({ workspaceId: null });
+    configureRuntimesApi({ workspaceId: null });
     localStorage.removeItem("multicode_workspace_id");
     set({ workspace: null, workspaces: [], members: [], agents: [], skills: [] });
   },

@@ -144,8 +144,8 @@ test.describe("Prompt Preview (P0-1)", () => {
     }
   });
 
-  test("empty agent shows fallback state", async ({ page }) => {
-    // Create a second agent with minimal data
+  test("empty agent still shows prompt preview with identity sections", async ({ page }) => {
+    // Even an agent with empty instructions has identity sections
     const emptyAgent = await api.createAgent("E2E Empty Agent", {
       instructions: "",
     });
@@ -154,16 +154,9 @@ test.describe("Prompt Preview (P0-1)", () => {
     await page.waitForURL(`**/agents/${emptyAgent.id}`);
     await page.locator('[role="tab"]:has-text("Prompt")').click();
 
-    // Should either show preview or empty state
-    const hasHeading = await page
-      .getByRole("heading", { name: "System Prompt Preview" })
-      .isVisible({ timeout: 10000 })
-      .catch(() => false);
-    const hasEmpty = await page
-      .locator("text=No prompt content yet")
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-
-    expect(hasHeading || hasEmpty).toBeTruthy();
+    // Should show the heading — identity sections are always present
+    await expect(
+      page.getByRole("heading", { name: "System Prompt Preview" }),
+    ).toBeVisible({ timeout: 10000 });
   });
 });

@@ -169,17 +169,10 @@ test.describe("Task Report — inline panel via agent detail (P0-2)", () => {
     // Switch to Timeline tab
     await page.locator('[role="tab"]:has-text("Timeline")').click();
 
-    // Either shows events or empty state
-    const hasEvents = await page
-      .locator("text=/\\d+ events?/")
-      .isVisible()
-      .catch(() => false);
-    const hasEmpty = await page
-      .locator("text=No timeline events yet")
-      .isVisible()
-      .catch(() => false);
-
-    expect(hasEvents || hasEmpty).toBeTruthy();
+    // Should show empty state since no timeline events exist for this task
+    await expect(page.locator("text=No timeline events yet")).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("tab navigation Summary → Timeline → Output → Summary", async ({
@@ -198,23 +191,23 @@ test.describe("Task Report — inline panel via agent detail (P0-2)", () => {
       page.getByRole("heading", { name: "Task Report" }),
     ).toBeVisible({ timeout: 10000 });
 
+    // Scope tab assertions to the inner task report tablist
+    const panelTabs = page.locator('[role="tablist"]:has([aria-label="View report"]) ~ * [role="tablist"] [role="tab"], [data-testid="task-report-tabs"] [role="tab"]');
+
     // Summary → Timeline
     await page.locator('[role="tab"]:has-text("Timeline")').click();
-    await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveText(
-      /Timeline/,
-    );
+    const timelineTab = page.locator('[role="tab"]:has-text("Timeline")').last();
+    await expect(timelineTab).toHaveAttribute("aria-selected", "true");
 
     // Timeline → Output
     await page.locator('[role="tab"]:has-text("Output")').click();
-    await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveText(
-      /Output/,
-    );
+    const outputTab = page.locator('[role="tab"]:has-text("Output")').last();
+    await expect(outputTab).toHaveAttribute("aria-selected", "true");
 
     // Output → Summary
     await page.locator('[role="tab"]:has-text("Summary")').click();
-    await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveText(
-      /Summary/,
-    );
+    const summaryTab = page.locator('[role="tab"]:has-text("Summary")').last();
+    await expect(summaryTab).toHaveAttribute("aria-selected", "true");
   });
 
   test("issue title is displayed in report", async ({ page }) => {

@@ -227,6 +227,7 @@ function LoginPageContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                data-testid="auth-email-input"
               />
             </div>
             {error && (
@@ -241,6 +242,7 @@ function LoginPageContent() {
             disabled={submitting}
             className="w-full"
             size="lg"
+            data-testid="auth-submit-button"
           >
             {submitting ? "Sending code..." : "Continue"}
           </Button>

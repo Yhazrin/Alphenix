@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useAuthStore } from "@/features/auth";
+import { clearLoggedInCookie } from "@/features/auth/auth-cookie";
 import { useWorkspaceStore } from "@/features/workspace";
 import { useInboxStore } from "@/features/inbox";
 import { useModalStore } from "@/features/modals";
@@ -81,10 +82,11 @@ export function AppSidebar() {
 
   const unreadCount = useInboxStore((s) => s.unreadCount);
 
-  const logout = () => {
-    router.push("/");
-    authLogout();
+  const logout = async () => {
+    clearLoggedInCookie();
+    await authLogout();
     useWorkspaceStore.getState().clearWorkspace();
+    router.push("/");
   };
 
   return (
@@ -97,7 +99,7 @@ export function AppSidebar() {
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <SidebarMenuButton>
+                      <SidebarMenuButton data-testid="workspace-menu-trigger">
                         <WorkspaceAvatar name={workspace?.name ?? "M"} size="sm" />
                         <span className="flex-1 truncate font-medium">
                           {workspace?.name ?? "Multicode"}
@@ -153,7 +155,7 @@ export function AppSidebar() {
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem variant="destructive" onClick={logout}>
+                    <DropdownMenuItem variant="destructive" onClick={logout} data-testid="auth-logout-button">
                       <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
                       Log out
                     </DropdownMenuItem>

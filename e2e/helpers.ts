@@ -19,8 +19,8 @@ function uniqueCredentials() {
 
 /**
  * Log in as the default E2E user and ensure the workspace exists first.
- * Sets the auth cookie via same-origin fetch through the Next.js proxy,
- * then sets localStorage and navigates to /issues.
+ * Sets the auth cookie via Playwright's request context, then uses
+ * addInitScript to inject localStorage before the page hydrates.
  */
 export async function loginAsDefault(page: Page) {
   const { email, slug } = uniqueCredentials();
@@ -44,24 +44,14 @@ export async function loginAsDefault(page: Page) {
     }
   }
 
-  // Step 2: Verify using the master code (888888) via the Next.js proxy.
-  // We navigate to /login first so page.evaluate has a same-origin context,
-  // then use fetch("/auth/verify-code") (relative URL) which goes through
-  // Next.js rewrites → API server. The Set-Cookie response header is set
-  // on localhost:3000 (same origin as the frontend page).
-  // NOTE: page.request.post to an absolute URL (http://localhost:8080/...)
-  // would set the cookie on the API server domain, which the browser won't
-  // send on subsequent page loads to localhost:3000.
+  // Step 2: Verify using the master code (888888) via Playwright's request context.
+  // page.request.post goes through the Next.js proxy and captures Set-Cookie
+  // at the browser context level — same-origin, no page navigation needed.
   await page.goto("/login");
-  const verifyResult = await page.evaluate(async ({ email }) => {
-    const res = await fetch("/auth/verify-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code: "888888" }),
-      credentials: "include",
-    });
-    return res.json();
-  }, { email });
+  const verifyRes = await page.request.post("/auth/verify-code", {
+    data: { email, code: "888888" },
+  });
+  const verifyResult = await verifyRes.json();
   const token = verifyResult.token;
 
   if (!token) {
@@ -103,12 +93,17 @@ export async function loginAsDefault(page: Page) {
   }
   if (!workspace) throw new Error(`Failed to ensure workspace ${slug}`);
 
-  // Set workspace ID in localStorage — we're on /login so localStorage is accessible
-  await page.evaluate((wsId) => {
+  // Step 4: Inject localStorage + cookie BEFORE the page JS runs.
+  // addInitScript runs before any page script, so AuthInitializer will
+  // find the workspace ID in localStorage on mount.
+  await page.addInitScript((wsId) => {
     localStorage.setItem("multicode_workspace_id", wsId);
+    document.cookie = "multicode_logged_in=1; path=/; max-age=31536000; samesite=lax";
   }, workspace.id);
 
-  // Now navigate — the cookie is set, AuthInitializer will authenticate
+  // Navigate to /issues — the init script sets localStorage before hydration,
+  // the HttpOnly token cookie is already in the browser context from step 2,
+  // and AuthInitializer will authenticate successfully.
   await page.goto("/issues");
   await page.waitForURL("**/issues", { timeout: 15000 });
 
