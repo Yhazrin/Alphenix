@@ -211,14 +211,14 @@ export class ApiClient {
   async searchIssues(query: string, limit?: number): Promise<ListIssuesResponse> {
     const search = new URLSearchParams();
     search.set("q", query);
-    if (limit) search.set("limit", String(limit));
+    if (limit !== undefined) search.set("limit", String(limit));
     return this.fetch(`/api/issues/search?${search}`);
   }
 
   async listIssues(params?: ListIssuesParams): Promise<ListIssuesResponse> {
     const search = new URLSearchParams();
-    if (params?.limit) search.set("limit", String(params.limit));
-    if (params?.offset) search.set("offset", String(params.offset));
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    if (params?.offset !== undefined) search.set("offset", String(params.offset));
     if (params?.cursor) search.set("cursor", params.cursor);
     const wsId = params?.workspace_id ?? this.workspaceId;
     if (wsId) search.set("workspace_id", wsId);
@@ -395,7 +395,7 @@ export class ApiClient {
 
   async getRuntimeUsage(runtimeId: string, params?: { days?: number }): Promise<RuntimeUsage[]> {
     const search = new URLSearchParams();
-    if (params?.days) search.set("days", String(params.days));
+    if (params?.days !== undefined) search.set("days", String(params.days));
     return this.fetch(`/api/runtimes/${runtimeId}/usage?${search}`);
   }
 

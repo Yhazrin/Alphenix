@@ -247,9 +247,6 @@ export class WSClient {
     this._setState(ConnectionState.Closed);
     this.hasConnectedBefore = false;
     this.reconnectAttempt = 0;
-    this.handlers.clear();
-    this.anyHandlers.clear();
-    this.onReconnectCallbacks.clear();
   }
 
   on(event: WSEventType, handler: EventHandler) {
