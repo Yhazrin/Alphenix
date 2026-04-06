@@ -128,19 +128,21 @@ type skipRegion struct {
 	start, end int
 }
 
+// fenceRe matches fenced code blocks: ```...```
+var fenceRe = regexp.MustCompile("(?m)^```[^`]*\n[\\s\\S]*?\n```")
+
+// inlineRe matches inline code: `...`
+var inlineRe = regexp.MustCompile("`[^`\n]+`")
+
 // findSkipRegions identifies fenced code blocks (```) and inline code (`)
 // regions in the content.
 func findSkipRegions(content string) []skipRegion {
 	var regions []skipRegion
 
-	// Fenced code blocks: ```...```
-	fenceRe := regexp.MustCompile("(?m)^```[^`]*\n[\\s\\S]*?\n```")
 	for _, loc := range fenceRe.FindAllStringIndex(content, -1) {
 		regions = append(regions, skipRegion{loc[0], loc[1]})
 	}
 
-	// Inline code: `...` (but not inside fenced blocks — already handled).
-	inlineRe := regexp.MustCompile("`[^`\n]+`")
 	for _, loc := range inlineRe.FindAllStringIndex(content, -1) {
 		regions = append(regions, skipRegion{loc[0], loc[1]})
 	}
