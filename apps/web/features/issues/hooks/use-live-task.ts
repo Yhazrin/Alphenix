@@ -229,7 +229,7 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
         }
       }).catch((e) => {
         if (unmountedRef.current) return;
-        console.error(e);
+        console.error(e instanceof Error ? e : String(e));
         toast.error("Failed to load dispatched task");
       });
     }, [issueId]),

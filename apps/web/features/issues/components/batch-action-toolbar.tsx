@@ -57,7 +57,7 @@ export function BatchActionToolbar() {
       api.listIssues({ limit: 200 }).then((res) => {
         useIssueStore.getState().setIssues(res.issues);
       }).catch((e) => {
-        console.error(e);
+        console.error(e instanceof Error ? e : String(e));
         toast.error("Failed to restore issue list");
       });
     } finally {
@@ -79,7 +79,7 @@ export function BatchActionToolbar() {
       api.listIssues({ limit: 200 }).then((res) => {
         useIssueStore.getState().setIssues(res.issues);
       }).catch((e) => {
-        console.error(e);
+        console.error(e instanceof Error ? e : String(e));
         toast.error("Failed to restore issue list");
       });
     } finally {

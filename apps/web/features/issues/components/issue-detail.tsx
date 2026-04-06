@@ -100,7 +100,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
       })
       .catch((e) => {
         if (cancelled) return;
-        console.error(e);
+        console.error(e instanceof Error ? e : String(e));
         toast.error("Failed to load issue");
       })
       .finally(() => { if (!cancelled) setIssueLoading(false); });
