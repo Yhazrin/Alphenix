@@ -36,6 +36,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { api } from "@/shared/api";
 
+function safeDate(s: string): string {
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+}
+
 export function TokensTab() {
   const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
   const [tokenName, setTokenName] = useState("");
@@ -156,8 +161,8 @@ export function TokensTab() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">{t.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {t.token_prefix}... · Created {new Date(t.created_at).toLocaleDateString()} · {t.last_used_at ? `Last used ${new Date(t.last_used_at).toLocaleDateString()}` : "Never used"}
-                      {t.expires_at && ` · Expires ${new Date(t.expires_at).toLocaleDateString()}`}
+                      {t.token_prefix}... · Created {safeDate(t.created_at)} · {t.last_used_at ? `Last used ${safeDate(t.last_used_at)}` : "Never used"}
+                      {t.expires_at && ` · Expires ${safeDate(t.expires_at)}`}
                     </div>
                   </div>
                   <Tooltip>

@@ -25,13 +25,13 @@ export function deduplicateInboxItems(items: InboxItem[]): InboxItem[] {
   groups.forEach((group) => {
     const sorted = group.sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0),
     );
     if (sorted[0]) merged.push(sorted[0]);
   });
   return merged.sort(
     (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0),
   );
 }
 

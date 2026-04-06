@@ -43,7 +43,7 @@ export function useScheme() {
 
   const setScheme = useCallback((next: ThemeScheme) => {
     currentScheme = next;
-    localStorage.setItem(STORAGE_KEY, next);
+    try { localStorage.setItem(STORAGE_KEY, next); } catch {}
     applySchemeClass(next);
     emitChange();
   }, []);

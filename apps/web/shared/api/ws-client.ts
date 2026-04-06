@@ -72,12 +72,14 @@ export class WSClient {
     }
   }
 
+  private _visibilityHandler: (() => void) | null = null;
+
   private _setupVisibilityTracking() {
     if (typeof document === "undefined") return;
-    const onVisibilityChange = () => {
+    this._visibilityHandler = () => {
       this._visibilityHidden = document.visibilityState === "hidden";
     };
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("visibilitychange", this._visibilityHandler);
   }
 
   get connectionState(): ConnectionState {
@@ -243,6 +245,10 @@ export class WSClient {
       this.ws.onerror = null;
       this.ws.close();
       this.ws = null;
+    }
+    if (this._visibilityHandler) {
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
+      this._visibilityHandler = null;
     }
     this._setState(ConnectionState.Closed);
     this.hasConnectedBefore = false;
