@@ -245,6 +245,10 @@ func (d *Daemon) registerRuntimesForWorkspace(ctx context.Context, workspaceID s
 			d.logger.Warn("skip registering runtime", "name", name, "error", err)
 			continue
 		}
+		if name == "" {
+			d.logger.Warn("skip registering runtime with empty name")
+			continue
+		}
 		displayName := strings.ToUpper(name[:1]) + name[1:]
 		if d.cfg.DeviceName != "" {
 			displayName = fmt.Sprintf("%s (%s)", displayName, d.cfg.DeviceName)
