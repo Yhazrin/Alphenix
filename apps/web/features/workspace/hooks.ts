@@ -37,6 +37,7 @@ export function useActorName() {
       const name = getActorName(type, id);
       return name
         .split(" ")
+        .filter((w) => w.length > 0)
         .map((w) => w[0])
         .join("")
         .toUpperCase()

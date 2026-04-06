@@ -201,16 +201,20 @@ export function registerViewStoreForWorkspaceSync(store: StoreApi<IssueViewState
   _workspaceSyncInitialized = true;
 
   // Dynamic import breaks the circular module evaluation chain.
-  import("@/features/workspace").then(({ useWorkspaceStore }) => {
-    let prevId: string | undefined;
-    useWorkspaceStore.subscribe((state) => {
-      const id = state.workspace?.id;
-      if (prevId && id !== prevId) {
-        for (const s of _syncedStores) s.getState().clearFilters();
-      }
-      prevId = id;
+  import("@/features/workspace")
+    .then(({ useWorkspaceStore }) => {
+      let prevId: string | undefined;
+      useWorkspaceStore.subscribe((state) => {
+        const id = state.workspace?.id;
+        if (prevId && id !== prevId) {
+          for (const s of _syncedStores) s.getState().clearFilters();
+        }
+        prevId = id;
+      });
+    })
+    .catch((e) => {
+      console.error("Failed to initialize workspace sync:", e);
     });
-  });
 }
 
 /** Backward-compatible alias — registers the global singleton for workspace sync. */
