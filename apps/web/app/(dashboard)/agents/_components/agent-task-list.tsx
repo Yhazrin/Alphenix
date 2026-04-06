@@ -145,14 +145,14 @@ export function TasksTab({ agent }: { agent: Agent }) {
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {isRunning && task.started_at
-                      ? `Started ${new Date(task.started_at).toLocaleString()}`
+                      ? `Started ${(() => { const d = new Date(task.started_at); return isNaN(d.getTime()) ? "—" : d.toLocaleString(); })()}`
                       : task.status === "dispatched" && task.dispatched_at
-                        ? `Dispatched ${new Date(task.dispatched_at).toLocaleString()}`
+                        ? `Dispatched ${(() => { const d = new Date(task.dispatched_at); return isNaN(d.getTime()) ? "—" : d.toLocaleString(); })()}`
                         : task.status === "completed" && task.completed_at
-                          ? `Completed ${new Date(task.completed_at).toLocaleString()}`
+                          ? `Completed ${(() => { const d = new Date(task.completed_at); return isNaN(d.getTime()) ? "—" : d.toLocaleString(); })()}`
                           : task.status === "failed" && task.completed_at
-                            ? `Failed ${new Date(task.completed_at).toLocaleString()}`
-                            : `Queued ${new Date(task.created_at).toLocaleString()}`}
+                            ? `Failed ${(() => { const d = new Date(task.completed_at); return isNaN(d.getTime()) ? "—" : d.toLocaleString(); })()}`
+                            : `Queued ${(() => { const d = new Date(task.created_at); return isNaN(d.getTime()) ? "—" : d.toLocaleString(); })()}`}
                   </div>
                 </div>
                 <span className={`shrink-0 text-xs font-medium ${config.color}`}>

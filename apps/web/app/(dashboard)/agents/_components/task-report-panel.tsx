@@ -235,7 +235,7 @@ function TimelineTab({ taskId }: { taskId: string }) {
               <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{event.detail}</p>
             )}
             <span className="text-[10px] text-muted-foreground mt-1 block">
-              {new Date(event.timestamp).toLocaleString()}
+              {(() => { const d = new Date(event.timestamp); return isNaN(d.getTime()) ? "" : d.toLocaleString(); })()}
             </span>
           </div>
         </div>

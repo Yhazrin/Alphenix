@@ -122,7 +122,7 @@ export function AuditLogSection({ runtimeId }: { runtimeId: string }) {
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{detailText}</p>
               )}
               <span className="text-[10px] text-muted-foreground">
-                {new Date(log.created_at).toLocaleString()}
+                {(() => { const d = new Date(log.created_at); return isNaN(d.getTime()) ? "" : d.toLocaleString(); })()}
               </span>
             </div>
           </div>
