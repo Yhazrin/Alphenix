@@ -91,9 +91,11 @@ export function TokensTab() {
 
   const handleCopyToken = async () => {
     if (!newToken) return;
-    await navigator.clipboard.writeText(newToken);
-    setTokenCopied(true);
-    setTimeout(() => setTokenCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(newToken);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch {}
   };
 
   return (

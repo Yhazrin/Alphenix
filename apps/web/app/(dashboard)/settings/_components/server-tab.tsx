@@ -19,9 +19,10 @@ export function ServerTab() {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCommand = (command: string) => {
-    navigator.clipboard.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
   };
 
   const localCommands = {

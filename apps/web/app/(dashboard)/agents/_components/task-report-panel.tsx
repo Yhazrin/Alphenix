@@ -155,20 +155,24 @@ function TimelineTab({ taskId }: { taskId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const loadTimeline = useCallback(() => {
+    let cancelled = false;
     setLoading(true);
     setError(null);
     tasksApi
       .getTimeline(taskId)
-      .then(setEvents)
+      .then((data) => { if (!cancelled) setEvents(data); })
       .catch((e: unknown) => {
+        if (cancelled) return;
         setError(e instanceof Error ? e.message : "Failed to load timeline");
         setEvents([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [taskId]);
 
   useEffect(() => {
-    loadTimeline();
+    const cleanup = loadTimeline();
+    return cleanup;
   }, [loadTimeline]);
 
   if (loading) {
@@ -261,7 +265,7 @@ function OutputTab({ report }: { report: TaskReport }) {
     navigator.clipboard.writeText(content).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    });
+    }).catch(() => {});
   };
 
   return (
