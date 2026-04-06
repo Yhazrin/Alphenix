@@ -36,9 +36,11 @@ export function PromptPreviewTab({ agent }: { agent: Agent }) {
   }, [loadPreview]);
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(fullPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(fullPrompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
   }, [fullPrompt]);
 
   if (loading) {
@@ -163,7 +165,7 @@ export function PromptPreviewTab({ agent }: { agent: Agent }) {
                     className="mt-2 h-6 text-[10px]"
                     onClick={async (e) => {
                       e.stopPropagation();
-                      await navigator.clipboard.writeText(section.content);
+                      try { await navigator.clipboard.writeText(section.content); } catch {}
                     }}
                   >
                     <Copy className="mr-1 h-3 w-3" /> Copy section

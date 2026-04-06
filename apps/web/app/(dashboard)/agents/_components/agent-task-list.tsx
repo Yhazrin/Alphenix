@@ -25,16 +25,19 @@ export function TasksTab({ agent }: { agent: Agent }) {
   const issues = useIssueStore((s) => s.issues);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError(null);
     api
       .listAgentTasks(agent.id)
-      .then(setTasks)
+      .then((data) => { if (!cancelled) setTasks(data); })
       .catch((e: unknown) => {
+        if (cancelled) return;
         setError(e instanceof Error ? e.message : "Failed to load tasks");
         setTasks([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [agent.id]);
 
   if (loading) {
@@ -73,7 +76,7 @@ export function TasksTab({ agent }: { agent: Agent }) {
     if (aIsActive && !bIsActive) return -1;
     if (!aIsActive && bIsActive) return 1;
     if (aIsActive && bIsActive) return aActive - bActive;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0);
   });
 
   const issueMap = new Map(issues.map((i) => [i.id, i]));

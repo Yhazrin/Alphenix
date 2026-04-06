@@ -111,7 +111,8 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
       ? getActorName(assigneeType, assigneeId)
       : "Assignee";
 
-  const dueDateObj = dueDate ? new Date(dueDate) : undefined;
+  const dueDateRaw = dueDate ? new Date(dueDate) : undefined;
+  const dueDateObj = dueDateRaw && !isNaN(dueDateRaw.getTime()) ? dueDateRaw : undefined;
 
   // Sync field changes to draft store
   const updateTitle = (v: string) => { setTitle(v); setTitleError(null); setDraft({ title: v }); };

@@ -100,14 +100,14 @@ export function createFileUploadExtension(
               const files = event.clipboardData?.files;
               if (!files?.length) return false;
               if (!onUploadFileRef.current) return false;
-              handleFiles(files);
+              handleFiles(files).catch(() => {});
               return true;
             },
             handleDrop(_view, event) {
               const files = (event as DragEvent).dataTransfer?.files;
               if (!files?.length) return false;
               if (!onUploadFileRef.current) return false;
-              handleFiles(files);
+              handleFiles(files).catch(() => {});
               return true;
             },
           },
