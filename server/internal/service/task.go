@@ -85,6 +85,27 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 	return task, nil
 }
 
+// TryEnqueueReadySubIssues finds all sub-issues of a parent issue that have all
+// dependencies satisfied and enqueues tasks for those that are assigned to an agent.
+// This is called after a goal decomposition is confirmed to automatically start
+// unblocked sub-tasks.
+func (s *TaskService) TryEnqueueReadySubIssues(ctx context.Context, parentIssueID pgtype.UUID) {
+	ready, err := s.Queries.ListReadySubIssues(ctx, parentIssueID)
+	if err != nil {
+		slog.Warn("TryEnqueueReadySubIssues: failed to list ready sub-issues", "parent_issue_id", util.UUIDToString(parentIssueID), "error", err)
+		return
+	}
+
+	for _, issue := range ready {
+		if !issue.AssigneeID.Valid {
+			continue // No assignee, skip
+		}
+		if _, err := s.EnqueueTaskForIssue(ctx, issue); err != nil {
+			slog.Warn("TryEnqueueReadySubIssues: failed to enqueue task for sub-issue", "issue_id", util.UUIDToString(issue.ID), "error", err)
+		}
+	}
+}
+
 // EnqueueTaskForMention creates a queued task for a mentioned agent on an issue.
 // Unlike EnqueueTaskForIssue, this takes an explicit agent ID rather than
 // deriving it from the issue assignee.
