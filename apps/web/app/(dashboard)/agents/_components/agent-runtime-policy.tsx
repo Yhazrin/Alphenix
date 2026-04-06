@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Shield, Plus, Trash2, Save, Loader2, Server, AlertCircle } from "lucide-react";
 import type { Agent, RuntimePolicy, RuntimeDevice } from "@/shared/types";
 import { runtimesApi } from "@/shared/api/runtimes";
@@ -149,10 +149,12 @@ export function RuntimePolicyTab({
   const [isActive, setIsActive] = useState(true);
 
   const loadPolicy = useCallback(async () => {
+    let cancelled = false;
     setLoading(true);
     setError(null);
     try {
       const p = await runtimesApi.getRuntimePolicyByAgent(agent.id);
+      if (cancelled) return;
       setPolicy(p);
       setRequiredTags(p.required_tags);
       setForbiddenTags(p.forbidden_tags);
@@ -161,18 +163,21 @@ export function RuntimePolicyTab({
       setMaxQueueDepth(p.max_queue_depth);
       setIsActive(p.is_active);
     } catch (e) {
+      if (cancelled) return;
       if (e instanceof Error && e.message.includes("not found")) {
         setPolicy(null);
       } else {
         setError(e instanceof Error ? e.message : "Failed to load policy");
       }
     } finally {
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
+    return () => { cancelled = true; };
   }, [agent.id]);
 
   useEffect(() => {
-    loadPolicy();
+    const cleanup = loadPolicy();
+    return () => { cleanup?.then((fn) => fn?.()); };
   }, [loadPolicy]);
 
   const handleSave = async () => {
@@ -326,7 +331,7 @@ export function RuntimePolicyTab({
             type="number"
             min={0}
             value={maxQueueDepth}
-            onChange={(e) => setMaxQueueDepth(parseInt(e.target.value) || 0)}
+            onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) setMaxQueueDepth(v); }}
             className="mt-1 w-32"
           />
         </div>

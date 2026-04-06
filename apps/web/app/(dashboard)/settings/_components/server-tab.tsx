@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/features/workspace";
+import { toast } from "sonner";
 
 export function ServerTab() {
   const workspace = useWorkspaceStore((s) => s.workspace);
@@ -22,7 +23,7 @@ export function ServerTab() {
     navigator.clipboard.writeText(command).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
+    }).catch(() => { toast.error("Failed to copy to clipboard"); });
   };
 
   const localCommands = {

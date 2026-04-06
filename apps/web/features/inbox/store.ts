@@ -24,14 +24,20 @@ export function deduplicateInboxItems(items: InboxItem[]): InboxItem[] {
   const merged: InboxItem[] = [];
   groups.forEach((group) => {
     const sorted = group.sort(
-      (a, b) =>
-        (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0),
+      (a, b) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return (isNaN(bTime) ? 0 : bTime) - (isNaN(aTime) ? 0 : aTime);
+      },
     );
     if (sorted[0]) merged.push(sorted[0]);
   });
   return merged.sort(
-    (a, b) =>
-      (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0),
+    (a, b) => {
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
+      return (isNaN(bTime) ? 0 : bTime) - (isNaN(aTime) ? 0 : aTime);
+    },
   );
 }
 

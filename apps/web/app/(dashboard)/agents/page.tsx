@@ -1272,9 +1272,9 @@ function TasksTab({ agent }: { agent: Agent }) {
     if (aIsActive && !bIsActive) return -1;
     if (!aIsActive && bIsActive) return 1;
     if (aIsActive && bIsActive) return aActive - bActive;
-    const aTime = new Date(b.created_at).getTime();
-    const bTime = new Date(a.created_at).getTime();
-    return (isNaN(aTime) ? 0 : aTime) - (isNaN(bTime) ? 0 : bTime);
+    const aTime = new Date(a.created_at).getTime();
+    const bTime = new Date(b.created_at).getTime();
+    return (isNaN(bTime) ? 0 : bTime) - (isNaN(aTime) ? 0 : aTime);
   });
 
   const issueMap = new Map(issues.map((i) => [i.id, i]));

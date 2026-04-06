@@ -26,12 +26,12 @@ export function sortIssues(
         if (!b.due_date) return -1;
         const aDue = new Date(a.due_date).getTime();
         const bDue = new Date(b.due_date).getTime();
-        return dir * ((aDue || 0) - (bDue || 0));
+        return dir * ((isNaN(aDue) ? 0 : aDue) - (isNaN(bDue) ? 0 : bDue));
       }
       case "created_at": {
         const aCreated = new Date(a.created_at).getTime();
         const bCreated = new Date(b.created_at).getTime();
-        return dir * ((aCreated || 0) - (bCreated || 0));
+        return dir * ((isNaN(aCreated) ? 0 : aCreated) - (isNaN(bCreated) ? 0 : bCreated));
       }
       case "title":
         return dir * a.title.localeCompare(b.title);
