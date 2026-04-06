@@ -25,6 +25,16 @@ function authHeaders(): Record<string, string> {
   return headers;
 }
 
+function handleUnauthorized() {
+  if (typeof window !== "undefined") {
+    _token = null;
+    _workspaceId = null;
+    if (window.location.pathname !== "/") {
+      window.location.href = "/";
+    }
+  }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const rid = crypto.randomUUID().slice(0, 8);
   const start = Date.now();
@@ -46,6 +56,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
     let message = `API error: ${res.status} ${res.statusText}`;
     try {
       const data = (await res.json()) as { error?: string };
