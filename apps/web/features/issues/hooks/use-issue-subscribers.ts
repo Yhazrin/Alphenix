@@ -87,17 +87,18 @@ export function useIssueSubscribers(issueId: string, userId?: string) {
   const toggleSubscriber = useCallback(
     async (subUserId: string, userType: "member" | "agent", currentlySubscribed: boolean) => {
       if (currentlySubscribed) {
-        // Optimistic remove + rollback on error
-        const removed = subscribers.find(
-          (s) => s.user_id === subUserId && s.user_type === userType,
-        );
-        setSubscribers((prev) =>
-          prev.filter((s) => !(s.user_id === subUserId && s.user_type === userType)),
-        );
+        // Optimistic remove — capture removed item from current state via functional updater
+        let removed: IssueSubscriber | undefined;
+        setSubscribers((prev) => {
+          removed = prev.find(
+            (s) => s.user_id === subUserId && s.user_type === userType,
+          );
+          return prev.filter((s) => !(s.user_id === subUserId && s.user_type === userType));
+        });
         try {
           await api.unsubscribeFromIssue(issueId, subUserId, userType);
         } catch {
-          if (removed) setSubscribers((prev) => [...prev, removed]);
+          if (removed) setSubscribers((prev) => [...prev, removed!]);
           toast.error("Failed to update subscriber");
         }
       } else {
@@ -123,7 +124,7 @@ export function useIssueSubscribers(issueId: string, userId?: string) {
         }
       }
     },
-    [issueId, subscribers],
+    [issueId],
   );
 
   const toggleSubscribe = useCallback(() => {

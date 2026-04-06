@@ -15,7 +15,11 @@ function CodeBlockView({ node }: NodeViewProps) {
   const handleCopy = async () => {
     const text = node.textContent;
     if (!text) return;
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      return;
+    }
     setCopied(true);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), 2000);
