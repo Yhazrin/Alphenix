@@ -195,7 +195,7 @@ export function useRealtimeSync(ws: WSClient | null) {
     const unsubMemberAdded = ws.on("member:added", (p) => {
       const payload = asPayload<MemberAddedPayload>(p);
       const myUserId = useAuthStore.getState().user?.id;
-      if (payload?.member.user_id === myUserId) {
+      if (payload?.member?.user_id === myUserId) {
         useWorkspaceStore.getState().refreshWorkspaces();
         toast.info(
           `You were invited to ${payload?.workspace_name ?? "a workspace"}`,
