@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Key, Trash2, Copy, Check } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { PersonalAccessToken } from "@/shared/types";
@@ -94,12 +94,15 @@ export function TokensTab() {
     }
   };
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); }, []);
+
   const handleCopyToken = async () => {
     if (!newToken) return;
     try {
       await navigator.clipboard.writeText(newToken);
       setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
+      copyTimerRef.current = setTimeout(() => setTokenCopied(false), 2000);
     } catch {
       toast.error("Failed to copy token");
     }
