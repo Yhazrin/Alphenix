@@ -45,7 +45,6 @@ import {
   SORT_OPTIONS,
   CARD_PROPERTY_OPTIONS,
 } from "@/features/issues/stores/view-store";
-import { filterIssues } from "@/features/issues/utils/filter";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { Issue } from "@/shared/types";
 import { myIssuesViewStore, type MyIssuesScope } from "../stores/my-issues-view-store";

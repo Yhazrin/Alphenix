@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { Run, RunStep, RunTodo } from "@/shared/types";
 import { runsApi } from "@/shared/api/runs";
-import { useWorkspaceStore } from "@/features/workspace";
 
 interface UseRunSubscriptionOptions {
   runId: string;

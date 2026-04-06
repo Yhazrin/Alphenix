@@ -109,7 +109,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
 
   // Custom hooks — encapsulate timeline, reactions, subscribers
   const {
-    timeline, loading: timelineLoading, error: timelineError, submitting, submitComment, submitReply,
+    timeline, loading: timelineLoading, error: timelineError, submitComment, submitReply,
     editComment, deleteComment, toggleReaction: handleToggleReaction,
   } = useIssueTimeline(id, user?.id, workspace?.id);
 

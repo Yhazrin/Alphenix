@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { AlertCircle, Bot, ChevronUp, Loader2, ArrowDown, Square, XCircle, X, RotateCcw, ChevronRight } from "lucide-react";
-import type { AgentTask } from "@/shared/types/agent";
 import { cn } from "@/lib/utils";
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import { useActorName } from "@/features/workspace";

@@ -19,12 +19,10 @@ import {
 } from "lucide-react";
 import { tasksApi } from "@/shared/api/tasks";
 import { agentsApi } from "@/shared/api/agents";
-import { api } from "@/shared/api";
 import { useWSEvent } from "@/features/realtime";
 import type { TaskReport, TaskTimelineEvent } from "@/shared/types/agent";
 import type { TaskCheckpoint } from "@/shared/types/collaboration";
 import type { TaskContextSection } from "@/shared/types/prompt-preview";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,24 +77,6 @@ function formatDate(s: string | null): string {
     minute: "2-digit",
     second: "2-digit",
   });
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 1500);
-    }).catch(() => toast.error("Failed to copy"));
-  }, [text]);
-  return (
-    <Button variant="ghost" size="icon-sm" onClick={handleCopy} aria-label="Copy">
-      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-    </Button>
-  );
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────

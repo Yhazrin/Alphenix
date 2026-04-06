@@ -149,16 +149,6 @@ function TeammatesVisual() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);
 
-  const cycleStatus = () => {
-    const idx = statusCycle.indexOf(status);
-    setStatus(statusCycle[(idx + 1) % statusCycle.length]!);
-  };
-
-  const cyclePriority = () => {
-    const idx = priorityCycle.indexOf(priority);
-    setPriority(priorityCycle[(idx + 1) % priorityCycle.length]!);
-  };
-
   return (
     <div className="relative aspect-video overflow-hidden rounded-lg border bg-background text-foreground shadow-2xl dark:shadow-none">
       {/* Header bar */}
@@ -673,13 +663,6 @@ function SkillsVisual() {
 /*  Runtimes feature visual — agent dashboard with runtime status      */
 /* ------------------------------------------------------------------ */
 
-const runtimeStatusConfig = {
-  idle: { label: "Idle", color: "text-muted-foreground", dot: "bg-muted-foreground" },
-  working: { label: "Working", color: "text-success", dot: "bg-success" },
-  error: { label: "Error", color: "text-destructive", dot: "bg-destructive" },
-  offline: { label: "Offline", color: "text-muted-foreground/50", dot: "bg-muted-foreground/40" },
-};
-
 const mockRuntimeList = [
   { name: "MacBook Pro", mode: "local" as const, status: "online" as const, device: "arm64 / macOS 15.2", lastSeen: "Just now" },
   { name: "Cloud (Anthropic)", mode: "cloud" as const, status: "online" as const, device: "api.anthropic.com", lastSeen: "Just now" },
@@ -759,7 +742,6 @@ function DailyCostBars({ data }: { data: typeof mockUsageData }) {
       1_000_000,
   );
   const maxCost = Math.max(...costs);
-  const barW = 100 / data.length;
   const chartH = 64;
   return (
     <svg viewBox={`0 0 ${data.length * 10} ${chartH}`} className="h-[72px] w-full" preserveAspectRatio="none" aria-hidden="true">

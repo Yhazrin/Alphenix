@@ -147,7 +147,7 @@ export function DecomposeDialog({ issueId, open, onOpenChange, onComplete }: Dec
               )}
 
               <div className="space-y-2">
-                {preview.subtasks.map((st, idx) => (
+                {preview.subtasks.map((st, _idx) => (
                   <div key={st.title} className="rounded-lg border p-3 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <StatusIcon status="todo" className="h-3.5 w-3.5 mt-0.5 shrink-0" />

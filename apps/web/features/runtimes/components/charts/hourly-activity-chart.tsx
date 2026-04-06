@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { BarChart3, AlertCircle } from "lucide-react";
 import {
   BarChart,

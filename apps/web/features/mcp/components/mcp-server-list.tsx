@@ -5,12 +5,9 @@ import {
   Plus,
   Trash2,
   Server,
-  AlertCircle,
   Loader2,
   Globe,
   Terminal,
-  Pause,
-  Play,
 } from "lucide-react";
 import type { MCPServer } from "@/shared/types";
 import { timeAgo } from "@/shared/utils";
