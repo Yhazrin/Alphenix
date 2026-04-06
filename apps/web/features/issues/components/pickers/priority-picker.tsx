@@ -16,7 +16,7 @@ export function PriorityPicker({
   trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const cfg = PRIORITY_CONFIG[priority];
+  const cfg = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.medium;
 
   return (
     <PropertyPicker
