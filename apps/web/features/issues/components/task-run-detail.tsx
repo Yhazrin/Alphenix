@@ -83,10 +83,13 @@ function formatDate(s: string | null): string {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
     }).catch(() => toast.error("Failed to copy"));
   }, [text]);
   return (
@@ -260,6 +263,8 @@ function ReviewTab({ report, events }: { report: TaskReport; events: TaskTimelin
 
 function OutputTab({ report }: { report: TaskReport }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   if (!report.result && !report.error) {
     return <p className="text-sm text-muted-foreground py-8 text-center">No output recorded.</p>;
@@ -274,7 +279,8 @@ function OutputTab({ report }: { report: TaskReport }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(content).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
     }).catch(() => toast.error("Failed to copy"));
   };
 
@@ -302,6 +308,8 @@ function ContextPreviewTab({ taskId }: { taskId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); }, []);
 
   const loadPreview = useCallback(async () => {
     let cancelled = false;
@@ -330,7 +338,8 @@ function ContextPreviewTab({ taskId }: { taskId: string }) {
     try {
       await navigator.clipboard.writeText(finalPrompt);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Failed to copy");
     }
