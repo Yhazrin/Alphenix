@@ -42,6 +42,7 @@ function StatusIcon({ status }: { status: string }) {
 function formatDuration(start?: string | null, end?: string | null): string {
   if (!start) return "—";
   const startTime = new Date(start).getTime();
+  if (isNaN(startTime)) return "—";
   const endTime = end ? new Date(end).getTime() : Date.now();
   const ms = endTime - startTime;
   if (ms < 1000) return `${ms}ms`;

@@ -7,6 +7,7 @@ import type { RuntimeUsage } from "@/shared/types";
 export function formatLastSeen(lastSeenAt: string | null): string {
   if (!lastSeenAt) return "Never";
   const diff = Date.now() - new Date(lastSeenAt).getTime();
+  if (isNaN(diff)) return "—";
   if (diff < 60_000) return "Just now";
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
@@ -118,6 +119,7 @@ export function aggregateByDate(usage: RuntimeUsage[]): {
 
   const formatLabel = (d: string) => {
     const date = new Date(d + "T00:00:00");
+    if (isNaN(date.getTime())) return d;
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 

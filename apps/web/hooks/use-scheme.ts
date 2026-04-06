@@ -9,10 +9,12 @@ const SCHEMES: ThemeScheme[] = ["zinc", "morandi", "ocean", "rose", "jade"];
 
 function getSnapshot(): ThemeScheme {
   if (typeof window === "undefined") return "zinc";
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored && SCHEMES.includes(stored as ThemeScheme)) {
-    return stored as ThemeScheme;
-  }
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored && SCHEMES.includes(stored as ThemeScheme)) {
+      return stored as ThemeScheme;
+    }
+  } catch {}
   return "zinc";
 }
 

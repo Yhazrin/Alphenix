@@ -25,7 +25,8 @@ const PRIORITY_BORDER: Record<string, string> = {
 };
 
 function isOverdue(date: string): boolean {
-  return new Date(date).getTime() < Date.now();
+  const t = new Date(date).getTime();
+  return !isNaN(t) && t < Date.now();
 }
 
 /** Stops event from bubbling to Link/drag handlers */

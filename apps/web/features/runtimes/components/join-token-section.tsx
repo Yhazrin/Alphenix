@@ -19,6 +19,7 @@ import { runtimesApi } from "@/shared/api";
 
 function formatExpiry(expiresAt: string): string {
   const date = new Date(expiresAt);
+  if (isNaN(date.getTime())) return "—";
   const now = new Date();
   if (date < now) return "Expired";
   const diffMs = date.getTime() - now.getTime();
@@ -33,7 +34,8 @@ function formatExpiry(expiresAt: string): string {
 }
 
 function TokenRow({ token }: { token: RuntimeJoinToken }) {
-  const isExpired = new Date(token.expires_at) < new Date();
+  const expDate = new Date(token.expires_at);
+  const isExpired = !isNaN(expDate.getTime()) && expDate < new Date();
   const isUsed = token.used_at !== null;
 
   return (

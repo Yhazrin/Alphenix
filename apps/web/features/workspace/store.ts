@@ -72,7 +72,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       configureAgentsApi({ workspaceId: null });
       configureTasksApi({ workspaceId: null });
       configureRuntimesApi({ workspaceId: null });
-      localStorage.removeItem("alphenix_workspace_id");
+      try { localStorage.removeItem("alphenix_workspace_id"); } catch {}
       set({ workspace: null, members: [], agents: [], skills: [] });
       return null;
     }
@@ -270,7 +270,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     configureAgentsApi({ workspaceId: null });
     configureTasksApi({ workspaceId: null });
     configureRuntimesApi({ workspaceId: null });
-    localStorage.removeItem("alphenix_workspace_id");
+    try { localStorage.removeItem("alphenix_workspace_id"); } catch {}
     set({ workspace: null, workspaces: [], members: [], agents: [], skills: [] });
   },
 }));

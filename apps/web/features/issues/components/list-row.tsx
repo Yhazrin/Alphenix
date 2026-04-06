@@ -12,7 +12,8 @@ import { AgentStatusDot, getAgentIssueStatus } from "./agent-status-dot";
 import { CalendarDays } from "lucide-react";
 
 function isOverdue(date: string): boolean {
-  return new Date(date).getTime() < Date.now();
+  const t = new Date(date).getTime();
+  return !isNaN(t) && t < Date.now();
 }
 
 export const ListRow = memo(function ListRow({ issue }: { issue: Issue }) {
