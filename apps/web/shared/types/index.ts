@@ -67,7 +67,7 @@ export type {
   SharedContext,
   TaskDependencyInfo,
 } from "./collaboration";
-export type { Run, RunPhase, RunStep, RunTodo, RunArtifact } from "./run";
+export type { Run, RunPhase, StepType, RunStep, RunTodo, RunArtifact } from "./run";
 export type {
   PromptSection,
   PromptPreviewResponse,

@@ -180,6 +180,7 @@ export function AppSidebar() {
             <Tooltip>
               <TooltipTrigger
                 aria-label="New issue"
+                data-testid="new-issue-button"
                 className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-background text-foreground shadow-sm dark:shadow-none hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => useModalStore.getState().open("create-issue")}
               >
@@ -203,7 +204,7 @@ export function AppSidebar() {
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         isActive={isActive}
-                        render={<Link href={item.href} />}
+                        render={<Link href={item.href} data-testid={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`} />}
                         className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground border-l-2 border-l-transparent data-active:border-l-brand"
                       >
                         <item.icon aria-hidden="true" />
@@ -231,7 +232,7 @@ export function AppSidebar() {
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         isActive={isActive}
-                        render={<Link href={item.href} />}
+                        render={<Link href={item.href} data-testid={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`} />}
                         className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground border-l-2 border-l-transparent data-active:border-l-brand"
                       >
                         <item.icon aria-hidden="true" />

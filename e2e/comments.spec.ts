@@ -34,7 +34,7 @@ test.describe("Comments", () => {
     await page.keyboard.type(commentText);
 
     // Submit the comment
-    await page.locator('button[aria-label="Submit comment"]').click();
+    await page.getByTestId("comment-submit-button").click();
 
     // Comment should appear in the activity section
     await expect(page.locator(`text=${commentText}`)).toBeVisible({
@@ -51,7 +51,7 @@ test.describe("Comments", () => {
     await expect(page.locator("text=Properties")).toBeVisible();
 
     // Submit button should be disabled when input is empty
-    const submitBtn = page.locator('button[aria-label="Submit comment"]');
+    const submitBtn = page.getByTestId("comment-submit-button");
     await expect(submitBtn).toBeDisabled();
   });
 });

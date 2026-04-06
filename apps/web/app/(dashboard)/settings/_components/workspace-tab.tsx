@@ -148,6 +148,7 @@ export function WorkspaceTab() {
                 onChange={(e) => setName(e.target.value)}
                 disabled={!canManageWorkspace}
                 className="mt-1"
+                data-testid="settings-workspace-name-input"
               />
             </div>
             <div>
@@ -204,6 +205,7 @@ export function WorkspaceTab() {
                 size="sm"
                 onClick={handleSave}
                 disabled={saving || !name.trim() || !canManageWorkspace || !isDirty}
+                data-testid="settings-workspace-save-btn"
               >
                 <Save className="h-3 w-3" aria-hidden="true" />
                 {saving ? "Saving..." : "Save"}

@@ -17,11 +17,13 @@ function TagInput({
   tags,
   onChange,
   placeholder,
+  "data-testid": testId,
 }: {
   label: string;
   tags: string[];
   onChange: (tags: string[]) => void;
   placeholder?: string;
+  "data-testid"?: string;
 }) {
   const [input, setInput] = useState("");
 
@@ -60,6 +62,7 @@ function TagInput({
           }}
           placeholder={placeholder ?? "Add tag..."}
           className="h-6 w-32 text-xs"
+          data-testid={testId}
         />
       </div>
     </div>
@@ -278,12 +281,14 @@ export function RuntimePolicyTab({
           tags={requiredTags}
           onChange={setRequiredTags}
           placeholder="e.g. gpu, high-memory"
+          data-testid="policy-required-tags-input"
         />
         <TagInput
           label="Forbidden Tags"
           tags={forbiddenTags}
           onChange={setForbiddenTags}
           placeholder="e.g. experimental"
+          data-testid="policy-forbidden-tags-input"
         />
       </div>
 

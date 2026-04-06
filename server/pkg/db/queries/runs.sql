@@ -69,7 +69,7 @@ UPDATE runs SET
     phase = 'executing',
     started_at = now(),
     updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND phase = 'pending'
 RETURNING *;
 
 -- name: CompleteRun :one
@@ -78,7 +78,7 @@ UPDATE runs SET
     phase = 'completed',
     completed_at = now(),
     updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND status = 'active'
 RETURNING *;
 
 -- name: FailRun :one
@@ -87,7 +87,7 @@ UPDATE runs SET
     phase = 'failed',
     completed_at = now(),
     updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND status = 'active'
 RETURNING *;
 
 -- name: CancelRun :one
@@ -96,7 +96,7 @@ UPDATE runs SET
     phase = 'cancelled',
     completed_at = now(),
     updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND status NOT IN ('completed','failed','cancelled')
 RETURNING *;
 
 -- name: DeleteRun :exec

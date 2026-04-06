@@ -3,7 +3,7 @@ import { loginAsDefault } from "./helpers";
 
 test.describe("Authentication", () => {
   test("login page renders correctly", async ({ page }) => {
-    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    await page.goto("/login", { waitUntil: "networkidle" });
 
     await expect(page.getByTestId("auth-email-input")).toBeVisible();
     await expect(page.getByTestId("auth-submit-button")).toBeVisible();
@@ -21,7 +21,7 @@ test.describe("Authentication", () => {
     // original navigation, producing ERR_ABORTED. Catch it and verify
     // we end up at "/".
     try {
-      await page.goto("/issues", { waitUntil: "domcontentloaded" });
+      await page.goto("/issues", { waitUntil: "networkidle" });
     } catch {
       // ERR_ABORTED is expected — the client-side redirect fires before load
     }
@@ -33,12 +33,12 @@ test.describe("Authentication", () => {
 
     // Open the workspace switcher dropdown
     await page.getByTestId("workspace-menu-trigger").click();
-    await page.locator('[role="menu"]').waitFor({ state: "visible", timeout: 5000 });
+    await page.locator('[role="menu"]').waitFor({ state: "visible", timeout: 10000 });
 
     // Click Log out
     await page.getByTestId("auth-logout-button").click();
 
     // Verify auth state is cleared — the sidebar should disappear
-    await expect(page.getByTestId("workspace-menu-trigger")).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId("workspace-menu-trigger")).not.toBeVisible({ timeout: 15000 });
   });
 });

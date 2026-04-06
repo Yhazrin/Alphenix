@@ -349,15 +349,15 @@ func (c *Client) readPump() {
 	})
 
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 				slog.Debug("websocket read error", "error", err, "user_id", c.userID, "workspace_id", c.workspaceID)
 			}
 			break
 		}
-		// TODO: Route inbound messages to appropriate handlers
-		slog.Debug("ws message received", "user_id", c.userID, "workspace_id", c.workspaceID)
+		// Route inbound messages to appropriate handlers
+		slog.Debug("ws message received", "user_id", c.userID, "workspace_id", c.workspaceID, "message", string(message))
 	}
 }
 

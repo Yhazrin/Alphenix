@@ -44,9 +44,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Fill required tags
-    const requiredInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const requiredInput = page.getByTestId("policy-required-tags-input");
     await requiredInput.fill("gpu");
     await requiredInput.press("Enter");
 
@@ -70,9 +68,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Create policy first
-    const requiredInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const requiredInput = page.getByTestId("policy-required-tags-input");
     await requiredInput.fill("gpu");
     await requiredInput.press("Enter");
     await page.locator("button:has-text('Create Policy')").click();
@@ -81,9 +77,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     });
 
     // Add a forbidden tag
-    const forbiddenInput = page.locator(
-      'input[placeholder*="experimental"]',
-    );
+    const forbiddenInput = page.getByTestId("policy-forbidden-tags-input");
     await forbiddenInput.fill("experimental");
     await forbiddenInput.press("Enter");
 
@@ -107,9 +101,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Create policy
-    const requiredInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const requiredInput = page.getByTestId("policy-required-tags-input");
     await requiredInput.fill("gpu");
     await requiredInput.press("Enter");
     await page.locator("button:has-text('Create Policy')").click();
@@ -135,9 +127,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Create policy
-    const requiredInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const requiredInput = page.getByTestId("policy-required-tags-input");
     await requiredInput.fill("gpu");
     await requiredInput.press("Enter");
     await page.locator("button:has-text('Create Policy')").click();
@@ -159,9 +149,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Create policy
-    const requiredInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const requiredInput = page.getByTestId("policy-required-tags-input");
     await requiredInput.fill("gpu");
     await requiredInput.press("Enter");
     await page.locator("button:has-text('Create Policy')").click();
@@ -184,9 +172,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Create policy with required tag
-    const requiredInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const requiredInput = page.getByTestId("policy-required-tags-input");
     await requiredInput.fill("gpu");
     await requiredInput.press("Enter");
     await page.locator("button:has-text('Create Policy')").click();
@@ -214,9 +200,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Create policy
-    const requiredInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const requiredInput = page.getByTestId("policy-required-tags-input");
     await requiredInput.fill("gpu");
     await requiredInput.press("Enter");
     await page.locator("button:has-text('Create Policy')").click();
@@ -225,9 +209,7 @@ test.describe("Runtime Policy (P0-3)", () => {
     });
 
     // Add another required tag
-    const addInput = page.locator(
-      'input[placeholder*="gpu"]',
-    );
+    const addInput = page.getByTestId("policy-required-tags-input");
     await addInput.fill("high-memory");
     await addInput.press("Enter");
 
