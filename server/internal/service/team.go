@@ -182,11 +182,6 @@ func (s *TeamService) GetDelegationMode(ctx context.Context, teamID pgtype.UUID)
 // If mode is LeadDelegation, status starts as 'pending'.
 // If mode is BroadcastMode, status starts as 'delegated' immediately.
 func (s *TeamService) EnqueueTeamTask(ctx context.Context, teamID, issueID, assignedBy pgtype.UUID, priority int32, mode DelegationMode) (db.TeamTaskQueue, error) {
-	if mode == BroadcastMode {
-		// In broadcast mode, we could update the status after creation.
-		_ = mode
-	}
-
 	task, err := s.Queries.CreateTeamTask(ctx, db.CreateTeamTaskParams{
 		TeamID:     teamID,
 		IssueID:    issueID,
