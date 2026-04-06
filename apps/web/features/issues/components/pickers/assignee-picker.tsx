@@ -58,11 +58,13 @@ export function AssigneePicker({
   useEffect(() => {
     if (!open) return;
     if (teams.length > 0) return; // already loaded
+    let cancelled = false;
     setLoadingTeams(true);
     api.listTeams()
-      .then((data) => setTeams(data.filter((t) => !t.archived_at)))
+      .then((data) => { if (!cancelled) setTeams(data.filter((t) => !t.archived_at)); })
       .catch(() => { /* silent fail */ })
-      .finally(() => setLoadingTeams(false));
+      .finally(() => { if (!cancelled) setLoadingTeams(false); });
+    return () => { cancelled = true; };
   }, [open]);
 
   const query = filter.toLowerCase();

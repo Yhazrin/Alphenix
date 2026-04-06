@@ -103,12 +103,12 @@ function RunEntry({
         />
         <RunPhaseIcon phase={run.phase} />
         <span className="text-muted-foreground">
-          {new Date(run.created_at).toLocaleString(undefined, {
+          {(() => { const d = new Date(run.created_at); return isNaN(d.getTime()) ? "\u2014" : d.toLocaleString(undefined, {
             month: "short",
             day: "numeric",
             hour: "2-digit",
             minute: "2-digit",
-          })}
+          })})()}
         </span>
         {duration && (
           <span className="text-muted-foreground">{duration}</span>

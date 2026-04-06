@@ -25,8 +25,10 @@ export function SubIssuesSection({ issueId, issueKind }: SubIssuesSectionProps) 
   const [decomposeOpen, setDecomposeOpen] = useState(false);
 
   const fetchSubIssues = useCallback(async () => {
+    let cancelled = false;
     try {
       const issues = await api.listSubIssues(issueId);
+      if (cancelled) return;
       setSubIssues(issues);
       // Upsert into global store so identifier lookups work elsewhere.
       const store = useIssueStore.getState();
@@ -34,14 +36,17 @@ export function SubIssuesSection({ issueId, issueKind }: SubIssuesSectionProps) 
         store.addIssue(issue);
       }
     } catch {
+      if (cancelled) return;
       // Silently fail — section will show empty state.
     } finally {
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
+    return () => { cancelled = true; };
   }, [issueId]);
 
   useEffect(() => {
-    fetchSubIssues();
+    const cleanup = fetchSubIssues();
+    return () => { cleanup?.then((fn) => fn?.()); };
   }, [fetchSubIssues]);
 
   const handleDecomposeComplete = useCallback((issues: Issue[]) => {

@@ -147,7 +147,7 @@ function TaskRunEntry({ task }: { task: AgentTask }) {
           <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden="true" />
         )}
         <span className="text-muted-foreground">
-          {new Date(task.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          {(() => { const d = new Date(task.created_at); return isNaN(d.getTime()) ? "\u2014" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })})()}
         </span>
         {duration && <span className="text-muted-foreground">{duration}</span>}
         <span className={cn("ml-auto capitalize", task.status === "completed" ? "text-success" : task.status === "cancelled" ? "text-warning" : "text-destructive")}>
