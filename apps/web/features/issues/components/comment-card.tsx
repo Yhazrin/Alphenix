@@ -324,7 +324,6 @@ const CommentCard = memo(function CommentCard({
   highlightedCommentId,
 }: CommentCardProps) {
   const { getActorName } = useActorName();
-  const { uploadWithToast } = useFileUpload();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const editEditorRef = useRef<ContentEditorRef>(null);
