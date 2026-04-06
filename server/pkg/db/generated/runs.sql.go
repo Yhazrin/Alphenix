@@ -18,7 +18,7 @@ UPDATE runs SET
     completed_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 func (q *Queries) CancelRun(ctx context.Context, id pgtype.UUID) (Run, error) {
@@ -44,6 +44,8 @@ func (q *Queries) CancelRun(ctx context.Context, id pgtype.UUID) (Run, error) {
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
@@ -55,7 +57,7 @@ UPDATE runs SET
     completed_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 func (q *Queries) CompleteRun(ctx context.Context, id pgtype.UUID) (Run, error) {
@@ -81,6 +83,8 @@ func (q *Queries) CompleteRun(ctx context.Context, id pgtype.UUID) (Run, error) 
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
@@ -93,7 +97,7 @@ INSERT INTO runs (
     $1, $2, $9, $3, $10, $11,
     $4, $5, $6, $7, $8
 )
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 type CreateRunParams struct {
@@ -145,6 +149,8 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
@@ -166,7 +172,7 @@ UPDATE runs SET
     completed_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 func (q *Queries) FailRun(ctx context.Context, id pgtype.UUID) (Run, error) {
@@ -192,12 +198,14 @@ func (q *Queries) FailRun(ctx context.Context, id pgtype.UUID) (Run, error) {
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
 
 const getRun = `-- name: GetRun :one
-SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at FROM runs
+SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity FROM runs
 WHERE id = $1
 `
 
@@ -224,12 +232,14 @@ func (q *Queries) GetRun(ctx context.Context, id pgtype.UUID) (Run, error) {
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
 
 const getRunForUpdate = `-- name: GetRunForUpdate :one
-SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at FROM runs
+SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity FROM runs
 WHERE id = $1
 FOR UPDATE
 `
@@ -257,6 +267,8 @@ func (q *Queries) GetRunForUpdate(ctx context.Context, id pgtype.UUID) (Run, err
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
@@ -296,7 +308,7 @@ func (q *Queries) GetRunByTask(ctx context.Context, taskID pgtype.UUID) (Run, er
 }
 
 const listActiveRunsByAgent = `-- name: ListActiveRunsByAgent :many
-SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at FROM runs
+SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity FROM runs
 WHERE agent_id = $1 AND status = 'active'
 ORDER BY created_at ASC
 `
@@ -330,6 +342,8 @@ func (q *Queries) ListActiveRunsByAgent(ctx context.Context, agentID pgtype.UUID
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ErrorCategory,
+			&i.ErrorSeverity,
 		); err != nil {
 			return nil, err
 		}
@@ -342,7 +356,7 @@ func (q *Queries) ListActiveRunsByAgent(ctx context.Context, agentID pgtype.UUID
 }
 
 const listActiveRunsByWorkspace = `-- name: ListActiveRunsByWorkspace :many
-SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at FROM runs
+SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity FROM runs
 WHERE workspace_id = $1 AND status = 'active'
 ORDER BY created_at ASC
 `
@@ -376,6 +390,8 @@ func (q *Queries) ListActiveRunsByWorkspace(ctx context.Context, workspaceID pgt
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ErrorCategory,
+			&i.ErrorSeverity,
 		); err != nil {
 			return nil, err
 		}
@@ -388,7 +404,7 @@ func (q *Queries) ListActiveRunsByWorkspace(ctx context.Context, workspaceID pgt
 }
 
 const listRunsByIssue = `-- name: ListRunsByIssue :many
-SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at FROM runs
+SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity FROM runs
 WHERE issue_id = $1
 ORDER BY created_at DESC
 `
@@ -422,6 +438,8 @@ func (q *Queries) ListRunsByIssue(ctx context.Context, issueID pgtype.UUID) ([]R
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ErrorCategory,
+			&i.ErrorSeverity,
 		); err != nil {
 			return nil, err
 		}
@@ -434,7 +452,7 @@ func (q *Queries) ListRunsByIssue(ctx context.Context, issueID pgtype.UUID) ([]R
 }
 
 const listRunsByWorkspace = `-- name: ListRunsByWorkspace :many
-SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at FROM runs
+SELECT id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity FROM runs
 WHERE workspace_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -475,6 +493,8 @@ func (q *Queries) ListRunsByWorkspace(ctx context.Context, arg ListRunsByWorkspa
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ErrorCategory,
+			&i.ErrorSeverity,
 		); err != nil {
 			return nil, err
 		}
@@ -493,7 +513,7 @@ UPDATE runs SET
     started_at = now(),
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 func (q *Queries) StartRun(ctx context.Context, id pgtype.UUID) (Run, error) {
@@ -519,6 +539,8 @@ func (q *Queries) StartRun(ctx context.Context, id pgtype.UUID) (Run, error) {
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
@@ -528,7 +550,7 @@ UPDATE runs SET
     phase = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 type UpdateRunPhaseParams struct {
@@ -559,6 +581,8 @@ func (q *Queries) UpdateRunPhase(ctx context.Context, arg UpdateRunPhaseParams) 
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
@@ -570,7 +594,7 @@ UPDATE runs SET
     updated_at = now(),
     completed_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN now() ELSE completed_at END
 WHERE id = $1
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 type UpdateRunStatusParams struct {
@@ -602,6 +626,8 @@ func (q *Queries) UpdateRunStatus(ctx context.Context, arg UpdateRunStatusParams
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }
@@ -613,7 +639,7 @@ UPDATE runs SET
     estimated_cost_usd = estimated_cost_usd + $4,
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at
+RETURNING id, workspace_id, issue_id, task_id, agent_id, parent_run_id, team_id, phase, status, system_prompt, model_name, permission_mode, input_tokens, output_tokens, estimated_cost_usd, started_at, completed_at, created_at, updated_at, error_category, error_severity
 `
 
 type UpdateRunTokensParams struct {
@@ -651,6 +677,8 @@ func (q *Queries) UpdateRunTokens(ctx context.Context, arg UpdateRunTokensParams
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ErrorCategory,
+		&i.ErrorSeverity,
 	)
 	return i, err
 }

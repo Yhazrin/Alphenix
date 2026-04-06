@@ -8,24 +8,24 @@ test.describe("Settings", () => {
     await loginAsDefault(page);
 
     // Read the current workspace name from the sidebar header
-    const sidebarName = page.locator('[data-sidebar="header"] button').first();
+    const sidebarName = page.getByTestId("workspace-menu-trigger");
     const originalName = await sidebarName.innerText();
 
     // Navigate to settings via sidebar nav link
-    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Settings" }).click();
+    await page.getByTestId("sidebar-nav-settings").click();
     await page.waitForURL("**/settings");
 
     // Switch to General/Workspace tab (default is Profile)
     await page.getByTestId("settings-tab-workspace").click();
 
     // Change workspace name
-    const nameInput = page.locator('input#workspace-name');
+    const nameInput = page.getByTestId("settings-workspace-name-input");
     await nameInput.clear();
     const newName = "Renamed WS " + Date.now();
     await nameInput.fill(newName);
 
     // Save
-    await page.locator("button", { hasText: "Save" }).click();
+    await page.getByTestId("settings-workspace-save-btn").click();
 
     // Wait for confirmation toast — use getByText to avoid strict mode issues with duplicate toast DOM
     await expect(page.getByText("Workspace settings saved").first()).toBeVisible({ timeout: 5000 });
@@ -36,7 +36,7 @@ test.describe("Settings", () => {
     // Restore original name so other tests aren't affected
     await nameInput.clear();
     await nameInput.fill(originalName.trim());
-    await page.locator("button", { hasText: "Save" }).click();
+    await page.getByTestId("settings-workspace-save-btn").click();
     await expect(page.getByText("Workspace settings saved").first()).toBeVisible({ timeout: 5000 });
   });
 });

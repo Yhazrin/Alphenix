@@ -17,7 +17,7 @@ UPDATE run_steps SET
     is_error = $2,
     completed_at = now()
 WHERE id = $1
-RETURNING id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at
+RETURNING id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at, error_category, error_subcategory, error_severity, exclusion_reason
 `
 
 type CompleteRunStepParams struct {
@@ -39,6 +39,10 @@ func (q *Queries) CompleteRunStep(ctx context.Context, arg CompleteRunStepParams
 		&i.IsError,
 		&i.StartedAt,
 		&i.CompletedAt,
+		&i.ErrorCategory,
+		&i.ErrorSubcategory,
+		&i.ErrorSeverity,
+		&i.ExclusionReason,
 	)
 	return i, err
 }
@@ -61,7 +65,7 @@ INSERT INTO run_steps (
 ) VALUES (
     $1, $2, $3, $6, $7, $4, $5
 )
-RETURNING id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at
+RETURNING id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at, error_category, error_subcategory, error_severity, exclusion_reason
 `
 
 type CreateRunStepParams struct {
@@ -95,6 +99,10 @@ func (q *Queries) CreateRunStep(ctx context.Context, arg CreateRunStepParams) (R
 		&i.IsError,
 		&i.StartedAt,
 		&i.CompletedAt,
+		&i.ErrorCategory,
+		&i.ErrorSubcategory,
+		&i.ErrorSeverity,
+		&i.ExclusionReason,
 	)
 	return i, err
 }
@@ -123,7 +131,7 @@ func (q *Queries) GetNextStepSeq(ctx context.Context, runID pgtype.UUID) (int32,
 }
 
 const getRunStep = `-- name: GetRunStep :one
-SELECT id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at FROM run_steps
+SELECT id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at, error_category, error_subcategory, error_severity, exclusion_reason FROM run_steps
 WHERE id = $1
 `
 
@@ -140,12 +148,16 @@ func (q *Queries) GetRunStep(ctx context.Context, id pgtype.UUID) (RunStep, erro
 		&i.IsError,
 		&i.StartedAt,
 		&i.CompletedAt,
+		&i.ErrorCategory,
+		&i.ErrorSubcategory,
+		&i.ErrorSeverity,
+		&i.ExclusionReason,
 	)
 	return i, err
 }
 
 const listRunSteps = `-- name: ListRunSteps :many
-SELECT id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at FROM run_steps
+SELECT id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at, error_category, error_subcategory, error_severity, exclusion_reason FROM run_steps
 WHERE run_id = $1
 ORDER BY seq ASC
 `
@@ -169,6 +181,10 @@ func (q *Queries) ListRunSteps(ctx context.Context, runID pgtype.UUID) ([]RunSte
 			&i.IsError,
 			&i.StartedAt,
 			&i.CompletedAt,
+			&i.ErrorCategory,
+			&i.ErrorSubcategory,
+			&i.ErrorSeverity,
+			&i.ExclusionReason,
 		); err != nil {
 			return nil, err
 		}
@@ -181,7 +197,7 @@ func (q *Queries) ListRunSteps(ctx context.Context, runID pgtype.UUID) ([]RunSte
 }
 
 const listRunStepsLimit = `-- name: ListRunStepsLimit :many
-SELECT id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at FROM run_steps
+SELECT id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at, error_category, error_subcategory, error_severity, exclusion_reason FROM run_steps
 WHERE run_id = $1
 ORDER BY seq DESC
 LIMIT $2
@@ -211,6 +227,10 @@ func (q *Queries) ListRunStepsLimit(ctx context.Context, arg ListRunStepsLimitPa
 			&i.IsError,
 			&i.StartedAt,
 			&i.CompletedAt,
+			&i.ErrorCategory,
+			&i.ErrorSubcategory,
+			&i.ErrorSeverity,
+			&i.ExclusionReason,
 		); err != nil {
 			return nil, err
 		}

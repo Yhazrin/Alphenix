@@ -7,35 +7,33 @@ test.describe("Navigation", () => {
   });
 
   test("sidebar navigation works", async ({ page }) => {
-    // Click Inbox — sidebar uses data-sidebar="sidebar" on the outer element
-    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Inbox" }).click();
+    // Click Inbox
+    await page.getByTestId("sidebar-nav-inbox").click();
     await page.waitForURL("**/inbox");
     await expect(page).toHaveURL(/\/inbox/);
 
     // Click Agents
-    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Agents" }).click();
+    await page.getByTestId("sidebar-nav-agents").click();
     await page.waitForURL("**/agents");
     await expect(page).toHaveURL(/\/agents/);
 
     // Click Issues
-    await page.getByRole('link', { name: 'Issues', exact: true }).click();
-
+    await page.getByTestId("sidebar-nav-issues").click();
     await page.waitForURL("**/issues");
     await expect(page).toHaveURL(/\/issues/);
   });
 
   test("settings page loads via sidebar", async ({ page }) => {
-    // Settings is a sidebar nav link, not in the workspace dropdown
-    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Settings" }).click();
+    await page.getByTestId("sidebar-nav-settings").click();
     await page.waitForURL("**/settings");
 
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     // Default tab is Profile (My Account section)
-    await expect(page.locator("text=Profile").first()).toBeVisible();
+    await expect(page.getByTestId("settings-tab-profile")).toBeVisible();
   });
 
   test("agents page shows agent list", async ({ page }) => {
-    await page.locator('[data-sidebar="sidebar"] a', { hasText: "Agents" }).click();
+    await page.getByTestId("sidebar-nav-agents").click();
     await page.waitForURL("**/agents");
 
     // Should show "Agents" heading

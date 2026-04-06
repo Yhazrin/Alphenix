@@ -115,6 +115,7 @@ export function AccountTab() {
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
                 className="mt-1"
+                data-testid="settings-profile-name-input"
               />
             </div>
             <div className="flex items-center justify-end gap-2 pt-1">
@@ -122,6 +123,7 @@ export function AccountTab() {
                 size="sm"
                 onClick={handleProfileSave}
                 disabled={profileSaving || !profileName.trim()}
+                data-testid="settings-profile-save-btn"
               >
                 <Save className="h-3 w-3" aria-hidden="true" />
                 {profileSaving ? "Updating..." : "Update Profile"}

@@ -342,6 +342,8 @@ type Run struct {
 	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ErrorCategory    pgtype.Text        `json:"error_category"`
+	ErrorSeverity    pgtype.Text        `json:"error_severity"`
 }
 
 type RunEvent struct {

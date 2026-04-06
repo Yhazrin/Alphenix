@@ -600,7 +600,7 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
               render={
                 <TooltipTrigger
                   render={
-                    <Button variant="outline" size="icon-sm" className="text-muted-foreground" aria-label={viewMode === "board" ? "Board view" : "List view"}>
+                    <Button variant="outline" size="icon-sm" className="text-muted-foreground" aria-label={viewMode === "board" ? "Board view" : "List view"} data-testid="issues-view-toggle">
                       {viewMode === "board" ? (
                         <Columns3 className="size-4" aria-hidden="true" />
                       ) : (

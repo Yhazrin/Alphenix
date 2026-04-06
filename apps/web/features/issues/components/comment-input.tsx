@@ -62,6 +62,7 @@ function CommentInput({ issueId, onSubmit }: CommentInputProps) {
           disabled={isEmpty || submitting}
           onClick={handleSubmit}
           aria-label="Submit comment"
+          data-testid="comment-submit-button"
         >
           {submitting ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

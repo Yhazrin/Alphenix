@@ -425,14 +425,18 @@ export interface RunStepStartedPayload {
   run_id: string;
   step_id: string;
   seq: number;
+  step_type: string;
   tool_name: string;
+  call_id: string | null;
   is_error: boolean;
 }
 
 export interface RunStepCompletedPayload {
   run_id: string;
   step_id: string;
+  step_type: string;
   tool_name: string;
+  call_id: string | null;
   is_error: boolean;
 }
 

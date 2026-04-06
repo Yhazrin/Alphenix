@@ -29,19 +29,31 @@ export interface Run {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  error_category?: string;
+  error_severity?: string;
 }
 
-/** A single tool invocation step within a run. */
+/** Step type — mirrors server schema v1.0 step_type enum. */
+export type StepType = "thinking" | "text" | "tool_use" | "tool_result" | "error";
+
+/** A single execution step within a run. */
 export interface RunStep {
   id: string;
   run_id: string;
   seq: number;
+  step_type: StepType;
   tool_name: string;
+  call_id: string | null;
   tool_input: Record<string, unknown>;
   tool_output: string | null;
   is_error: boolean;
   started_at: string;
   completed_at: string | null;
+  summary?: string;
+  error_category?: string;
+  error_subcategory?: string;
+  error_severity?: string;
+  exclusion_reason?: string;
 }
 
 /** A todo item tracked by the agent during a run. */
@@ -50,6 +62,7 @@ export interface RunTodo {
   run_id: string;
   seq: number;
   title: string;
+  content?: string;
   description: string;
   status: "pending" | "in_progress" | "completed" | "blocked";
   blocker: string | null;

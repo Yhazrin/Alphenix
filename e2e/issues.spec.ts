@@ -35,19 +35,19 @@ test.describe("Issues", () => {
     await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Switch to list view — open dropdown then click List option
-    await page.locator('button[aria-label="Board view"]').click();
+    await page.getByTestId("issues-view-toggle").click();
     await page.locator('[role="menuitem"]', { hasText: "List" }).click();
     await expect(page.locator("text=Issues").first()).toBeVisible();
 
     // Switch back to board view
-    await page.locator('button[aria-label="List view"]').click();
+    await page.getByTestId("issues-view-toggle").click();
     await page.locator('[role="menuitem"]', { hasText: "Board" }).click();
     await expect(page.locator('[role="region"][aria-label*="Backlog column"]')).toBeVisible();
   });
 
   test("can create a new issue", async ({ page }) => {
-    // New Issue button is icon-only with aria-label
-    await page.locator('[aria-label="New issue"]').click();
+    // New Issue button
+    await page.getByTestId("new-issue-button").click();
 
     const title = "E2E Created " + Date.now();
     // Title uses Tiptap contenteditable, not <input>
@@ -86,7 +86,7 @@ test.describe("Issues", () => {
   });
 
   test("can cancel issue creation", async ({ page }) => {
-    await page.locator('[aria-label="New issue"]').click();
+    await page.getByTestId("new-issue-button").click();
 
     // Title editor should be visible in the modal
     const titleEditor = page.getByRole("textbox", { name: "Issue title" });
@@ -96,6 +96,6 @@ test.describe("Issues", () => {
     await page.locator('[aria-label="Close"]').click();
 
     await expect(titleEditor).not.toBeVisible();
-    await expect(page.locator('[aria-label="New issue"]')).toBeVisible();
+    await expect(page.getByTestId("new-issue-button")).toBeVisible();
   });
 });
