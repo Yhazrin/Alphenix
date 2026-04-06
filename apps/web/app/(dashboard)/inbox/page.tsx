@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/shared/api";
 import { timeAgo } from "@/shared/utils";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -486,16 +487,18 @@ export default function InboxPage() {
       {/* Right column — detail */}
       <div className="flex flex-col min-h-0 h-full">
         {selected?.issue_id ? (
-          <IssueDetail
-            key={selected.id}
-            issueId={selected.issue_id}
-            defaultSidebarOpen={false}
-            layoutId="alphenix_inbox_issue_detail_layout"
-            highlightCommentId={selected.details?.comment_id ?? undefined}
-            onDelete={() => {
-              handleArchive(selected.id);
-            }}
-          />
+          <ErrorBoundary>
+            <IssueDetail
+              key={selected.id}
+              issueId={selected.issue_id}
+              defaultSidebarOpen={false}
+              layoutId="alphenix_inbox_issue_detail_layout"
+              highlightCommentId={selected.details?.comment_id ?? undefined}
+              onDelete={() => {
+                handleArchive(selected.id);
+              }}
+            />
+          </ErrorBoundary>
         ) : selected ? (
           <div className="p-6">
             <h2 className="text-lg font-semibold">{selected.title}</h2>

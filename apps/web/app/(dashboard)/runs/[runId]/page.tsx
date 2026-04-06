@@ -9,6 +9,7 @@ import { TodoPanel } from "@/features/runs/components/todo-panel";
 import { ArtifactDrawer } from "@/features/runs/components/artifact-drawer";
 import { ArtifactsBar } from "@/features/runs/components/artifacts-bar";
 import { mockRun, mockSteps, mockTodos, mockArtifacts } from "@/shared/mocks/timeline";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export default function RunDetailPage() {
   const params = useParams();
@@ -23,21 +24,27 @@ export default function RunDetailPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <RunHeader run={run} steps={steps} />
+      <ErrorBoundary>
+        <RunHeader run={run} steps={steps} />
+      </ErrorBoundary>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main timeline */}
         <div className="flex-1 overflow-y-auto p-4">
-          <StepStream
-            steps={steps}
-            artifacts={artifacts}
-            onArtifactClick={setSelectedArtifact}
-          />
+          <ErrorBoundary>
+            <StepStream
+              steps={steps}
+              artifacts={artifacts}
+              onArtifactClick={setSelectedArtifact}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* Right sidebar — todo progress */}
         <div className="w-72 border-l overflow-y-auto p-4">
-          <TodoPanel todos={todos} />
+          <ErrorBoundary>
+            <TodoPanel todos={todos} />
+          </ErrorBoundary>
         </div>
       </div>
 

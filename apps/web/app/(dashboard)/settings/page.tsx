@@ -3,6 +3,7 @@
 import { User, Palette, Key, Settings, Users, FolderGit2, Server, Sparkles } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWorkspaceStore } from "@/features/workspace";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { AccountTab } from "./_components/account-tab";
 import { AppearanceTab } from "./_components/general-tab";
 import { TokensTab } from "./_components/tokens-tab";
@@ -60,13 +61,13 @@ export default function SettingsPage() {
       {/* Right content */}
       <div className="flex-1 min-w-0 overflow-y-auto">
         <div className="w-full max-w-3xl mx-auto p-6">
-          <TabsContent value="profile"><AccountTab /></TabsContent>
-          <TabsContent value="appearance"><AppearanceTab /></TabsContent>
-          <TabsContent value="tokens"><TokensTab /></TabsContent>
-          <TabsContent value="workspace"><WorkspaceTab /></TabsContent>
-          <TabsContent value="repositories"><RepositoriesTab /></TabsContent>
-          <TabsContent value="members"><MembersTab /></TabsContent>
-          <TabsContent value="server"><ServerTab /></TabsContent>
+          <TabsContent value="profile"><ErrorBoundary><AccountTab /></ErrorBoundary></TabsContent>
+          <TabsContent value="appearance"><ErrorBoundary><AppearanceTab /></ErrorBoundary></TabsContent>
+          <TabsContent value="tokens"><ErrorBoundary><TokensTab /></ErrorBoundary></TabsContent>
+          <TabsContent value="workspace"><ErrorBoundary><WorkspaceTab /></ErrorBoundary></TabsContent>
+          <TabsContent value="repositories"><ErrorBoundary><RepositoriesTab /></ErrorBoundary></TabsContent>
+          <TabsContent value="members"><ErrorBoundary><MembersTab /></ErrorBoundary></TabsContent>
+          <TabsContent value="server"><ErrorBoundary><ServerTab /></ErrorBoundary></TabsContent>
         </div>
       </div>
     </Tabs>
