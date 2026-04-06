@@ -30,6 +30,7 @@ function phaseColor(phase: string): string {
 function formatDuration(startedAt: string | null, completedAt: string | null): string {
   if (!startedAt) return "—";
   const start = new Date(startedAt).getTime();
+  if (isNaN(start)) return "—";
   const end = completedAt ? new Date(completedAt).getTime() : Date.now();
   const secs = Math.round((end - start) / 1000);
   if (secs < 60) return `${secs}s`;

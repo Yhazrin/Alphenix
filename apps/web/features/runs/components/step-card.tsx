@@ -60,12 +60,15 @@ function stepLabel(step: RunStep): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function elapsedMs(step: RunStep): number {
   if (!step.completed_at) return 0;
-  return new Date(step.completed_at).getTime() - new Date(step.started_at).getTime();
+  const ms = new Date(step.completed_at).getTime() - new Date(step.started_at).getTime();
+  return isNaN(ms) ? 0 : ms;
 }
 
 function formatElapsed(step: RunStep): string {
