@@ -85,6 +85,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     set({ workspace: nextWorkspace });
 
     logger.debug("hydrate workspace", nextWorkspace.name, nextWorkspace.id);
+    // Fire-and-forget fetches for other stores
+    useIssueStore.getState().fetch().catch((e) => console.error("Failed to fetch issues:", e));
+    useInboxStore.getState().fetch().catch((e) => console.error("Failed to fetch inbox:", e));
     const [nextMembers, nextAgents, nextSkills] = await Promise.all([
       api.listMembers(nextWorkspace.id).catch((e) => {
         logger.error("failed to load members", e);
@@ -101,8 +104,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         toast.error("Failed to load skills");
         return [] as Skill[];
       }),
-      useIssueStore.getState().fetch().catch((e) => console.error("Failed to fetch issues:", e)),
-      useInboxStore.getState().fetch().catch((e) => console.error("Failed to fetch inbox:", e)),
     ]);
     logger.info("hydrate complete", "members:", nextMembers.length, "agents:", nextAgents.length);
     set({ members: nextMembers, agents: nextAgents, skills: nextSkills });

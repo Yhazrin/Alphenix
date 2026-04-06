@@ -100,8 +100,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
       const wasUnread = s.items.some((i) => i.id === id && !i.read);
       if (!wasUnread) return s;
       const items = s.items.map((i) => (i.id === id ? { ...i, read: true } : i));
-      const dedupedItems = s.dedupedItems.map((i) => (i.id === id ? { ...i, read: true } : i));
-      return { items, dedupedItems, unreadCount: Math.max(0, s.unreadCount - 1) };
+      return { items, ...deriveInboxState(items) };
     }),
   archive: (id) =>
     set((s) => {
