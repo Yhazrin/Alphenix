@@ -97,7 +97,7 @@ function useGroupedTimeline(timeline: TimelineEntry[]) {
           prev.action === entry.action &&
           prev.actor_type === entry.actor_type &&
           prev.actor_id === entry.actor_id &&
-          Math.abs(new Date(entry.created_at).getTime() - new Date(prev.created_at).getTime()) <= COALESCE_MS
+          (() => { const diff = Math.abs(new Date(entry.created_at).getTime() - new Date(prev.created_at).getTime()); return !isNaN(diff) && diff <= COALESCE_MS; })()
         ) {
           coalesced[coalesced.length - 1] = entry;
           continue;

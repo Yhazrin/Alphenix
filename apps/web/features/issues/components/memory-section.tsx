@@ -140,7 +140,7 @@ export function MemorySection({
                     {mem.expires_at && (
                       <span className="flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400">
                         <Clock className="h-2.5 w-2.5" aria-hidden="true" />
-                        {new Date(mem.expires_at) > new Date() ? `expires ${timeAgo(mem.expires_at)}` : "expired"}
+                        {(() => { const exp = new Date(mem.expires_at); return !isNaN(exp.getTime()) && exp > new Date() ? `expires ${timeAgo(mem.expires_at)}` : "expired"; })()}
                       </span>
                     )}
                   </div>

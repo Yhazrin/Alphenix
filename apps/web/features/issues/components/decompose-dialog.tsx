@@ -198,7 +198,7 @@ export function DecomposeDialog({ issueId, open, onOpenChange, onComplete }: Dec
                 Cancel
               </DialogClose>
               <Button size="sm" onClick={handleConfirm}>
-                Create {preview?.subtasks.length ?? 0} Sub-Issues
+                Create {preview?.subtasks?.length ?? 0} Sub-Issues
               </Button>
             </>
           )}
