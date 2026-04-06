@@ -244,7 +244,10 @@ func (c *Client) postJSON(ctx context.Context, path string, reqBody any, respBod
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		data, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if err != nil {
+			return &requestError{Method: http.MethodPost, Path: path, StatusCode: resp.StatusCode, Body: "(failed to read response body)"}
+		}
 		return &requestError{Method: http.MethodPost, Path: path, StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(data))}
 	}
 	if respBody == nil {
