@@ -89,12 +89,20 @@ export const issuesApi = {
     const search = new URLSearchParams();
     if (params?.limit) search.set("limit", String(params.limit));
     if (params?.offset) search.set("offset", String(params.offset));
+    if (params?.cursor) search.set("cursor", params.cursor);
     const wsId = params?.workspace_id ?? _workspaceId;
     if (wsId) search.set("workspace_id", wsId);
     if (params?.status) search.set("status", params.status);
     if (params?.priority) search.set("priority", params.priority);
     if (params?.assignee_id) search.set("assignee_id", params.assignee_id);
     return apiFetch(`/api/issues?${search}`);
+  },
+
+  async searchIssues(query: string, limit?: number): Promise<ListIssuesResponse> {
+    const search = new URLSearchParams();
+    search.set("q", query);
+    if (limit) search.set("limit", String(limit));
+    return apiFetch(`/api/issues/search?${search}`);
   },
 
   async getIssue(id: string): Promise<Issue> {

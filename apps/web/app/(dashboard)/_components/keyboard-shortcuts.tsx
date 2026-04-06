@@ -9,6 +9,13 @@ export function KeyboardShortcuts() {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // Cmd/Ctrl+K — open search (works even in inputs)
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        useModalStore.getState().open("search");
+        return;
+      }
+
       // Don't trigger when typing in inputs/textareas
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
@@ -20,11 +27,10 @@ export function KeyboardShortcuts() {
           e.preventDefault();
           useModalStore.getState().open("create-issue");
           break;
-        // TODO: Implement search modal before re-enabling this shortcut
-        // case "/":
-        //   e.preventDefault();
-        //   useModalStore.getState().open("search");
-        //   break;
+        case "/":
+          e.preventDefault();
+          useModalStore.getState().open("search");
+          break;
         case "1":
           e.preventDefault();
           router.push("/inbox");

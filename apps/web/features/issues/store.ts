@@ -8,12 +8,18 @@ import { createLogger } from "@/shared/logger";
 
 const logger = createLogger("issue-store");
 
+const PAGE_SIZE = 200;
+
 interface IssueState {
   issues: Issue[];
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
+  hasMore: boolean;
+  cursor: string | null;
   activeIssueId: string | null;
   fetch: () => Promise<void>;
+  loadMore: () => Promise<void>;
   reset: () => void;
   setIssues: (issues: Issue[]) => void;
   addIssue: (issue: Issue) => void;
@@ -25,7 +31,10 @@ interface IssueState {
 export const useIssueStore = create<IssueState>((set, get) => ({
   issues: [],
   loading: true,
+  loadingMore: false,
   error: null,
+  hasMore: true,
+  cursor: null,
   activeIssueId: null,
 
   fetch: async () => {
@@ -33,9 +42,15 @@ export const useIssueStore = create<IssueState>((set, get) => ({
     const isInitialLoad = get().issues.length === 0;
     if (isInitialLoad) set({ loading: true, error: null });
     try {
-      const res = await api.listIssues({ limit: 200 });
+      const res = await api.listIssues({ limit: PAGE_SIZE });
       logger.info("fetched", res.issues.length, "issues");
-      set({ issues: res.issues, loading: false, error: null });
+      set({
+        issues: res.issues,
+        loading: false,
+        error: null,
+        hasMore: !!res.next_cursor,
+        cursor: res.next_cursor ?? null,
+      });
     } catch (err) {
       logger.error("fetch failed", err);
       const message = "Failed to load issues";
@@ -44,9 +59,36 @@ export const useIssueStore = create<IssueState>((set, get) => ({
     }
   },
 
+  loadMore: async () => {
+    const { cursor, loadingMore, hasMore } = get();
+    if (!cursor || loadingMore || !hasMore) return;
+    set({ loadingMore: true });
+    try {
+      const res = await api.listIssues({ limit: PAGE_SIZE, cursor });
+      logger.info("loaded more", res.issues.length, "issues");
+      set((s) => ({
+        issues: [...s.issues, ...res.issues],
+        loadingMore: false,
+        hasMore: !!res.next_cursor,
+        cursor: res.next_cursor ?? null,
+      }));
+    } catch (err) {
+      logger.error("loadMore failed", err);
+      set({ loadingMore: false });
+    }
+  },
+
   setIssues: (issues) => set({ issues }),
 
-  reset: () => set({ issues: [], loading: false, error: null, activeIssueId: null }),
+  reset: () =>
+    set({
+      issues: [],
+      loading: false,
+      error: null,
+      hasMore: true,
+      cursor: null,
+      activeIssueId: null,
+    }),
 
   addIssue: (issue) =>
     set((s) => ({

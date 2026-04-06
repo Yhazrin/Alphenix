@@ -46,7 +46,7 @@ import type {
   SaveCheckpointRequest,
   AgentMemory,
   StoreMemoryRequest,
-  RecallMemoryRequest,
+
   ChainTaskRequest,
   SubmitReviewRequest,
   CreateWorkspaceRepoRequest,
@@ -208,10 +208,18 @@ export class ApiClient {
   }
 
   // Issues
+  async searchIssues(query: string, limit?: number): Promise<ListIssuesResponse> {
+    const search = new URLSearchParams();
+    search.set("q", query);
+    if (limit) search.set("limit", String(limit));
+    return this.fetch(`/api/issues/search?${search}`);
+  }
+
   async listIssues(params?: ListIssuesParams): Promise<ListIssuesResponse> {
     const search = new URLSearchParams();
     if (params?.limit) search.set("limit", String(params.limit));
     if (params?.offset) search.set("offset", String(params.offset));
+    if (params?.cursor) search.set("cursor", params.cursor);
     const wsId = params?.workspace_id ?? this.workspaceId;
     if (wsId) search.set("workspace_id", wsId);
     if (params?.status) search.set("status", params.status);
@@ -788,26 +796,12 @@ export class ApiClient {
     });
   }
 
-  async recallAgentMemory(agentId: string, data: RecallMemoryRequest): Promise<AgentMemory[]> {
-    return this.fetch(`/api/agents/${agentId}/memory/recall`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
   async listAgentMemory(agentId: string): Promise<AgentMemory[]> {
     return this.fetch(`/api/agents/${agentId}/memory`);
   }
 
   async deleteAgentMemory(agentId: string, memoryId: string): Promise<{ status: string }> {
     return this.fetch(`/api/agents/${agentId}/memory/${memoryId}`, { method: "DELETE" });
-  }
-
-  async recallWorkspaceMemory(data: RecallMemoryRequest): Promise<AgentMemory[]> {
-    return this.fetch("/api/workspace/memory/recall", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
   }
 
   // Issue Decomposition

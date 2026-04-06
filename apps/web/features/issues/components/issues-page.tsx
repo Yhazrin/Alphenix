@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { AlertCircle, ListTodo, Plus } from "lucide-react";
 import type { IssueStatus } from "@/shared/types";
@@ -24,9 +24,43 @@ import { BoardView } from "./board-view";
 import { ListView } from "./list-view";
 import { BatchActionToolbar } from "./batch-action-toolbar";
 
+function InfiniteScrollSentinel({
+  loadingMore,
+  onLoadMore,
+}: {
+  loadingMore: boolean;
+  onLoadMore: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (loadingMore) return;
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMore();
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadingMore, onLoadMore]);
+
+  return (
+    <div ref={ref} className="flex justify-center py-3">
+      {loadingMore && (
+        <span className="text-xs text-muted-foreground">Loading…</span>
+      )}
+    </div>
+  );
+}
+
 export function IssuesPage() {
   const allIssues = useIssueStore((s) => s.issues);
   const loading = useIssueStore((s) => s.loading);
+  const loadingMore = useIssueStore((s) => s.loadingMore);
+  const hasMore = useIssueStore((s) => s.hasMore);
   const error = useIssueStore((s) => s.error);
   const workspace = useWorkspaceStore((s) => s.workspace);
   const scope = useIssuesScopeStore((s) => s.scope);
@@ -214,6 +248,12 @@ export function IssuesPage() {
               />
             ) : (
               <ListView issues={issues} visibleStatuses={visibleStatuses} />
+            )}
+            {hasMore && (
+              <InfiniteScrollSentinel
+                loadingMore={loadingMore}
+                onLoadMore={() => useIssueStore.getState().loadMore()}
+              />
             )}
           </div>
         )}

@@ -13,6 +13,11 @@ const CreateIssueModal = dynamic(
   { ssr: false, loading: () => null },
 );
 
+const SearchModal = dynamic(
+  () => import("./search-modal").then((m) => m.SearchModal),
+  { ssr: false, loading: () => null },
+);
+
 export function ModalRegistry() {
   const modal = useModalStore((s) => s.modal);
   const data = useModalStore((s) => s.data);
@@ -23,6 +28,8 @@ export function ModalRegistry() {
       return <CreateWorkspaceModal onClose={close} />;
     case "create-issue":
       return <CreateIssueModal onClose={close} data={data} />;
+    case "search":
+      return <SearchModal onClose={close} />;
     default:
       return null;
   }

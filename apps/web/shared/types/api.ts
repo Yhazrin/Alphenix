@@ -29,6 +29,7 @@ export interface UpdateIssueRequest {
 export interface ListIssuesParams {
   limit?: number;
   offset?: number;
+  cursor?: string;
   workspace_id?: string;
   status?: IssueStatus;
   priority?: IssuePriority;
@@ -38,6 +39,7 @@ export interface ListIssuesParams {
 export interface ListIssuesResponse {
   issues: Issue[];
   total: number;
+  next_cursor?: string;
 }
 
 export interface UpdateMeRequest {
