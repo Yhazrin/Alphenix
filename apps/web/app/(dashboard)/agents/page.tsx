@@ -1505,7 +1505,7 @@ function SettingsTab({
           min={1}
           max={50}
           value={maxTasks}
-          onChange={(e) => setMaxTasks(Number(e.target.value))}
+          onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v) && v > 0) setMaxTasks(v); }}
           className="mt-1 w-24"
         />
       </div>
