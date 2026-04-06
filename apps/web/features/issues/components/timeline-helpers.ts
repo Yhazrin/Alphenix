@@ -12,19 +12,22 @@ export interface TimelineItem {
 }
 
 export function formatSeconds(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  const s = Math.max(0, seconds);
+  if (s < 60) return `${s}s`;
+  const minutes = Math.floor(s / 60);
+  const secs = s % 60;
   return `${minutes}m ${secs}s`;
 }
 
 export function formatElapsed(startedAt: string): string {
   const elapsed = Date.now() - new Date(startedAt).getTime();
+  if (isNaN(elapsed)) return "—";
   return formatSeconds(Math.floor(elapsed / 1000));
 }
 
 export function formatDuration(start: string, end: string): string {
   const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (isNaN(ms)) return "—";
   return formatSeconds(Math.floor(ms / 1000));
 }
 

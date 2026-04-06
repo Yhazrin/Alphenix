@@ -7,6 +7,7 @@ import { FileUploadButton } from "@/components/common/file-upload-button";
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import { useFileUpload } from "@/shared/hooks/use-file-upload";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,6 +69,8 @@ function ReplyInput({
       editorRef.current?.clearContent();
       attachmentIdsRef.current.clear();
       setIsEmpty(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send reply");
     } finally {
       setSubmitting(false);
     }

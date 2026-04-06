@@ -48,7 +48,7 @@ export function TaskRunHistory({ issueId }: TaskRunHistoryProps) {
     useCallback((payload: unknown) => {
       if (!isTaskEventPayload(payload)) return;
       if (payload.issue_id !== issueId) return;
-      api.listTasksByIssue(issueId).then(setTasks).catch((e) => {
+      api.listTasksByIssue(issueId).then((data) => { setTasks(data); setError(null); }).catch((e) => {
         console.error(e);
         toast.error("Failed to refresh execution history");
       });
@@ -60,7 +60,7 @@ export function TaskRunHistory({ issueId }: TaskRunHistoryProps) {
     useCallback((payload: unknown) => {
       if (!isTaskEventPayload(payload)) return;
       if (payload.issue_id !== issueId) return;
-      api.listTasksByIssue(issueId).then(setTasks).catch((e) => {
+      api.listTasksByIssue(issueId).then((data) => { setTasks(data); setError(null); }).catch((e) => {
         console.error(e);
         toast.error("Failed to refresh execution history");
       });
@@ -73,7 +73,7 @@ export function TaskRunHistory({ issueId }: TaskRunHistoryProps) {
     useCallback((payload: unknown) => {
       if (!isTaskEventPayload(payload)) return;
       if (payload.issue_id !== issueId) return;
-      api.listTasksByIssue(issueId).then(setTasks).catch((e) => {
+      api.listTasksByIssue(issueId).then((data) => { setTasks(data); setError(null); }).catch((e) => {
         console.error(e);
         toast.error("Failed to refresh execution history");
       });

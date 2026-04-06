@@ -52,7 +52,9 @@ export function formatActivity(
     }
     case "due_date_changed": {
       if (!details.to) return "removed due date";
-      const formatted = new Date(details.to).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const d = new Date(details.to);
+      if (isNaN(d.getTime())) return "set due date";
+      const formatted = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       return `set due date to ${formatted}`;
     }
     case "title_changed":
