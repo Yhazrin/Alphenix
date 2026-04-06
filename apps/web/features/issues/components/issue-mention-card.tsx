@@ -28,7 +28,7 @@ export function IssueMentionCard({ issueId, fallbackLabel }: IssueMentionCardPro
   return (
     <Link
       href={`/issues/${issueId}`}
-      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-sm hover:bg-accent transition-colors cursor-pointer no-underline"
+      className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-sm hover:bg-accent transition-colors cursor-pointer no-underline"
     >
       <StatusIcon status={issue.status} className="h-3.5 w-3.5" />
       <span className="font-medium text-muted-foreground">{issue.identifier}</span>

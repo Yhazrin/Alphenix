@@ -74,7 +74,7 @@ export const BoardCardContent = memo(function BoardCardContent({
   const borderClass = PRIORITY_BORDER[issue.priority] ?? "";
 
   return (
-    <div className={`rounded-lg border border-l-2 bg-card p-3.5 shadow-xs dark:shadow-none transition-all group-hover:shadow-md group-hover:-translate-y-0.5 ${borderClass}`}>
+    <div className={`rounded-xl border border-l-2 bg-card p-3.5 shadow-apple transition-all group-hover:shadow-apple-hover group-hover:-translate-y-0.5 ${borderClass}`}>
       {/* Row 1: Identifier + agent activity indicator */}
       <div className="flex items-center gap-1.5">
         <p className="text-xs text-muted-foreground">{issue.identifier}</p>
