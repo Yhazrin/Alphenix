@@ -47,21 +47,25 @@ export function useIssueTimeline(issueId: string, userId?: string, workspaceId?:
       return;
     }
 
+    let cancelled = false;
     setTimeline([]);
     setLoading(true);
     setError(null);
     api
       .listTimeline(issueId)
       .then((entries) => {
+        if (cancelled) return;
         setTimeline(entries);
         setError(null);
       })
       .catch((e) => {
+        if (cancelled) return;
         const message = e instanceof Error ? e.message : "Failed to load activity";
         setError(message);
         toast.error("Failed to load activity");
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [issueId, workspaceId]);
 
   // Reconnect recovery

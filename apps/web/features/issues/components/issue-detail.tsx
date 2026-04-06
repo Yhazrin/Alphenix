@@ -128,7 +128,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
     const el = document.getElementById(`comment-${highlightCommentId}`);
     if (el) {
       didHighlightRef.current = highlightCommentId;
-      let timer: ReturnType<typeof setTimeout>;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const raf = requestAnimationFrame(() => {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         setHighlightedId(highlightCommentId);
@@ -136,7 +136,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
       });
       return () => {
         cancelAnimationFrame(raf);
-        if (timer) clearTimeout(timer);
+        clearTimeout(timer);
       };
     }
   }, [highlightCommentId, timeline.length]);

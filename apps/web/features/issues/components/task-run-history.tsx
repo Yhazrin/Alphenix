@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ChevronRight, ChevronUp, Loader2, Clock, CheckCircle2, XCircle, ExternalLink, AlertCircle } from "lucide-react";
+import { ChevronRight, ChevronUp, Loader2, Clock, CheckCircle2, XCircle, ExternalLink, AlertCircle, AlertTriangle } from "lucide-react";
 import { api } from "@/shared/api";
 import { toast } from "sonner";
 import { useWSEvent } from "@/features/realtime";
@@ -138,6 +138,8 @@ function TaskRunEntry({ task }: { task: AgentTask }) {
         <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} aria-hidden="true" />
         {task.status === "completed" ? (
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+        ) : task.status === "cancelled" ? (
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
         ) : (
           <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden="true" />
         )}
@@ -145,7 +147,7 @@ function TaskRunEntry({ task }: { task: AgentTask }) {
           {new Date(task.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
         </span>
         {duration && <span className="text-muted-foreground">{duration}</span>}
-        <span className={cn("ml-auto capitalize", task.status === "completed" ? "text-success" : "text-destructive")}>
+        <span className={cn("ml-auto capitalize", task.status === "completed" ? "text-success" : task.status === "cancelled" ? "text-warning" : "text-destructive")}>
           {task.status}
         </span>
         <Link

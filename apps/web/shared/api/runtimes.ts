@@ -141,7 +141,7 @@ export const runtimesApi = {
 
   async getUsage(runtimeId: string, params?: { days?: number }): Promise<RuntimeUsage[]> {
     const search = new URLSearchParams();
-    if (params?.days) search.set("days", String(params.days));
+    if (params?.days !== undefined) search.set("days", String(params.days));
     return apiFetch(`/api/runtimes/${runtimeId}/usage?${search}`);
   },
 
