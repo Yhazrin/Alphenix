@@ -357,7 +357,8 @@ func (h *Handler) ConfirmDecompose(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Enqueue any unblocked tasks.
-	// TODO: h.TaskService.TryEnqueueReadySubIssues(r.Context(), issue.ID)
+	// TODO(backend): Implement h.TaskService.TryEnqueueReadySubIssues(r.Context(), issue.ID) to enqueue
+	//                 unblocked sub-issues after decompose completes. Currently no-op.
 
 	slog.Info("decompose: confirmed",
 		append(logger.RequestAttrs(r),

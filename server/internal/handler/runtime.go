@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -100,7 +101,7 @@ func (h *Handler) ReportRuntimeUsage(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		h.Queries.UpsertRuntimeUsage(r.Context(), db.UpsertRuntimeUsageParams{
+		if err := h.Queries.UpsertRuntimeUsage(r.Context(), db.UpsertRuntimeUsageParams{
 			RuntimeID:        parseUUID(runtimeID),
 			Date:             pgtype.Date{Time: date, Valid: true},
 			Provider:         entry.Provider,
@@ -109,7 +110,9 @@ func (h *Handler) ReportRuntimeUsage(w http.ResponseWriter, r *http.Request) {
 			OutputTokens:     entry.OutputTokens,
 			CacheReadTokens:  entry.CacheReadTokens,
 			CacheWriteTokens: entry.CacheWriteTokens,
-		})
+		}); err != nil {
+			slog.Warn("upsert runtime usage failed", "runtime_id", runtimeID, "error", err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
