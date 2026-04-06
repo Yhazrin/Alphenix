@@ -86,38 +86,46 @@ export function useCollaborationData(
 
   const loadCheckpoints = useCallback(async () => {
     if (!taskId) return;
+    let cancelled = false;
     setCpsLoading(true);
     setCpsError(null);
     try {
       const data = await api.listTaskCheckpoints(taskId);
+      if (cancelled) return;
       setCheckpoints(data);
       setCheckpointsLoaded(true);
       setCpsError(null);
     } catch (e) {
+      if (cancelled) return;
       const message = e instanceof Error ? e.message : "Failed to load checkpoints";
       setCpsError(message);
       toast.error("Failed to load checkpoints");
     } finally {
-      setCpsLoading(false);
+      if (!cancelled) setCpsLoading(false);
     }
+    return () => { cancelled = true; };
   }, [taskId]);
 
   const loadMemories = useCallback(async () => {
     if (!agentId) return;
+    let cancelled = false;
     setMemLoading(true);
     setMemError(null);
     try {
       const data = await api.listAgentMemory(agentId);
+      if (cancelled) return;
       setMemories(data);
       setMemoriesLoaded(true);
       setMemError(null);
     } catch (e) {
+      if (cancelled) return;
       const message = e instanceof Error ? e.message : "Failed to load memories";
       setMemError(message);
       toast.error("Failed to load memories");
     } finally {
-      setMemLoading(false);
+      if (!cancelled) setMemLoading(false);
     }
+    return () => { cancelled = true; };
   }, [agentId]);
 
   // Lazy-load: only load messages and dependencies on mount; others on section open

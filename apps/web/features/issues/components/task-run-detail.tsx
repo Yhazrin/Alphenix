@@ -87,7 +87,7 @@ function CopyButton({ text }: { text: string }) {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {});
+    }).catch(() => toast.error("Failed to copy"));
   }, [text]);
   return (
     <Button variant="ghost" size="icon-sm" onClick={handleCopy} aria-label="Copy">
@@ -275,7 +275,7 @@ function OutputTab({ report }: { report: TaskReport }) {
     navigator.clipboard.writeText(content).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {});
+    }).catch(() => toast.error("Failed to copy"));
   };
 
   return (

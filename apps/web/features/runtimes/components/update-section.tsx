@@ -103,9 +103,13 @@ export function UpdateSection({
 
   // Fetch latest version on mount.
   useEffect(() => {
-    fetchLatestVersion().then(setLatestVersion).catch(() => {
-      // Silently fail - latestVersion stays null, update button stays hidden
-    });
+    let cancelled = false;
+    fetchLatestVersion()
+      .then((v) => { if (!cancelled) setLatestVersion(v); })
+      .catch(() => {
+        // Silently fail - latestVersion stays null, update button stays hidden
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const handleUpdate = async () => {

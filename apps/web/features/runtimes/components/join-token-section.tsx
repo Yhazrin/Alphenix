@@ -108,12 +108,15 @@ export function JoinTokenSection({ workspaceId }: { workspaceId: string }) {
     }
   };
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); }, []);
+
   const handleCopy = async () => {
     if (!newToken) return;
     try {
       await navigator.clipboard.writeText(newToken.token);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Failed to copy token");
     }

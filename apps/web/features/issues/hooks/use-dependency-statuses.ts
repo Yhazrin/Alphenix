@@ -9,6 +9,7 @@ export function useDependencyStatuses(dependencies: TaskDependency[]) {
 
   useEffect(() => {
     if (dependencies.length === 0) return;
+    let cancelled = false;
     const missing = dependencies.filter((d) => !(d.depends_on_id in statusesRef.current));
     if (missing.length === 0) return;
     Promise.allSettled(
@@ -17,6 +18,7 @@ export function useDependencyStatuses(dependencies: TaskDependency[]) {
         return { id: dep.depends_on_id, status: task.status };
       }),
     ).then((results) => {
+      if (cancelled) return;
       const updates: Record<string, string> = {};
       for (const r of results) {
         if (r.status === "fulfilled") {
@@ -27,6 +29,7 @@ export function useDependencyStatuses(dependencies: TaskDependency[]) {
         setDepStatuses((prev) => ({ ...prev, ...updates }));
       }
     });
+    return () => { cancelled = true; };
   }, [dependencies]);
 
   return depStatuses;
