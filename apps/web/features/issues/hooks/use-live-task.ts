@@ -237,9 +237,9 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
     "task:progress",
     useCallback((payload: unknown) => {
       if (!isTaskProgressPayload(payload)) return;
-      if (activeTask && payload.task_id !== activeTask.id) return;
+      if (activeTaskRef.current && payload.task_id !== activeTaskRef.current.id) return;
       setProgress({ summary: payload.summary, step: payload.step, total: payload.total });
-    }, [activeTask]),
+    }, []),
   );
 
   const handleCancel = useCallback(async () => {
