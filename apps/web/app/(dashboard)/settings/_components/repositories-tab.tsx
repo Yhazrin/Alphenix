@@ -30,19 +30,16 @@ export function RepositoriesTab() {
   const currentMember = members.find((m) => m.user_id === user?.id) ?? null;
   const canManage = currentMember?.role === "owner" || currentMember?.role === "admin";
 
-  const loadRepos = useCallback(async () => {
+  useEffect(() => {
     if (!workspace) return;
-    try {
-      const data = await api.listWorkspaceRepos(workspace.id);
-      setRepos(data);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load repositories");
-    } finally {
-      setLoading(false);
-    }
+    let cancelled = false;
+    setLoading(true);
+    api.listWorkspaceRepos(workspace.id)
+      .then((data) => { if (!cancelled) setRepos(data); })
+      .catch((e) => { if (!cancelled) toast.error(e instanceof Error ? e.message : "Failed to load repositories"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [workspace]);
-
-  useEffect(() => { loadRepos(); }, [loadRepos]);
 
   const handleAdd = async () => {
     if (!workspace || !newRepo.name.trim() || !newRepo.url.trim()) return;

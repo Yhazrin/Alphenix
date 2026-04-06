@@ -770,7 +770,7 @@ export function AgentDetail({
                 variant="destructive"
                 onClick={() => {
                   setConfirmArchive(false);
-                  onArchive(agent.id).catch(() => {});
+                  onArchive(agent.id);
                 }}
               >
                 Archive
