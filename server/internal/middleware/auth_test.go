@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/multica-ai/multicode/server/internal/auth"
+	"github.com/multica-ai/alphenix/server/internal/auth"
 )
 
 func generateToken(claims jwt.MapClaims, secret []byte) string {
@@ -19,7 +19,7 @@ func generateToken(claims jwt.MapClaims, secret []byte) string {
 func validClaims() jwt.MapClaims {
 	return jwt.MapClaims{
 		"sub":   "test-user-id",
-		"email": "test@multicode.ai",
+		"email": "test@alphenix.ai",
 		"exp":   time.Now().Add(time.Hour).Unix(),
 	}
 }
@@ -155,8 +155,8 @@ func TestAuth_ValidToken(t *testing.T) {
 	if gotUserID != "test-user-id" {
 		t.Fatalf("expected X-User-ID 'test-user-id', got '%s'", gotUserID)
 	}
-	if gotEmail != "test@multicode.ai" {
-		t.Fatalf("expected X-User-Email 'test@multicode.ai', got '%s'", gotEmail)
+	if gotEmail != "test@alphenix.ai" {
+		t.Fatalf("expected X-User-Email 'test@alphenix.ai', got '%s'", gotEmail)
 	}
 }
 

@@ -24,7 +24,7 @@ export function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi! I'm the Multicode AI assistant. I can help with:\n\n• Starting and configuring agent instances\n• Connecting to remote servers\n• Setting up tunnels\n• Creating and managing tasks\n\nWhat can I help you with?",
+      content: "Hi! I'm the Alphenix AI assistant. I can help with:\n\n• Starting and configuring agent instances\n• Connecting to remote servers\n• Setting up tunnels\n• Creating and managing tasks\n\nWhat can I help you with?",
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -104,7 +104,7 @@ export function AIAssistant() {
         <div className="flex items-center justify-between p-4 border-b bg-brand/5">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-brand" aria-hidden="true" />
-            <span className="font-semibold">Multicode AI Assistant</span>
+            <span className="font-semibold">Alphenix AI Assistant</span>
           </div>
           <Button
             variant="ghost"

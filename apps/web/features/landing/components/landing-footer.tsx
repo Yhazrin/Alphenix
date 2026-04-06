@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MulticodeIcon } from "@/components/multicode-icon";
+import { AlphenixIcon } from "@/components/alphenix-icon";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/features/auth";
 import { useLocale, locales, localeLabels } from "../i18n";
@@ -19,9 +19,9 @@ export function LandingFooter() {
           {/* Left — newsletter / CTA */}
           <div className="lg:w-[340px] lg:shrink-0">
             <Link href="#product" className="flex items-center gap-3">
-              <MulticodeIcon className="size-5 text-landing-dark-foreground" noSpin aria-hidden="true" />
+              <AlphenixIcon className="size-5 text-landing-dark-foreground" noSpin aria-hidden="true" />
               <span className="text-[18px] font-semibold tracking-[0.04em] lowercase">
-                multicode
+                alphenix
               </span>
             </Link>
             <p className="mt-4 max-w-[300px] text-[14px] leading-[1.7] text-landing-dark-foreground/50 sm:text-[15px]">
@@ -96,13 +96,13 @@ export function LandingFooter() {
         {/* Giant logo */}
         <div className="relative overflow-hidden pb-4">
           <div className="flex items-end gap-6 sm:gap-8">
-            <MulticodeIcon
+            <AlphenixIcon
               className="size-[clamp(4rem,12vw,10rem)] shrink-0 text-landing-dark-foreground"
               noSpin
               aria-hidden="true"
             />
             <span className="font-[family-name:var(--font-serif)] text-[clamp(6rem,22vw,16rem)] font-normal leading-[0.82] tracking-[-0.04em] text-landing-dark-foreground lowercase">
-                multicode
+                alphenix
             </span>
           </div>
         </div>

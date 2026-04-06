@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multicode/server/internal/logger"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
-	"github.com/multica-ai/multicode/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/internal/logger"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
 )
 
 type InboxItemResponse struct {

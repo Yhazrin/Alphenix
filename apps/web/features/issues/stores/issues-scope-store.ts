@@ -16,6 +16,6 @@ export const useIssuesScopeStore = create<IssuesScopeState>()(
       scope: "all",
       setScope: (scope) => set({ scope }),
     }),
-    { name: "multicode_issues_scope" },
+    { name: "alphenix_issues_scope" },
   ),
 );

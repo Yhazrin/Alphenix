@@ -1,18 +1,18 @@
-name: multicode
+name: alphenix
 
 services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_DB: multicode
-      POSTGRES_USER: ${POSTGRES_USER:-multicode}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-multicode}
+      POSTGRES_DB: alphenix
+      POSTGRES_USER: ${POSTGRES_USER:-alphenix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alphenix}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-multicode} -d multicode"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-alphenix} -d alphenix"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -28,7 +28,7 @@ services:
       - "${PORT:-8080}:8080"
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-multicode}:${POSTGRES_PASSWORD:-multicode}@postgres:5432/multicode?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-alphenix}:${POSTGRES_PASSWORD:-alphenix}@postgres:5432/alphenix?sslmode=disable
       PORT: "8080"
       FRONTEND_PORT: "3000"
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
@@ -49,12 +49,12 @@ services:
     ports:
       - "${PORT:-8080}:8080"
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-multicode}:${POSTGRES_PASSWORD:-multicode}@postgres:5432/${POSTGRES_DB:-multicode}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-alphenix}:${POSTGRES_PASSWORD:-alphenix}@postgres:5432/${POSTGRES_DB:-alphenix}?sslmode=disable
       PORT: "8080"
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       APP_ENV: development
-      MULTICODE_SERVER_URL: ws://localhost:8080/ws
-      MULTICODE_APP_URL: http://localhost:${FRONTEND_PORT:-3000}
+      ALPHENIX_SERVER_URL: ws://localhost:8080/ws
+      ALPHENIX_APP_URL: http://localhost:${FRONTEND_PORT:-3000}
     depends_on:
       postgres:
         condition: service_healthy

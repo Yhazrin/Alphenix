@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // patUpdateTask is a best-effort request to update a PAT's last_used_at.

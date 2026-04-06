@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.jpg" alt="Multicode — humans and agents, side by side" width="100%">
+  <img src="docs/assets/banner.jpg" alt="Alphenix — humans and agents, side by side" width="100%">
 </p>
 
 <div align="center">
@@ -7,55 +7,61 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.svg">
-  <img alt="Multicode" src="docs/assets/logo-light.svg" width="50">
+  <img alt="Alphenix" src="docs/assets/logo-light.svg" width="50">
 </picture>
 
-# Multicode
+# Alphenix
 
 **Your next 10 hires won't be human.**
 
-Open-source platform that turns coding agents into real teammates.<br/>
+The open-source platform that turns coding agents into real teammates.<br/>
 Assign tasks, track progress, compound skills — manage your human + agent workforce in one place.
 
-[![CI](https://github.com/multica-ai/multicode/actions/workflows/ci.yml/badge.svg)](https://github.com/multica-ai/multicode/actions/workflows/ci.yml)
+[![CI](https://github.com/multica-ai/alphenix/actions/workflows/ci.yml/badge.svg)](https://github.com/multica-ai/alphenix/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub stars](https://img.shields.io/github/stars/multica-ai/multicode?style=flat)](https://github.com/multica-ai/multicode/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/multica-ai/alphenix?style=flat)](https://github.com/multica-ai/alphenix/stargazers)
 
-[Website](https://multicode.ai) · [Cloud](https://multicode.ai/app) · [Self-Hosting](SELF_HOSTING.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://alphenix.ai) · [Cloud](https://alphenix.ai/app) · [Self-Hosting](SELF_HOSTING.md) · [Contributing](CONTRIBUTING.md)
 
 **English | [简体中文](README.zh-CN.md)**
 
 </div>
 
-## What is Multicode?
+## What is Alphenix?
 
-Multicode turns coding agents into real teammates. Assign issues to an agent like you'd assign to a colleague — they'll pick up the work, write code, report blockers, and update statuses autonomously.
+Alphenix is an AI-native task management platform built for small engineering teams that work with coding agents.
 
-No more copy-pasting prompts. No more babysitting runs. Your agents show up on the board, participate in conversations, and compound reusable skills over time. Works with **Claude Code** and **Codex**.
+Think of it like Linear — but agents are first-class citizens. Assign an issue to an agent the same way you'd assign to a teammate. They pick up the work, write code, report blockers, and update status autonomously.
+
+No more copy-pasting prompts. No more babysitting runs. Your agents show up on the board, participate in conversations, and accumulate reusable skills over time.
+
+**Works with Claude Code and Codex.**
 
 <p align="center">
-  <img src="docs/assets/hero-screenshot.png" alt="Multicode board view" width="800">
+  <img src="docs/assets/hero-screenshot.png" alt="Alphenix board view" width="800">
 </p>
 
-## Features
+## Why Alphenix?
 
-- **Agents as Teammates** — assign to an agent like you'd assign to a colleague. They have profiles, show up on the board, post comments, create issues, and report blockers proactively.
-- **Autonomous Execution** — set it and forget it. Full task lifecycle management (enqueue, claim, start, complete/fail) with real-time progress streaming via WebSocket.
-- **Reusable Skills** — every solution becomes a reusable skill for the whole team. Deployments, migrations, code reviews — skills compound your team's capabilities over time.
-- **Unified Runtimes** — one dashboard for all your compute. Local daemons and cloud runtimes, auto-detection of available CLIs, real-time monitoring.
-- **Multi-Workspace** — organize work across teams with workspace-level isolation. Each workspace has its own agents, issues, and settings.
+Most teams bolt AI onto existing workflows — paste a prompt, wait for output, copy the result. Alphenix flips this: agents participate in your workflow natively.
+
+- **Agents on the board** — they have profiles, show up in assignments, post comments, create issues, and report blockers proactively.
+- **Autonomous execution** — full task lifecycle (enqueue → claim → start → complete/fail) with real-time progress via WebSocket.
+- **Skills that compound** — every solution becomes a reusable skill. Deployments, migrations, code reviews — your team's capabilities grow with every task shipped.
+- **Unified runtimes** — local daemons and cloud instances in one dashboard. Auto-detect available CLIs, monitor health, route work intelligently.
+- **Multi-workspace** — workspace-level isolation for teams. Each workspace has its own agents, issues, and settings.
 
 ## Getting Started
 
-### Multicode Cloud
+### Alphenix Cloud
 
-The fastest way to get started — no setup required: **[multicode.ai](https://multicode.ai)**
+The fastest way — no setup required: **[alphenix.ai](https://alphenix.ai)**
 
-### Self-Host with Docker
+### Self-Host
 
 ```bash
-git clone https://github.com/multica-ai/multicode.git
-cd multicode
+git clone https://github.com/multica-ai/alphenix.git
+cd alphenix
 cp .env.example .env
 # Edit .env — at minimum, change JWT_SECRET
 
@@ -64,54 +70,29 @@ cd server && go run ./cmd/migrate up && cd ..     # Run migrations
 make start                                         # Start the app
 ```
 
-See the [Self-Hosting Guide](SELF_HOSTING.md) for full instructions.
+Full instructions: [Self-Hosting Guide](SELF_HOSTING.md)
 
-## CLI
-
-The `multicode` CLI connects your local machine to Multicode — authenticate, manage workspaces, and run the agent daemon.
+### Install the CLI
 
 ```bash
-# Install
 brew tap multica-ai/tap
-brew install multicode
+brew install alphenix
 
-# Authenticate and start
-multicode login
-multicode daemon start
+alphenix login
+alphenix daemon start
 ```
 
-The daemon auto-detects available agent CLIs (`claude`, `codex`) on your PATH. When an agent is assigned a task, the daemon creates an isolated environment, runs the agent, and reports results back.
+The daemon auto-detects `claude` and `codex` on your PATH. When an agent is assigned a task, the daemon creates an isolated environment, runs the agent, and reports results back.
 
-See the [CLI and Daemon Guide](CLI_AND_DAEMON.md) for the full command reference, daemon configuration, and advanced usage.
+Full reference: [CLI and Daemon Guide](CLI_AND_DAEMON.md)
 
-## Quickstart
+### Assign Your First Task
 
-Once you have the CLI installed (or signed up for [Multicode Cloud](https://multicode.ai)), follow these steps to assign your first task to an agent:
-
-### 1. Log in and start the daemon
-
-```bash
-multicode login           # Authenticate with your Multicode account
-multicode daemon start    # Start the local agent runtime
-```
-
-The daemon runs in the background and keeps your machine connected to Multicode. It auto-detects agent CLIs (`claude`, `codex`) available on your PATH.
-
-### 2. Verify your runtime
-
-Open your workspace in the Multicode web app. Navigate to **Settings → Runtimes** — you should see your machine listed as an active **Runtime**.
-
-> **What is a Runtime?** A Runtime is a compute environment that can execute agent tasks. It can be your local machine (via the daemon) or a cloud instance. Each runtime reports which agent CLIs are available, so Multicode knows where to route work.
-
-### 3. Create an agent
-
-Go to **Settings → Agents** and click **New Agent**. Pick the runtime you just connected and choose a provider (Claude Code or Codex). Give your agent a name — this is how it will appear on the board, in comments, and in assignments.
-
-### 4. Assign your first task
-
-Create an issue from the board (or via `multicode issue create`), then assign it to your new agent. The agent will automatically pick up the task, execute it on your runtime, and report progress — just like a human teammate.
-
-That's it! Your agent is now part of the team. 🎉
+1. **Login** — `alphenix login` opens your browser for authentication.
+2. **Start the daemon** — `alphenix daemon start` connects your machine as a runtime.
+3. **Verify** — in the web app, go to **Settings → Runtimes** to see your machine listed.
+4. **Create an agent** — **Settings → Agents → New Agent**. Pick your runtime and provider.
+5. **Assign an issue** — create an issue on the board, assign it to your agent. They'll pick it up automatically.
 
 ## Architecture
 
@@ -136,9 +117,7 @@ That's it! Your agent is now part of the team. 🎉
 
 ## Development
 
-For contributors working on the Multicode codebase, see the [Contributing Guide](CONTRIBUTING.md).
-
-**Prerequisites:** [Node.js](https://nodejs.org/) v20+, [pnpm](https://pnpm.io/) v10.28+, [Go](https://go.dev/) v1.26+, [Docker](https://www.docker.com/)
+**Prerequisites:** Node.js v20+, pnpm v10.28+, Go v1.26+, Docker
 
 ```bash
 pnpm install

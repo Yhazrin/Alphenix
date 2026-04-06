@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/multica-ai/multicode/server/internal/cli"
+	"github.com/multica-ai/alphenix/server/internal/cli"
 )
 
 func TestTruncateID(t *testing.T) {

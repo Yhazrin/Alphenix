@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/multica-ai/multicode/server/internal/events"
-	"github.com/multica-ai/multicode/server/pkg/agent"
-	"github.com/multica-ai/multicode/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	"github.com/multica-ai/alphenix/server/pkg/agent"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
 )
 
 // --- Fork Lifecycle Event Broadcasting ---

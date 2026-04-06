@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { MulticodeIcon } from "@/components/multicode-icon";
+import { AlphenixIcon } from "@/components/alphenix-icon";
 import { useNavigationStore } from "@/features/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useAuthStore } from "@/features/auth";
@@ -36,7 +36,7 @@ export default function DashboardLayout({
   if (isLoading) {
     return (
       <div className="flex h-svh items-center justify-center" role="status" aria-label="Loading">
-        <MulticodeIcon className="size-6" aria-hidden="true" />
+        <AlphenixIcon className="size-6" aria-hidden="true" />
       </div>
     );
   }
@@ -52,7 +52,7 @@ export default function DashboardLayout({
             children
           ) : (
             <div className="flex flex-1 items-center justify-center" role="status" aria-label="Loading workspace">
-              <MulticodeIcon className="size-6 animate-pulse" aria-hidden="true" />
+              <AlphenixIcon className="size-6 animate-pulse" aria-hidden="true" />
             </div>
           )}
         </ErrorBoundary>

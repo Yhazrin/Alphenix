@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/multica-ai/multicode/server/pkg/agent"
+	"github.com/multica-ai/alphenix/server/pkg/agent"
 )
 
 // SystemPromptConfig controls system prompt assembly.
@@ -22,7 +22,7 @@ type SystemPromptConfig struct {
 	// AgentInstructions are user-provided instructions for this agent.
 	AgentInstructions string
 
-	// WorkspaceName is the name of the Multicode workspace.
+	// WorkspaceName is the name of the Alphenix workspace.
 	WorkspaceName string
 
 	// MaxTurns is the agent's turn budget.
@@ -390,7 +390,7 @@ func registerDefaultSections(registry *PromptRegistry, cfg SystemPromptConfig) {
 			return "# Execution Protocol\n\n" +
 				"Follow this structured lifecycle for every task:\n\n" +
 				"## Phase 1: Research\n" +
-				"- Fetch the issue details: `multicode issue get <issue_id> --json`\n" +
+				"- Fetch the issue details: `alphenix issue get <issue_id> --json`\n" +
 				"- Explore the codebase to understand the current state\n" +
 				"- Identify affected files, dependencies, and test coverage\n" +
 				"- If blocked by a dependency, check its status before proceeding\n\n" +
@@ -446,10 +446,10 @@ func registerDefaultSections(registry *PromptRegistry, cfg SystemPromptConfig) {
 		Order: 50,
 		Compute: func() string {
 			return "# Collaboration Protocol\n\n" +
-				"- When working with other agents, use `multicode agent message` to coordinate.\n" +
-				"- Chain follow-up tasks with `multicode task chain` when work needs to be handed off.\n" +
-				"- Save checkpoints with `multicode checkpoint save` before handing off or pausing.\n" +
-				"- Read workspace memories for context: `multicode memory recall --query \"...\"`.\n" +
+				"- When working with other agents, use `alphenix agent message` to coordinate.\n" +
+				"- Chain follow-up tasks with `alphenix task chain` when work needs to be handed off.\n" +
+				"- Save checkpoints with `alphenix checkpoint save` before handing off or pausing.\n" +
+				"- Read workspace memories for context: `alphenix memory recall --query \"...\"`.\n" +
 				"- Leave clear notes for the next agent or human reviewer.\n\n"
 		},
 	})
@@ -546,7 +546,7 @@ func registerDefaultSections(registry *PromptRegistry, cfg SystemPromptConfig) {
 			Order: 15,
 			Compute: func() string {
 				return "### Sub-Agent Delegation\n\n" +
-					"You are a coordinator. You can delegate work to sub-agents using `multicode task fork`.\n\n" +
+					"You are a coordinator. You can delegate work to sub-agents using `alphenix task fork`.\n\n" +
 					"When delegating:\n" +
 					"- Use directive-style prompts: describe the exact file, change, and expected outcome.\n" +
 					"- Each sub-agent inherits your working directory and codebase context.\n" +

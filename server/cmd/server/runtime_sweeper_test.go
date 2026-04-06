@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/multica-ai/multicode/server/internal/events"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // setupSweeperTestFixture creates an issue and a task in the given status with

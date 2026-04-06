@@ -16,9 +16,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/multica-ai/multicode/server/internal/cli"
-	"github.com/multica-ai/multicode/server/internal/daemon"
-	logger_pkg "github.com/multica-ai/multicode/server/internal/logger"
+	"github.com/multica-ai/alphenix/server/internal/cli"
+	"github.com/multica-ai/alphenix/server/internal/daemon"
+	logger_pkg "github.com/multica-ai/alphenix/server/internal/logger"
 )
 
 var daemonCmd = &cobra.Command{
@@ -54,13 +54,13 @@ var daemonLogsCmd = &cobra.Command{
 func init() {
 	f := daemonStartCmd.Flags()
 	f.Bool("foreground", false, "Run in the foreground instead of background")
-	f.String("daemon-id", "", "Unique daemon identifier (env: MULTICODE_DAEMON_ID)")
-	f.String("device-name", "", "Human-readable device name (env: MULTICODE_DAEMON_DEVICE_NAME)")
-	f.String("runtime-name", "", "Runtime display name (env: MULTICODE_AGENT_RUNTIME_NAME)")
-	f.Duration("poll-interval", 0, "Task poll interval (env: MULTICODE_DAEMON_POLL_INTERVAL)")
-	f.Duration("heartbeat-interval", 0, "Heartbeat interval (env: MULTICODE_DAEMON_HEARTBEAT_INTERVAL)")
-	f.Duration("agent-timeout", 0, "Per-task timeout (env: MULTICODE_AGENT_TIMEOUT)")
-	f.Int("max-concurrent-tasks", 0, "Max tasks running in parallel (env: MULTICODE_DAEMON_MAX_CONCURRENT_TASKS)")
+	f.String("daemon-id", "", "Unique daemon identifier (env: ALPHENIX_DAEMON_ID)")
+	f.String("device-name", "", "Human-readable device name (env: ALPHENIX_DAEMON_DEVICE_NAME)")
+	f.String("runtime-name", "", "Runtime display name (env: ALPHENIX_AGENT_RUNTIME_NAME)")
+	f.Duration("poll-interval", 0, "Task poll interval (env: ALPHENIX_DAEMON_POLL_INTERVAL)")
+	f.Duration("heartbeat-interval", 0, "Heartbeat interval (env: ALPHENIX_DAEMON_HEARTBEAT_INTERVAL)")
+	f.Duration("agent-timeout", 0, "Per-task timeout (env: ALPHENIX_AGENT_TIMEOUT)")
+	f.Int("max-concurrent-tasks", 0, "Max tasks running in parallel (env: ALPHENIX_DAEMON_MAX_CONCURRENT_TASKS)")
 
 	daemonLogsCmd.Flags().BoolP("follow", "f", false, "Follow log output")
 	daemonLogsCmd.Flags().IntP("lines", "n", 50, "Number of lines to show")
@@ -74,7 +74,7 @@ func init() {
 }
 
 // daemonDirForProfile returns the state directory for the given profile.
-// Empty profile → ~/.multicode/, named profile → ~/.multicode/profiles/<name>/.
+// Empty profile → ~/.alphenix/, named profile → ~/.alphenix/profiles/<name>/.
 func daemonDirForProfile(profile string) string {
 	dir, err := cli.ProfileDir(profile)
 	if err != nil {
@@ -232,16 +232,16 @@ func buildDaemonStartArgs(cmd *cobra.Command) []string {
 func runDaemonForeground(cmd *cobra.Command) error {
 	profile := resolveProfile(cmd)
 
-	serverURL := cli.FlagOrEnv(cmd, "server-url", "MULTICODE_SERVER_URL", "")
+	serverURL := cli.FlagOrEnv(cmd, "server-url", "ALPHENIX_SERVER_URL", "")
 	if serverURL == "" {
 		if c, err := cli.LoadCLIConfigForProfile(profile); err == nil && c.ServerURL != "" {
 			serverURL = c.ServerURL
 		}
 	}
 
-	// Determine health port: MULTICODE_HEALTH_PORT env var takes precedence over profile-based calculation
+	// Determine health port: ALPHENIX_HEALTH_PORT env var takes precedence over profile-based calculation
 	healthPort := daemon.DefaultHealthPort
-	if envPort := os.Getenv("MULTICODE_HEALTH_PORT"); envPort != "" {
+	if envPort := os.Getenv("ALPHENIX_HEALTH_PORT"); envPort != "" {
 		if p, err := strconv.Atoi(envPort); err == nil && p > 0 {
 			healthPort = p
 		}

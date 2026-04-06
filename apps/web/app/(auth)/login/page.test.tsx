@@ -49,7 +49,7 @@ describe("LoginPage", () => {
   it("renders login form with email input and continue button", () => {
     render(<LoginPage />);
 
-    expect(screen.getByText("Multicode")).toBeInTheDocument();
+    expect(screen.getByText("Alphenix")).toBeInTheDocument();
     expect(screen.getByText("Turn coding agents into real teammates")).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(
@@ -70,11 +70,11 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     render(<LoginPage />);
 
-    await user.type(screen.getByLabelText("Email"), "test@multicode.ai");
+    await user.type(screen.getByLabelText("Email"), "test@alphenix.ai");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(mockSendCode).toHaveBeenCalledWith("test@multicode.ai");
+      expect(mockSendCode).toHaveBeenCalledWith("test@alphenix.ai");
     });
   });
 
@@ -83,7 +83,7 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     render(<LoginPage />);
 
-    await user.type(screen.getByLabelText("Email"), "test@multicode.ai");
+    await user.type(screen.getByLabelText("Email"), "test@alphenix.ai");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -96,7 +96,7 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     render(<LoginPage />);
 
-    await user.type(screen.getByLabelText("Email"), "test@multicode.ai");
+    await user.type(screen.getByLabelText("Email"), "test@alphenix.ai");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -109,7 +109,7 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     render(<LoginPage />);
 
-    await user.type(screen.getByLabelText("Email"), "test@multicode.ai");
+    await user.type(screen.getByLabelText("Email"), "test@alphenix.ai");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {

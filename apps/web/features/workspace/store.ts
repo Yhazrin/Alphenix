@@ -72,7 +72,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       configureAgentsApi({ workspaceId: null });
       configureTasksApi({ workspaceId: null });
       configureRuntimesApi({ workspaceId: null });
-      localStorage.removeItem("multicode_workspace_id");
+      localStorage.removeItem("alphenix_workspace_id");
       set({ workspace: null, members: [], agents: [], skills: [] });
       return null;
     }
@@ -81,7 +81,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     configureAgentsApi({ workspaceId: nextWorkspace.id });
     configureTasksApi({ workspaceId: nextWorkspace.id });
     configureRuntimesApi({ workspaceId: nextWorkspace.id });
-    localStorage.setItem("multicode_workspace_id", nextWorkspace.id);
+    localStorage.setItem("alphenix_workspace_id", nextWorkspace.id);
     set({ workspace: nextWorkspace });
 
     logger.debug("hydrate workspace", nextWorkspace.name, nextWorkspace.id);
@@ -124,7 +124,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     configureAgentsApi({ workspaceId: ws.id });
     configureTasksApi({ workspaceId: ws.id });
     configureRuntimesApi({ workspaceId: ws.id });
-    localStorage.setItem("multicode_workspace_id", ws.id);
+    localStorage.setItem("alphenix_workspace_id", ws.id);
 
     // Clear ALL stale data across every store before hydrating.
     resetStores();
@@ -135,7 +135,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   refreshWorkspaces: async () => {
     const { workspace, hydrateWorkspace } = get();
-    const storedWorkspaceId = localStorage.getItem("multicode_workspace_id");
+    const storedWorkspaceId = localStorage.getItem("alphenix_workspace_id");
     try {
       const wsList = await api.listWorkspaces();
       await hydrateWorkspace(wsList, workspace?.id ?? storedWorkspaceId);
@@ -268,7 +268,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     configureAgentsApi({ workspaceId: null });
     configureTasksApi({ workspaceId: null });
     configureRuntimesApi({ workspaceId: null });
-    localStorage.removeItem("multicode_workspace_id");
+    localStorage.removeItem("alphenix_workspace_id");
     set({ workspace: null, workspaces: [], members: [], agents: [], skills: [] });
   },
 }));

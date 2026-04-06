@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/multica-ai/multicode/server/pkg/agent"
+	"github.com/multica-ai/alphenix/server/pkg/agent"
 )
 
 // --- Mock Backend for ForkManager tests ---
@@ -328,7 +328,7 @@ func TestForkManager_DuplicateID(t *testing.T) {
 
 func TestForkManager_Cleanup(t *testing.T) {
 	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, ".multicode", "fork_result.txt")
+	outputFile := filepath.Join(tempDir, ".alphenix", "fork_result.txt")
 
 	backend := &mockBackend{
 		results: map[string]agent.ForkResult{

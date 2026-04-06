@@ -22,7 +22,7 @@ func NewWorktreeProvider(baseDir string) *WorktreeProvider {
 // Create allocates a new isolated worktree, copies project files from sourceDir,
 // and returns the path. Caller must call Cleanup when done.
 func (wp *WorktreeProvider) Create(sourceDir string) (worktreePath string, cleanup func(), err error) {
-	tmpDir, err := os.MkdirTemp(wp.baseDir, "multicode-fork-*")
+	tmpDir, err := os.MkdirTemp(wp.baseDir, "alphenix-fork-*")
 	if err != nil {
 		return "", nil, err
 	}
@@ -47,8 +47,8 @@ func copyDir(src, dst string) error {
 		dstPath := filepath.Join(dst, entry.Name())
 
 		if entry.IsDir() {
-			// Skip .git and .multicode directories.
-			if entry.Name() == ".git" || entry.Name() == ".multicode" {
+			// Skip .git and .alphenix directories.
+			if entry.Name() == ".git" || entry.Name() == ".alphenix" {
 				continue
 			}
 			if err := os.MkdirAll(dstPath, 0o755); err != nil {

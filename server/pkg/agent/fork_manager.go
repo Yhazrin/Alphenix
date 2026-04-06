@@ -104,7 +104,7 @@ func (fm *ForkManager) StartFork(ctx context.Context, spec ForkSpec) (string, er
 	}
 
 	// Determine output file path.
-	outputFile := filepath.Join(worktree, ".multicode", "fork_output.txt")
+	outputFile := filepath.Join(worktree, ".alphenix", "fork_output.txt")
 	if spec.OutputDir != "" {
 		outputFile = filepath.Join(spec.OutputDir, "fork_output.txt")
 	}
@@ -248,7 +248,7 @@ func (fm *ForkManager) createWorktree(spec ForkSpec) (string, error) {
 	}
 
 	// Create temp directory.
-	worktree, err := os.MkdirTemp("", "multicode-fork-"+spec.ID+"-*")
+	worktree, err := os.MkdirTemp("", "alphenix-fork-"+spec.ID+"-*")
 	if err != nil {
 		return "", fmt.Errorf("mkdirtemp: %w", err)
 	}
@@ -262,10 +262,10 @@ func (fm *ForkManager) createWorktree(spec ForkSpec) (string, error) {
 		}
 	}
 
-	// Create .multicode output directory.
-	if mkErr := os.MkdirAll(filepath.Join(worktree, ".multicode"), 0o755); mkErr != nil {
+	// Create .alphenix output directory.
+	if mkErr := os.MkdirAll(filepath.Join(worktree, ".alphenix"), 0o755); mkErr != nil {
 		os.RemoveAll(worktree)
-		return "", fmt.Errorf("create .multicode dir: %w", mkErr)
+		return "", fmt.Errorf("create .alphenix dir: %w", mkErr)
 	}
 
 	return worktree, nil

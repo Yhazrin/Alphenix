@@ -11,10 +11,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multicode/server/internal/logger"
-	"github.com/multica-ai/multicode/server/internal/service"
-	"github.com/multica-ai/multicode/server/pkg/agent"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/logger"
+	"github.com/multica-ai/alphenix/server/internal/service"
+	"github.com/multica-ai/alphenix/server/pkg/agent"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // SubtaskPreview is a single subtask proposed by the Architect Agent.
@@ -164,7 +164,7 @@ func (h *Handler) Decompose(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Use a temp directory as the agent's working directory.
-		workDir := filepath.Join(os.TempDir(), "multicode-decompose", run.ID.String())
+		workDir := filepath.Join(os.TempDir(), "alphenix-decompose", run.ID.String())
 		if err := os.MkdirAll(workDir, 0o755); err != nil {
 			slog.Error("decompose: failed to create workdir", "error", err)
 			h.RunOrchestrator.FailRun(ctx, run.ID.String())

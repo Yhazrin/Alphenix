@@ -22,7 +22,7 @@ export const api = new ApiClient(API_BASE_URL, { logger: createLogger("api") });
 // Initialize workspace_id from localStorage on load.
 // Auth uses HttpOnly cookie — no token stored in localStorage.
 if (typeof window !== "undefined") {
-  const wsId = localStorage.getItem("multicode_workspace_id");
+  const wsId = localStorage.getItem("alphenix_workspace_id");
   if (wsId) {
     api.setWorkspaceId(wsId);
   }

@@ -1,4 +1,4 @@
-.PHONY: dev daemon cli multicode build build-mcp-server build-all build-docker test test-coverage migrate-up migrate-down sqlc seed clean setup start stop check check-prereqs worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
+.PHONY: dev daemon cli alphenix build build-mcp-server build-all build-docker test test-coverage migrate-up migrate-down sqlc seed clean setup start stop check check-prereqs worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
 
 MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
@@ -8,23 +8,23 @@ ifneq ($(wildcard $(ENV_FILE)),)
 include $(ENV_FILE)
 endif
 
-POSTGRES_DB ?= multicode
-POSTGRES_USER ?= multicode
-POSTGRES_PASSWORD ?= multicode
+POSTGRES_DB ?= alphenix
+POSTGRES_USER ?= alphenix
+POSTGRES_PASSWORD ?= alphenix
 POSTGRES_PORT ?= 5432
 PORT ?= 8080
 FRONTEND_PORT ?= 3000
 FRONTEND_ORIGIN ?= http://localhost:$(FRONTEND_PORT)
-MULTICODE_APP_URL ?= $(FRONTEND_ORIGIN)
+ALPHENIX_APP_URL ?= $(FRONTEND_ORIGIN)
 DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 NEXT_PUBLIC_API_URL ?= http://localhost:$(PORT)
 NEXT_PUBLIC_WS_URL ?= ws://localhost:$(PORT)/ws
 GOOGLE_REDIRECT_URI ?= $(FRONTEND_ORIGIN)/auth/callback
-MULTICODE_SERVER_URL ?= ws://localhost:$(PORT)/ws
+ALPHENIX_SERVER_URL ?= ws://localhost:$(PORT)/ws
 
 export
 
-MULTICODE_ARGS ?= $(ARGS)
+ALPHENIX_ARGS ?= $(ARGS)
 
 COMPOSE := docker compose
 
@@ -133,20 +133,20 @@ dev:
 	cd server && go run ./cmd/server
 
 daemon:
-	@$(MAKE) multicode MULTICODE_ARGS="daemon"
+	@$(MAKE) alphenix ALPHENIX_ARGS="daemon"
 
 cli:
-	@$(MAKE) multicode MULTICODE_ARGS="$(MULTICODE_ARGS)"
+	@$(MAKE) alphenix ALPHENIX_ARGS="$(ALPHENIX_ARGS)"
 
-multicode:
-	cd server && go run ./cmd/multicode $$(MULTICODE_ARGS)
+alphenix:
+	cd server && go run ./cmd/alphenix $$(ALPHENIX_ARGS)
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
 build:
 	cd server && go build -o bin/server ./cmd/server
-	cd server && go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o bin/multicode ./cmd/multicode
+	cd server && go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o bin/alphenix ./cmd/alphenix
 
 build-mcp-server:
 	cd server && go build -o bin/mcp-server ./cmd/mcp-server

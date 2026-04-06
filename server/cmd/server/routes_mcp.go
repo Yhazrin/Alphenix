@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
-	"github.com/multica-ai/multicode/server/internal/handler"
-	"github.com/multica-ai/multicode/server/internal/middleware"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/handler"
+	"github.com/multica-ai/alphenix/server/internal/middleware"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // registerMCPServerRoutes registers MCP server CRUD routes.

@@ -78,7 +78,7 @@ export function RuntimeList({
           description="Runtimes are local agents that execute tasks. Start one with the CLI to get going."
         >
           <code className="rounded bg-muted px-2 py-1 text-xs">
-            multicode daemon start
+            alphenix daemon start
           </code>
         </EmptyState>
       ) : (

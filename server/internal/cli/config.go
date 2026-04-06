@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-const defaultCLIConfigPath = ".multicode/config.json"
+const defaultCLIConfigPath = ".alphenix/config.json"
 
 // WatchedWorkspace represents a workspace the daemon should monitor for tasks.
 type WatchedWorkspace struct {
@@ -53,8 +53,8 @@ func CLIConfigPath() (string, error) {
 }
 
 // CLIConfigPathForProfile returns the config file path for the given profile.
-// An empty profile returns the default path (~/.multicode/config.json).
-// A named profile returns ~/.multicode/profiles/<name>/config.json.
+// An empty profile returns the default path (~/.alphenix/config.json).
+// A named profile returns ~/.alphenix/profiles/<name>/config.json.
 func CLIConfigPathForProfile(profile string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -63,20 +63,20 @@ func CLIConfigPathForProfile(profile string) (string, error) {
 	if profile == "" {
 		return filepath.Join(home, defaultCLIConfigPath), nil
 	}
-	return filepath.Join(home, ".multicode", "profiles", profile, "config.json"), nil
+	return filepath.Join(home, ".alphenix", "profiles", profile, "config.json"), nil
 }
 
 // ProfileDir returns the base directory for a profile's state files (pid, log).
-// An empty profile returns ~/.multicode/. A named profile returns ~/.multicode/profiles/<name>/.
+// An empty profile returns ~/.alphenix/. A named profile returns ~/.alphenix/profiles/<name>/.
 func ProfileDir(profile string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve profile dir: %w", err)
 	}
 	if profile == "" {
-		return filepath.Join(home, ".multicode"), nil
+		return filepath.Join(home, ".alphenix"), nil
 	}
-	return filepath.Join(home, ".multicode", "profiles", profile), nil
+	return filepath.Join(home, ".alphenix", "profiles", profile), nil
 }
 
 // LoadCLIConfig reads the CLI config from disk (default profile).

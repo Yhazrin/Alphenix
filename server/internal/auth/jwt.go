@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-const defaultJWTSecret = "multicode-dev-secret-change-in-production"
+const defaultJWTSecret = "alphenix-dev-secret-change-in-production"
 
 var (
 	jwtSecret     []byte

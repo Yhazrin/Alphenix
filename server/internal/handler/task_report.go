@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // TaskReportResponse is the JSON representation of a task execution report.

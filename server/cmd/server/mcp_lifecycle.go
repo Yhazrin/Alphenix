@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/multica-ai/multicode/server/internal/mcpclient"
-	"github.com/multica-ai/multicode/server/internal/tool"
-	"github.com/multica-ai/multicode/server/internal/util"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/mcpclient"
+	"github.com/multica-ai/alphenix/server/internal/tool"
+	"github.com/multica-ai/alphenix/server/internal/util"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // initMCPClientManager creates the MCP Client Manager, connects to all

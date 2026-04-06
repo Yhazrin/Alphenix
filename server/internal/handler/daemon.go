@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	pgvector_go "github.com/pgvector/pgvector-go"
 
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
-	"github.com/multica-ai/multicode/server/internal/service"
-	"github.com/multica-ai/multicode/server/pkg/protocol"
-	"github.com/multica-ai/multicode/server/pkg/redact"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/service"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/pkg/redact"
 )
 
 // ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ type DaemonRegisterRequest struct {
 	DaemonID    string `json:"daemon_id"`
 	InstanceID  string `json:"instance_id"` // per-terminal unique ID
 	DeviceName  string `json:"device_name"`
-	CLIVersion  string `json:"cli_version"` // multicode CLI version
+	CLIVersion  string `json:"cli_version"` // alphenix CLI version
 	Runtimes    []struct {
 		Name    string `json:"name"`
 		Type    string `json:"type"`

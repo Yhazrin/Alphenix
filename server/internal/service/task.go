@@ -12,13 +12,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multicode/server/internal/events"
-	"github.com/multica-ai/multicode/server/internal/mention"
-	"github.com/multica-ai/multicode/server/internal/realtime"
-	"github.com/multica-ai/multicode/server/internal/util"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
-	"github.com/multica-ai/multicode/server/pkg/protocol"
-	"github.com/multica-ai/multicode/server/pkg/redact"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	"github.com/multica-ai/alphenix/server/internal/mention"
+	"github.com/multica-ai/alphenix/server/internal/realtime"
+	"github.com/multica-ai/alphenix/server/internal/util"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/pkg/redact"
 )
 
 type TaskService struct {
@@ -34,7 +34,7 @@ func NewTaskService(q *db.Queries, hub *realtime.Hub, bus *events.Bus) *TaskServ
 
 // EnqueueTaskForIssue creates a queued task for an agent-assigned issue.
 // No context snapshot is stored — the agent fetches all data it needs at
-// runtime via the multicode CLI.
+// runtime via the alphenix CLI.
 func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, triggerCommentID ...pgtype.UUID) (db.AgentTaskQueue, error) {
 	if !issue.AssigneeID.Valid {
 		slog.Error("task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "error", "issue has no assignee")

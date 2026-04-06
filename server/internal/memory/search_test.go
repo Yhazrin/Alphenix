@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 func makeMemory(id byte, content string, similarity float64) SearchResult {

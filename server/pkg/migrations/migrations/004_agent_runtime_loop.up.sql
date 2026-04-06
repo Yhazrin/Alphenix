@@ -38,7 +38,7 @@ SELECT
     COALESCE(
         NULLIF(a.runtime_config->>'provider', ''),
         CASE
-            WHEN a.runtime_mode = 'cloud' THEN 'multicode_agent'
+            WHEN a.runtime_mode = 'cloud' THEN 'alphenix_agent'
             ELSE 'legacy_local'
         END
     ),

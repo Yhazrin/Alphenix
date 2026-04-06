@@ -1,10 +1,10 @@
 # Self-Hosting Guide
 
-This guide walks you through deploying Multicode on your own infrastructure.
+This guide walks you through deploying Alphenix on your own infrastructure.
 
 ## Architecture Overview
 
-Multicode has three components:
+Alphenix has three components:
 
 | Component | Description | Technology |
 |-----------|-------------|------------|
@@ -12,7 +12,7 @@ Multicode has three components:
 | **Frontend** | Web application | Next.js 16 |
 | **Database** | Primary data store | PostgreSQL 17 with pgvector |
 
-Additionally, each user who wants to run AI agents locally installs the **`multicode` CLI** and runs the **agent daemon** on their own machine.
+Additionally, each user who wants to run AI agents locally installs the **`alphenix` CLI** and runs the **agent daemon** on their own machine.
 
 ## Prerequisites
 
@@ -24,8 +24,8 @@ Additionally, each user who wants to run AI agents locally installs the **`multi
 ## Quick Start (Docker Compose)
 
 ```bash
-git clone https://github.com/multicode.ai/multicode.git
-cd multicode
+git clone https://github.com/alphenix.ai/alphenix.git
+cd alphenix
 cp .env.example .env
 ```
 
@@ -64,18 +64,18 @@ All configuration is done via environment variables. Copy `.env.example` as a st
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://multicode:multicode@localhost:5432/multicode?sslmode=disable` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://alphenix:alphenix@localhost:5432/alphenix?sslmode=disable` |
 | `JWT_SECRET` | **Must change from default.** Secret key for signing JWT tokens. Use a long random string. | `openssl rand -hex 32` |
 | `FRONTEND_ORIGIN` | URL where the frontend is served (used for CORS) | `https://app.example.com` |
 
 ### Email (Required for Authentication)
 
-Multicode uses email-based magic link authentication via [Resend](https://resend.com).
+Alphenix uses email-based magic link authentication via [Resend](https://resend.com).
 
 | Variable | Description |
 |----------|-------------|
 | `RESEND_API_KEY` | Your Resend API key |
-| `RESEND_FROM_EMAIL` | Sender email address (default: `noreply@multicode.ai`) |
+| `RESEND_FROM_EMAIL` | Sender email address (default: `noreply@alphenix.ai`) |
 
 ### Google OAuth (Optional)
 
@@ -113,14 +113,14 @@ These are configured on each user's machine, not on the server:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MULTICODE_SERVER_URL` | `ws://localhost:8080/ws` | WebSocket URL for daemon → server connection |
-| `MULTICODE_APP_URL` | `http://localhost:3000` | Frontend URL for CLI login flow |
-| `MULTICODE_DAEMON_POLL_INTERVAL` | `3s` | How often the daemon polls for tasks |
-| `MULTICODE_DAEMON_HEARTBEAT_INTERVAL` | `15s` | Heartbeat frequency |
+| `ALPHENIX_SERVER_URL` | `ws://localhost:8080/ws` | WebSocket URL for daemon → server connection |
+| `ALPHENIX_APP_URL` | `http://localhost:3000` | Frontend URL for CLI login flow |
+| `ALPHENIX_DAEMON_POLL_INTERVAL` | `3s` | How often the daemon polls for tasks |
+| `ALPHENIX_DAEMON_HEARTBEAT_INTERVAL` | `15s` | Heartbeat frequency |
 
 ## Database Setup
 
-Multicode requires PostgreSQL 17 with the pgvector extension.
+Alphenix requires PostgreSQL 17 with the pgvector extension.
 
 ### Using the Included Docker Compose
 
@@ -128,7 +128,7 @@ Multicode requires PostgreSQL 17 with the pgvector extension.
 docker compose up -d postgres
 ```
 
-This starts a `pgvector/pgvector:pg17` container on port 5432 with default credentials (`multicode`/`multicode`).
+This starts a `pgvector/pgvector:pg17` container on port 5432 with default credentials (`alphenix`/`alphenix`).
 
 ### Using Your Own PostgreSQL
 
@@ -245,8 +245,8 @@ Each team member who wants to run AI agents locally needs to:
 1. **Install the CLI**
 
    ```bash
-   brew tap multicode.ai/tap
-   brew install multicode-cli
+   brew tap alphenix.ai/tap
+   brew install alphenix-cli
    ```
 
 2. **Install an AI agent CLI** — at least one of:
@@ -257,17 +257,17 @@ Each team member who wants to run AI agents locally needs to:
 
    ```bash
    # Point CLI to your server
-   export MULTICODE_APP_URL=https://app.example.com
-   export MULTICODE_SERVER_URL=wss://api.example.com/ws
+   export ALPHENIX_APP_URL=https://app.example.com
+   export ALPHENIX_SERVER_URL=wss://api.example.com/ws
 
    # Login (opens browser)
-   multicode login
+   alphenix login
 
    # Start the daemon
-   multicode daemon start
+   alphenix daemon start
    ```
 
-The daemon auto-detects installed agent CLIs and registers itself with the server. When an agent is assigned a task in Multicode, the daemon picks it up, creates an isolated workspace, runs the agent, and reports results back.
+The daemon auto-detects installed agent CLIs and registers itself with the server. When an agent is assigned a task in Alphenix, the daemon picks it up, creates an isolated workspace, runs the agent, and reports results back.
 
 ## Upgrading
 

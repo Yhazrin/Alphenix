@@ -1727,7 +1727,7 @@ export default function AgentsPage() {
   const runtimes = useRuntimeStore((s) => s.runtimes);
   const fetchRuntimes = useRuntimeStore((s) => s.fetchRuntimes);
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: "multicode_agents_layout",
+    id: "alphenix_agents_layout",
   });
 
   useEffect(() => {

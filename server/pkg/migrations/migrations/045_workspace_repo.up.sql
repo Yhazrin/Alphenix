@@ -4,7 +4,7 @@
 CREATE TABLE workspace_repo (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,                    -- Display name, e.g. "multicode"
+    name TEXT NOT NULL,                    -- Display name, e.g. "alphenix"
     url TEXT NOT NULL,                     -- Git URL
     default_branch TEXT NOT NULL DEFAULT 'main',
     description TEXT,

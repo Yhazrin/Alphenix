@@ -17,8 +17,8 @@ func testCmd() *cobra.Command {
 func TestResolveAppURL(t *testing.T) {
 	cmd := testCmd()
 
-	t.Run("prefers MULTICODE_APP_URL", func(t *testing.T) {
-		t.Setenv("MULTICODE_APP_URL", "http://localhost:14000")
+	t.Run("prefers ALPHENIX_APP_URL", func(t *testing.T) {
+		t.Setenv("ALPHENIX_APP_URL", "http://localhost:14000")
 		t.Setenv("FRONTEND_ORIGIN", "http://localhost:13000")
 
 		if got := resolveAppURL(cmd); got != "http://localhost:14000" {
@@ -27,7 +27,7 @@ func TestResolveAppURL(t *testing.T) {
 	})
 
 	t.Run("falls back to FRONTEND_ORIGIN", func(t *testing.T) {
-		t.Setenv("MULTICODE_APP_URL", "")
+		t.Setenv("ALPHENIX_APP_URL", "")
 		t.Setenv("FRONTEND_ORIGIN", "http://localhost:13026")
 
 		if got := resolveAppURL(cmd); got != "http://localhost:13026" {
@@ -36,12 +36,12 @@ func TestResolveAppURL(t *testing.T) {
 	})
 
 	t.Run("defaults to production", func(t *testing.T) {
-		t.Setenv("MULTICODE_APP_URL", "")
+		t.Setenv("ALPHENIX_APP_URL", "")
 		t.Setenv("FRONTEND_ORIGIN", "")
 		t.Setenv("HOME", t.TempDir()) // avoid reading real config
 
-		if got := resolveAppURL(cmd); got != "https://multicode.ai" {
-			t.Fatalf("resolveAppURL() = %q, want %q", got, "https://multicode.ai")
+		if got := resolveAppURL(cmd); got != "https://alphenix.ai" {
+			t.Fatalf("resolveAppURL() = %q, want %q", got, "https://alphenix.ai")
 		}
 	})
 }

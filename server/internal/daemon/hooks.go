@@ -4,9 +4,9 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/multica-ai/multicode/server/internal/events"
-	"github.com/multica-ai/multicode/server/pkg/agent"
-	"github.com/multica-ai/multicode/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	"github.com/multica-ai/alphenix/server/pkg/agent"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
 )
 
 // HookService bridges agent-level tool hooks with the event bus, providing

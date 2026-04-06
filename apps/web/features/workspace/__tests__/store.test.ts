@@ -67,7 +67,7 @@ describe("workspace store", () => {
 
       expect(result?.id).toBe("ws-2");
       expect(api.setWorkspaceId).toHaveBeenCalledWith("ws-2");
-      expect(localStorage.getItem("multicode_workspace_id")).toBe("ws-2");
+      expect(localStorage.getItem("alphenix_workspace_id")).toBe("ws-2");
     });
 
     it("falls back to first workspace when preferred not found", async () => {
@@ -120,7 +120,7 @@ describe("workspace store", () => {
       await useWorkspaceStore.getState().switchWorkspace("ws-2");
 
       expect(api.setWorkspaceId).toHaveBeenCalledWith("ws-2");
-      expect(localStorage.getItem("multicode_workspace_id")).toBe("ws-2");
+      expect(localStorage.getItem("alphenix_workspace_id")).toBe("ws-2");
       expect(useWorkspaceStore.getState().workspace?.id).toBe("ws-2");
     });
 
@@ -139,7 +139,7 @@ describe("workspace store", () => {
 
   describe("clearWorkspace", () => {
     it("resets all state and clears localStorage", () => {
-      localStorage.setItem("multicode_workspace_id", "ws-1");
+      localStorage.setItem("alphenix_workspace_id", "ws-1");
       useWorkspaceStore.setState({
         workspace: { id: "ws-1" } as any,
         workspaces: [{ id: "ws-1" }] as any[],
@@ -151,7 +151,7 @@ describe("workspace store", () => {
       useWorkspaceStore.getState().clearWorkspace();
 
       expect(api.setWorkspaceId).toHaveBeenCalledWith(null);
-      expect(localStorage.getItem("multicode_workspace_id")).toBeNull();
+      expect(localStorage.getItem("alphenix_workspace_id")).toBeNull();
       expect(useWorkspaceStore.getState().workspace).toBeNull();
       expect(useWorkspaceStore.getState().workspaces).toEqual([]);
       expect(useWorkspaceStore.getState().members).toEqual([]);

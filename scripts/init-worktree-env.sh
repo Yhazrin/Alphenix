@@ -11,7 +11,7 @@ fi
 worktree_name="${WORKTREE_NAME:-$(basename "$PWD")}"
 slug="$(printf '%s' "$worktree_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g; s/__*/_/g; s/^_//; s/_$//')"
 if [ -z "$slug" ]; then
-  slug="multicode"
+  slug="alphenix"
 fi
 
 # Portable hash: sha256sum (Linux) → shasum (macOS) → cksum (fallback)
@@ -24,7 +24,7 @@ else
 fi
 offset=$((hash_value % 1000))
 
-postgres_db="multicode_${slug}_${offset}"
+postgres_db="alphenix_${slug}_${offset}"
 postgres_port=5432
 backend_port=$((18080 + offset))
 frontend_port=$((13000 + offset))
@@ -32,15 +32,15 @@ frontend_origin="http://localhost:${frontend_port}"
 
 cat > "$ENV_FILE" <<EOF
 POSTGRES_DB=${postgres_db}
-POSTGRES_USER=multicode
-POSTGRES_PASSWORD=multicode
+POSTGRES_USER=alphenix
+POSTGRES_PASSWORD=alphenix
 POSTGRES_PORT=${postgres_port}
-DATABASE_URL=postgres://multicode:multicode@localhost:${postgres_port}/${postgres_db}?sslmode=disable
+DATABASE_URL=postgres://alphenix:alphenix@localhost:${postgres_port}/${postgres_db}?sslmode=disable
 
 PORT=${backend_port}
 JWT_SECRET=change-me-in-production
-MULTICODE_SERVER_URL=ws://localhost:${backend_port}/ws
-MULTICODE_APP_URL=${frontend_origin}
+ALPHENIX_SERVER_URL=ws://localhost:${backend_port}/ws
+ALPHENIX_APP_URL=${frontend_origin}
 
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=

@@ -2,7 +2,7 @@
 
 ## 1. Overall Assessment
 
-Multicode is a **well-architected early-stage product** with a solid foundation for AI-native task management. The core loop — issue creation → agent assignment → task enqueue → runtime selection → daemon execution → run recording → result delivery — is **fully implemented and functional end-to-end**.
+Alphenix is a **well-architected early-stage product** with a solid foundation for AI-native task management. The core loop — issue creation → agent assignment → task enqueue → runtime selection → daemon execution → run recording → result delivery — is **fully implemented and functional end-to-end**.
 
 The codebase demonstrates strong engineering judgment in several critical areas: the task state machine with explicit transition validation, the multi-factor runtime selection algorithm, the modular prompt assembly system with cache optimization, and the run observability stack (steps + coalescers + compaction + events). These are not minimum-viable implementations — they're production-grade designs.
 

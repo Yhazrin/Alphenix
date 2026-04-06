@@ -44,7 +44,7 @@ export function LandingHero() {
                 href={githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="View Multicode on GitHub"
+                aria-label="View Alphenix on GitHub"
                 className={heroButtonClassName("ghost")}
               >
                 <GitHubMark className="size-4" />

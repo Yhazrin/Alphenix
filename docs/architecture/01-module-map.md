@@ -3,7 +3,7 @@
 ## Repository Top-Level
 
 ```
-multicode/
+alphenix/
 ├── apps/web/           Next.js 16 frontend (standalone, no shared pkg deps)
 ├── server/             Go backend (API, CLI, daemon, agent SDK)
 ├── e2e/                Playwright end-to-end tests
@@ -39,7 +39,7 @@ server/
 │   │   ├── mcp_lifecycle.go  MCP server startup connections
 │   │   ├── memory_sweeper.go Agent memory cleanup goroutine
 │   │   └── runtime_sweeper.go Runtime heartbeat timeout goroutine
-│   ├── multicode/      CLI binary (login, daemon, agent, issue, workspace, etc.)
+│   ├── alphenix/      CLI binary (login, daemon, agent, issue, workspace, etc.)
 │   └── migrate/        Database migration runner (goose)
 ├── internal/
 │   ├── handler/        HTTP handlers (one file per domain)

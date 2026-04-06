@@ -4,10 +4,10 @@ import { ChangelogPageClient } from "@/features/landing/components/changelog-pag
 export const metadata: Metadata = {
   title: "Changelog",
   description:
-    "See what's new in Multicode — latest features, improvements, and fixes.",
+    "See what's new in Alphenix — latest features, improvements, and fixes.",
   openGraph: {
-    title: "Changelog | Multicode",
-    description: "Latest updates and releases from Multicode.",
+    title: "Changelog | Alphenix",
+    description: "Latest updates and releases from Alphenix.",
     url: "/changelog",
   },
   alternates: {

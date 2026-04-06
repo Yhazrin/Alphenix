@@ -12,7 +12,7 @@ let counter = 0;
 function uniqueCredentials() {
   const n = `${process.pid}-${Date.now()}-${counter++}`;
   return {
-    email: `e2e+${n}@multicode.ai`,
+    email: `e2e+${n}@alphenix.ai`,
     slug: `ws-${n}`,
   };
 }
@@ -62,7 +62,7 @@ export async function loginAsDefault(page: Page) {
     throw new Error(`verify-code returned no token: ${JSON.stringify(verifyResult)}`);
   }
 
-  // Set the HttpOnly "token" cookie and "multicode_logged_in" cookie on the
+  // Set the HttpOnly "token" cookie and "alphenix_logged_in" cookie on the
   // frontend origin so the browser sends them on subsequent page loads.
   const url = new URL(baseUrl);
   await page.context().addCookies([
@@ -75,7 +75,7 @@ export async function loginAsDefault(page: Page) {
       sameSite: "Lax",
     },
     {
-      name: "multicode_logged_in",
+      name: "alphenix_logged_in",
       value: "1",
       domain: url.hostname,
       path: "/",
@@ -128,8 +128,8 @@ export async function loginAsDefault(page: Page) {
   }
   await page.evaluate((wsId) => {
 
-    localStorage.setItem("multicode_workspace_id", wsId);
-    document.cookie = "multicode_logged_in=1; path=/; max-age=31536000; samesite=lax";
+    localStorage.setItem("alphenix_workspace_id", wsId);
+    document.cookie = "alphenix_logged_in=1; path=/; max-age=31536000; samesite=lax";
   }, workspace.id);
 
   // Navigate to /issues — the init script sets localStorage before hydration,

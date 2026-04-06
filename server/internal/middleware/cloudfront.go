@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/multica-ai/multicode/server/internal/auth"
+	"github.com/multica-ai/alphenix/server/internal/auth"
 )
 
 // RefreshCloudFrontCookies is middleware that refreshes CloudFront signed cookies

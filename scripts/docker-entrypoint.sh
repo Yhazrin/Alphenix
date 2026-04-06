@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "==> Starting multicode container..."
+echo "==> Starting alphenix container..."
 
 # Start Go backend
 echo "==> Starting Go backend on port ${PORT:-8080}..."

@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/multica-ai/multicode/server/internal/service"
-	"github.com/multica-ai/multicode/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/internal/service"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
 )
 
 // ---------------------------------------------------------------------------

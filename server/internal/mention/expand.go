@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // IssueResolver looks up an issue by workspace and number.

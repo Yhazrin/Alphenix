@@ -7,12 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/multica-ai/multicode/server/internal/cli"
+	"github.com/multica-ai/alphenix/server/internal/cli"
 )
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update multicode to the latest version",
+	Short: "Update alphenix to the latest version",
 	RunE:  runUpdate,
 }
 
@@ -39,7 +39,7 @@ func runUpdate(_ *cobra.Command, _ []string) error {
 		output, err := cli.UpdateViaBrew()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", output)
-			return fmt.Errorf("brew upgrade failed: %w\nYou can try manually: brew upgrade multica-ai/tap/multicode", err)
+			return fmt.Errorf("brew upgrade failed: %w\nYou can try manually: brew upgrade multica-ai/tap/alphenix", err)
 		}
 		fmt.Fprintln(os.Stderr, "Update complete.")
 		return nil
@@ -47,7 +47,7 @@ func runUpdate(_ *cobra.Command, _ []string) error {
 
 	// Not installed via brew — download binary directly from GitHub Releases.
 	if latest == nil {
-		return fmt.Errorf("could not determine latest version; check https://github.com/multica-ai/multicode/releases/latest")
+		return fmt.Errorf("could not determine latest version; check https://github.com/multica-ai/alphenix/releases/latest")
 	}
 	targetVersion := latest.TagName
 	fmt.Fprintf(os.Stderr, "Downloading %s from GitHub Releases...\n", targetVersion)

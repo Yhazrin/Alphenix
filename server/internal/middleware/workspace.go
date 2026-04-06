@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/multica-ai/multicode/server/internal/util"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/util"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // Context keys for workspace-scoped request data.

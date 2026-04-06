@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/multica-ai/multicode/server/internal/tool"
+	"github.com/multica-ai/alphenix/server/internal/tool"
 )
 
 // ServerConfig holds the configuration needed to connect to an MCP server.

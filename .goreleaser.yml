@@ -1,12 +1,12 @@
 version: 2
 
-project_name: multicode
+project_name: alphenix
 
 builds:
-  - id: multicode
-    main: ./cmd/multicode
+  - id: alphenix
+    main: ./cmd/alphenix
     dir: server
-    binary: multicode
+    binary: alphenix
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -38,17 +38,17 @@ changelog:
       - "^chore:"
 
 brews:
-  - name: multicode
+  - name: alphenix
     repository:
-      owner: multica-ai
+      owner: alphenix
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/multica-ai/multicode"
-    description: "Multicode CLI — local agent runtime and management tool for the Multicode platform"
+    homepage: "https://github.com/alphenix/alphenix"
+    description: "Alphenix CLI — local agent runtime and management tool for the Alphenix platform"
     license: "Apache-2.0"
     install: |
-      bin.install "multicode"
+      bin.install "alphenix"
     test: |
-      system "#{bin}/multicode", "version"
+      system "#{bin}/alphenix", "version"

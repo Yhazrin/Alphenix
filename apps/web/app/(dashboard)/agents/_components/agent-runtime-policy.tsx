@@ -100,7 +100,7 @@ function RuntimeMultiSelect({
             description="Install the daemon first to make runtimes available for scheduling."
           >
             <code className="rounded bg-muted px-2 py-1 text-xs">
-              multicode daemon start
+              alphenix daemon start
             </code>
           </EmptyState>
         ) : (

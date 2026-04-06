@@ -17,9 +17,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/multica-ai/multicode/server/internal/auth"
-	"github.com/multica-ai/multicode/server/internal/events"
-	"github.com/multica-ai/multicode/server/internal/realtime"
+	"github.com/multica-ai/alphenix/server/internal/auth"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	"github.com/multica-ai/alphenix/server/internal/realtime"
 )
 
 var (
@@ -34,7 +34,7 @@ var (
 // the JWT_SECRET env var (set in .env) and stays in sync with the server.
 
 const (
-	integrationTestEmail         = "integration-test@multicode.ai"
+	integrationTestEmail         = "integration-test@alphenix.ai"
 	integrationTestName          = "Integration Tester"
 	integrationTestWorkspaceSlug = "integration-tests"
 )
@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://multicode:multicode@localhost:5432/multicode?sslmode=disable"
+		dbURL = "postgres://alphenix:alphenix@localhost:5432/alphenix?sslmode=disable"
 	}
 
 	pool, err := pgxpool.New(ctx, dbURL)
@@ -224,7 +224,7 @@ func TestHealth(t *testing.T) {
 // ---- Auth ----
 
 func TestSendCodeAndVerify(t *testing.T) {
-	const email = "integration-sendcode@multicode.ai"
+	const email = "integration-sendcode@alphenix.ai"
 	ctx := context.Background()
 
 	t.Cleanup(func() {
@@ -307,7 +307,7 @@ func TestSendCodeAndVerify(t *testing.T) {
 }
 
 func TestVerifyCodeCreatesWorkspaceForNewUser(t *testing.T) {
-	const email = "new-integration-verify@multicode.ai"
+	const email = "new-integration-verify@alphenix.ai"
 	ctx := context.Background()
 
 	t.Cleanup(func() {

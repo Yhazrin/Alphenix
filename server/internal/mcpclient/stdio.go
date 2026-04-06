@@ -147,7 +147,7 @@ func (c *StdioClient) Connect(ctx context.Context) error {
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]any{},
 		"clientInfo": map[string]any{
-			"name":    "multicode",
+			"name":    "alphenix",
 			"version": "1.0.0",
 		},
 	}

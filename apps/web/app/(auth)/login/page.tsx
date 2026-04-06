@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
 import { api } from "@/shared/api";
-import { MulticodeIcon } from "@/components/multicode-icon";
+import { AlphenixIcon } from "@/components/alphenix-icon";
 import {
   Card,
   CardHeader,
@@ -150,7 +150,7 @@ function LoginPageContent() {
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-full max-w-sm">
           <CardHeader className="items-center text-center">
-            <MulticodeIcon className="mb-1 size-8 text-foreground" noSpin />
+            <AlphenixIcon className="mb-1 size-8 text-foreground" noSpin />
             <CardTitle className="text-2xl">Check your email</CardTitle>
             <CardDescription>
               We sent a verification code to{" "}
@@ -212,8 +212,8 @@ function LoginPageContent() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
-          <MulticodeIcon className="mb-1 size-8 text-foreground" noSpin />
-          <CardTitle className="text-2xl">Multicode</CardTitle>
+          <AlphenixIcon className="mb-1 size-8 text-foreground" noSpin />
+          <CardTitle className="text-2xl">Alphenix</CardTitle>
           <CardDescription>Turn coding agents into real teammates</CardDescription>
         </CardHeader>
         <CardContent>

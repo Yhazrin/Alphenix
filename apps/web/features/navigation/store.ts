@@ -22,7 +22,7 @@ export const useNavigationStore = create<NavigationState>()(
       },
     }),
     {
-      name: "multicode_navigation",
+      name: "alphenix_navigation",
       partialize: (state) => ({ lastPath: state.lastPath }),
     }
   )

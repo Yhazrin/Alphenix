@@ -1,16 +1,16 @@
 {
-  "name": "multicode",
+  "name": "alphenix",
   "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev:web": "pnpm --filter @multicode/web dev",
-    "build": "pnpm --filter @multicode/web build",
-    "typecheck": "pnpm --filter @multicode/web typecheck",
-    "test": "pnpm --filter @multicode/web test",
-    "test:coverage": "pnpm --filter @multicode/web test:coverage",
-    "lint": "pnpm --filter @multicode/web lint",
-    "clean": "pnpm --filter @multicode/web clean && rm -rf node_modules"
+    "dev:web": "pnpm --filter @alphenix/web dev",
+    "build": "pnpm --filter @alphenix/web build",
+    "typecheck": "pnpm --filter @alphenix/web typecheck",
+    "test": "pnpm --filter @alphenix/web test",
+    "test:coverage": "pnpm --filter @alphenix/web test:coverage",
+    "lint": "pnpm --filter @alphenix/web lint",
+    "clean": "pnpm --filter @alphenix/web clean && rm -rf node_modules"
   },
   "packageManager": "pnpm@10.28.2",
   "pnpm": {

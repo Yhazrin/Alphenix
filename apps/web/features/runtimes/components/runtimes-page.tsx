@@ -27,7 +27,7 @@ export default function RuntimesPage() {
   const setSelectedId = useRuntimeStore((s) => s.setSelectedId);
 
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: "multicode_runtimes_layout",
+    id: "alphenix_runtimes_layout",
   });
 
   useEffect(() => {

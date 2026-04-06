@@ -103,7 +103,7 @@ export function AppSidebar() {
                       <SidebarMenuButton data-testid="workspace-menu-trigger">
                         <WorkspaceAvatar name={workspace?.name ?? "M"} size="sm" />
                         <span className="flex-1 truncate font-medium">
-                          {workspace?.name ?? "Multicode"}
+                          {workspace?.name ?? "Alphenix"}
                         </span>
                         <ChevronDown className="size-3 text-muted-foreground" aria-hidden="true" />
                       </SidebarMenuButton>

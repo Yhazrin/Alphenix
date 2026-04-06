@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile
 COPY apps/web/ ./apps/web/
 
 # Build frontend (standalone output)
-RUN pnpm --filter @multicode/web build
+RUN pnpm --filter @alphenix/web build
 
 # --- Go build stage ---
 FROM golang:1.26-alpine AS go-builder
@@ -34,7 +34,7 @@ COPY server/ ./server/
 ARG VERSION=dev
 ARG COMMIT=unknown
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/server ./cmd/server
-RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/multicode ./cmd/multicode
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/alphenix ./cmd/alphenix
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
 
 # --- Runtime stage ---
@@ -47,7 +47,7 @@ WORKDIR /app
 
 # Go binaries
 COPY --from=go-builder /src/server/bin/server .
-COPY --from=go-builder /src/server/bin/multicode .
+COPY --from=go-builder /src/server/bin/alphenix .
 COPY --from=go-builder /src/server/bin/migrate .
 COPY server/migrations/ ./migrations/
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-interface MulticodeIconProps extends React.ComponentProps<"span"> {
+interface AlphenixIconProps extends React.ComponentProps<"span"> {
   /**
    * If true, play a one-time entrance spin animation.
    */
@@ -27,18 +27,18 @@ const borderedSizes = {
 };
 
 /**
- * Pure CSS 8-pointed asterisk icon matching the Multicode logo.
+ * Pure CSS 8-pointed asterisk icon matching the Alphenix logo.
  * Uses currentColor so it adapts to light/dark themes automatically.
  * Clip-path polygon traced from the original SVG path coordinates.
  */
-export function MulticodeIcon({
+export function AlphenixIcon({
   className,
   animate = false,
   noSpin = false,
   bordered = false,
   size = "sm",
   ...props
-}: MulticodeIconProps) {
+}: AlphenixIconProps) {
   const [entranceDone, setEntranceDone] = useState(!animate);
 
   useEffect(() => {

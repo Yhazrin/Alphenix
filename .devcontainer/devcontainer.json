@@ -1,5 +1,5 @@
 {
-  "name": "Multicode",
+  "name": "Alphenix",
   "dockerComposeFile": ["../docker-compose.yml"],
   "service": "dev-backend",
   "workspaceFolder": "/src",

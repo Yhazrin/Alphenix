@@ -1,8 +1,8 @@
-# Claude Code Orchestration Patterns — Applied to Multicode
+# Claude Code Orchestration Patterns — Applied to Alphenix
 
 This document extracts Claude Code's core orchestration engineering patterns and maps them to
-Multicode's existing architecture. Each pattern includes the original design rationale, the
-multicode implementation status, and concrete enhancement recommendations.
+Alphenix's existing architecture. Each pattern includes the original design rationale, the
+alphenix implementation status, and concrete enhancement recommendations.
 
 ## 1. System Prompt Assembly
 
@@ -26,7 +26,7 @@ Key design decisions:
 - **Memoization**: Each section is computed once and cached. Cache busts only when the underlying
   data changes (MCP connect, plugin reload, permission mode change).
 
-### Multicode Status
+### Alphenix Status
 
 **Partially implemented**. `daemon/system_prompt.go` has:
 - Static/dynamic boundary (`AssembleSystemPrompt` / `writeStaticSection`)
@@ -60,7 +60,7 @@ Six permission modes with inheritance:
 Agent permission scoping: child agent's `permissionMode` is honored UNLESS the parent is
 `bypassPermissions`/`acceptEdits`/`auto` (parent's permissiveness is inherited).
 
-### Multicode Status
+### Alphenix Status
 
 **Good foundation**. `agent.ToolPermissions` has:
 - `AllowedTools`, `DeniedTools`, `ReadOnly`
@@ -97,7 +97,7 @@ Agent({subagent_type: "code-reviewer", prompt: "Review migration..."})
   → fresh agent: zero context, needs full briefing
 ```
 
-### Multicode Status
+### Alphenix Status
 
 **Not implemented**. All agent executions start fresh with no context inheritance.
 
@@ -124,7 +124,7 @@ Rules:
 - **Flat team hierarchy**: teammates can only spawn subagents, not other teammates
 - **Mailbox-based async messaging**: file-based message passing with lock files
 
-### Multicode Status
+### Alphenix Status
 
 **Two of three tiers implemented**:
 - Main session: the Go backend acts as the orchestrator
@@ -156,7 +156,7 @@ PreToolUse, PostToolUse, Notification, Stop, SubagentStart, SubagentStop,
 TeammateStart, TeammateIdle, PreCompact, SessionStart, SessionEnd
 ```
 
-### Multicode Status
+### Alphenix Status
 
 **Not implemented as a formal system**. The event bus (`internal/events/`) publishes domain
 events but there's no hook registration/execution mechanism.
@@ -177,7 +177,7 @@ Three-tier priority system:
 - `normal`: tool_use, tool_result — flush on tick
 - `fold`: text, thinking — accumulate and fold into batches
 
-### Multicode Status
+### Alphenix Status
 
 **Implemented in `daemon/notification.go`**:
 - `ClassifyMessage()` maps message types to priority classes
@@ -200,7 +200,7 @@ When agents work in teams, the system prompt is enriched with:
 - Workspace memory (past observations via semantic search)
 - Last execution checkpoint (resumable state)
 
-### Multicode Status
+### Alphenix Status
 
 **Well implemented** in `CollaborationService.BuildSharedContext()`:
 - Colleagues loaded from agent list
@@ -229,7 +229,7 @@ Claude Code's system prompt enforces a strict execution lifecycle:
 3. Verify work (tests, type checks, linters)
 4. Communicate progress (structured status updates)
 
-### Multicode Status
+### Alphenix Status
 
 **Implemented in `daemon/system_prompt.go`**:
 - Four-phase protocol: Research → Plan → Implement → Verify
@@ -243,7 +243,7 @@ configurable per agent role (coordinator vs executor vs reviewer).
 
 ## Summary: What We're Adding
 
-| Pattern | Multicode Status | Action |
+| Pattern | Alphenix Status | Action |
 |---|---|---|
 | Modular prompt sections | Partial | Enhance with registry + caching |
 | Permission modes | Good | Add inheritance + plan mode |

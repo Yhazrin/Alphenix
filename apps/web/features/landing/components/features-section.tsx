@@ -164,7 +164,7 @@ function TeammatesVisual() {
       {/* Header bar */}
       <div className="flex h-10 shrink-0 items-center border-b bg-background px-4 text-sm">
         <div className="flex items-center gap-1.5 min-w-0 text-xs">
-          <span className="text-muted-foreground">Multicode Demo</span>
+          <span className="text-muted-foreground">Alphenix Demo</span>
           <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
           <span className="text-muted-foreground">MUL-18</span>
           <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
@@ -404,7 +404,7 @@ const mockToolCalls = [
   { type: "tool_use" as const, tool: "Read", summary: "server/internal/handler/comment.go" },
   { type: "tool_result" as const, preview: "func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) { …" },
   { type: "tool_use" as const, tool: "Bash", summary: "go test ./internal/handler/ -run TestErrorResponses" },
-  { type: "tool_result" as const, preview: "ok  \tgithub.com/multicode/server/internal/handler\t0.847s" },
+  { type: "tool_result" as const, preview: "ok  \tgithub.com/alphenix/server/internal/handler\t0.847s" },
 ];
 
 const mockTaskHistory = [
@@ -421,7 +421,7 @@ function AutonomousVisual() {
       {/* Header bar */}
       <div className="flex h-10 shrink-0 items-center border-b bg-background px-4 text-sm">
         <div className="flex items-center gap-1.5 min-w-0 text-xs">
-          <span className="text-muted-foreground">Multicode Demo</span>
+          <span className="text-muted-foreground">Alphenix Demo</span>
           <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
           <span className="text-muted-foreground">MUL-18</span>
           <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />

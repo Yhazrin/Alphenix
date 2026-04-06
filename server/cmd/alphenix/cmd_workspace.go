@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/multica-ai/multicode/server/internal/cli"
+	"github.com/multica-ai/alphenix/server/internal/cli"
 )
 
 var workspaceCmd = &cobra.Command{
@@ -67,7 +67,7 @@ func runWorkspaceList(cmd *cobra.Command, _ []string) error {
 	serverURL := resolveServerURL(cmd)
 	token := resolveToken(cmd)
 	if token == "" {
-		return fmt.Errorf("not authenticated: run 'multicode login' first")
+		return fmt.Errorf("not authenticated: run 'alphenix login' first")
 	}
 
 	client := cli.NewAPIClient(serverURL, "", token)
@@ -117,7 +117,7 @@ func workspaceIDFromArgs(cmd *cobra.Command, args []string) string {
 func runWorkspaceGet(cmd *cobra.Command, args []string) error {
 	wsID := workspaceIDFromArgs(cmd, args)
 	if wsID == "" {
-		return fmt.Errorf("workspace ID is required: pass as argument or set MULTICODE_WORKSPACE_ID")
+		return fmt.Errorf("workspace ID is required: pass as argument or set ALPHENIX_WORKSPACE_ID")
 	}
 
 	client, err := newAPIClient(cmd)
@@ -163,7 +163,7 @@ func runWorkspaceGet(cmd *cobra.Command, args []string) error {
 func runWorkspaceMembers(cmd *cobra.Command, args []string) error {
 	wsID := workspaceIDFromArgs(cmd, args)
 	if wsID == "" {
-		return fmt.Errorf("workspace ID is required: pass as argument or set MULTICODE_WORKSPACE_ID")
+		return fmt.Errorf("workspace ID is required: pass as argument or set ALPHENIX_WORKSPACE_ID")
 	}
 
 	client, err := newAPIClient(cmd)
@@ -204,7 +204,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	serverURL := resolveServerURL(cmd)
 	token := resolveToken(cmd)
 	if token == "" {
-		return fmt.Errorf("not authenticated: run 'multicode login' first")
+		return fmt.Errorf("not authenticated: run 'alphenix login' first")
 	}
 
 	client := cli.NewAPIClient(serverURL, "", token)

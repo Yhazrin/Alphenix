@@ -41,6 +41,6 @@ export const useIssueDraftStore = create<IssueDraftStore>()(
         return !!(draft.title || draft.description);
       },
     }),
-    { name: "multicode_issue_draft" },
+    { name: "alphenix_issue_draft" },
   ),
 );

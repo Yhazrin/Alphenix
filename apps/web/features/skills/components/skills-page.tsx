@@ -643,7 +643,7 @@ export default function SkillsPage() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [showCreate, setShowCreate] = useState(false);
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: "multicode_skills_layout",
+    id: "alphenix_skills_layout",
   });
 
   useEffect(() => {

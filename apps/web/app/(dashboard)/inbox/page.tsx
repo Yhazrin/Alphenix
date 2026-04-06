@@ -246,7 +246,7 @@ export default function InboxPage() {
   const error = useInboxStore((s) => s.error);
 
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: "multicode_inbox_layout",
+    id: "alphenix_inbox_layout",
   });
 
   const selected = useMemo(
@@ -490,7 +490,7 @@ export default function InboxPage() {
             key={selected.id}
             issueId={selected.issue_id}
             defaultSidebarOpen={false}
-            layoutId="multicode_inbox_issue_detail_layout"
+            layoutId="alphenix_inbox_issue_detail_layout"
             highlightCommentId={selected.details?.comment_id ?? undefined}
             onDelete={() => {
               handleArchive(selected.id);

@@ -7,7 +7,7 @@
 import pg from "pg";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? "8080"}`;
-const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://multicode:multicode@localhost:5432/multicode?sslmode=disable";
+const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://alphenix:alphenix@localhost:5432/alphenix?sslmode=disable";
 
 interface TestWorkspace {
   id: string;

@@ -12,7 +12,7 @@ import { useWorkspaceStore } from "@/features/workspace";
 export function ServerTab() {
   const workspace = useWorkspaceStore((s) => s.workspace);
   const [serverUrl, setServerUrl] = useState(
-    process.env.NEXT_PUBLIC_MULTICODE_SERVER_URL || "http://localhost:8080"
+    process.env.NEXT_PUBLIC_ALPHENIX_SERVER_URL || "http://localhost:8080"
   );
   const [useTunnel, setUseTunnel] = useState(false);
   const [tunnelUrl, setTunnelUrl] = useState("");
@@ -25,11 +25,11 @@ export function ServerTab() {
   };
 
   const localCommands = {
-    connect: `export MULTICODE_SERVER_URL="${serverUrl}"
-multicode daemon start`,
-    deploy: `cd /path/to/multicode
-export DATABASE_URL="postgres://user:pass@host:5432/multicode"
-./multicode-server`,
+    connect: `export ALPHENIX_SERVER_URL="${serverUrl}"
+alphenix daemon start`,
+    deploy: `cd /path/to/alphenix
+export DATABASE_URL="postgres://user:pass@host:5432/alphenix"
+./alphenix-server`,
   };
 
   return (
@@ -54,7 +54,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
               <Button variant="outline">Test Connection</Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Enter your Multicode server address. For local development, the
+              Enter your Alphenix server address. For local development, the
               default is localhost:8080.
             </p>
           </div>
@@ -78,7 +78,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
         {useTunnel && (
           <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
             <p className="text-sm text-muted-foreground">
-              Enable a tunnel to access your Multicode server from any device.
+              Enable a tunnel to access your Alphenix server from any device.
               ngrok or Cloudflare Tunnel are recommended.
             </p>
 
@@ -107,9 +107,9 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
                 <p className="text-xs font-medium text-muted-foreground">Client connection command</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-muted/50 p-2 rounded text-xs overflow-x-auto">
-                    export MULTICODE_SERVER_URL=&quot;{tunnelUrl}&quot;
+                    export ALPHENIX_SERVER_URL=&quot;{tunnelUrl}&quot;
                     <br />
-                    multicode daemon start
+                    alphenix daemon start
                   </code>
                   <Button
                     size="icon"
@@ -117,7 +117,7 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
                     aria-label="Copy command"
                     onClick={() =>
                       handleCopyCommand(
-                        `export MULTICODE_SERVER_URL="${tunnelUrl}"\nmulticode daemon start`
+                        `export ALPHENIX_SERVER_URL="${tunnelUrl}"\nalphenix daemon start`
                       )
                     }
                   >
@@ -150,11 +150,11 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
             </h3>
             <div className="bg-muted/50 p-3 rounded-lg font-mono text-xs space-y-1">
               <p className="text-muted-foreground"># Build the server</p>
-              <p>cd server &amp;&amp; go build -o ../multicode-server ./cmd/server</p>
+              <p>cd server &amp;&amp; go build -o ../alphenix-server ./cmd/server</p>
               <p className="pt-2 text-muted-foreground"># Start the service</p>
               <p>export PORT=8080</p>
               <p>export DATABASE_URL=&quot;postgres://...&quot;</p>
-              <p>./multicode-server</p>
+              <p>./alphenix-server</p>
             </div>
             <Button
               variant="outline"
@@ -177,9 +177,9 @@ export DATABASE_URL="postgres://user:pass@host:5432/multicode"
               server:
             </p>
             <div className="bg-muted/50 p-3 rounded-lg font-mono text-xs space-y-1">
-              <p>export MULTICODE_SERVER_URL=&quot;{serverUrl}&quot;</p>
-              <p>multicode login</p>
-              <p>multicode daemon start</p>
+              <p>export ALPHENIX_SERVER_URL=&quot;{serverUrl}&quot;</p>
+              <p>alphenix login</p>
+              <p>alphenix daemon start</p>
             </div>
             <Button
               variant="outline"

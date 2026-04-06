@@ -13,16 +13,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/multica-ai/multicode/server/internal/auth"
-	"github.com/multica-ai/multicode/server/internal/daemon"
-	"github.com/multica-ai/multicode/server/internal/events"
-	"github.com/multica-ai/multicode/server/internal/handler"
-	"github.com/multica-ai/multicode/server/internal/middleware"
-	"github.com/multica-ai/multicode/server/internal/realtime"
-	"github.com/multica-ai/multicode/server/internal/service"
-	"github.com/multica-ai/multicode/server/internal/storage"
-	"github.com/multica-ai/multicode/server/internal/tool"
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/auth"
+	"github.com/multica-ai/alphenix/server/internal/daemon"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	"github.com/multica-ai/alphenix/server/internal/handler"
+	"github.com/multica-ai/alphenix/server/internal/middleware"
+	"github.com/multica-ai/alphenix/server/internal/realtime"
+	"github.com/multica-ai/alphenix/server/internal/service"
+	"github.com/multica-ai/alphenix/server/internal/storage"
+	"github.com/multica-ai/alphenix/server/internal/tool"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 func allowedOrigins() []string {

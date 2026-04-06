@@ -15,7 +15,7 @@ export interface MyIssuesViewState extends IssueViewState {
   setScope: (scope: MyIssuesScope) => void;
 }
 
-const basePersist = viewStorePersistOptions("multicode_my_issues_view");
+const basePersist = viewStorePersistOptions("alphenix_my_issues_view");
 
 export const myIssuesViewStore: StoreApi<MyIssuesViewState> = createStore<MyIssuesViewState>()(
   persist(

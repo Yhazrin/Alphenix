@@ -1,6 +1,6 @@
 package daemon
 
-import "github.com/multica-ai/multicode/server/pkg/protocol"
+import "github.com/multica-ai/alphenix/server/pkg/protocol"
 
 // AgentEntry describes a single available agent CLI.
 type AgentEntry struct {

@@ -18,7 +18,7 @@ export function AuthInitializer({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Sync workspaceId from localStorage BEFORE any async ops.
     // This ensures child components can make API calls immediately on mount.
-    const wsId = localStorage.getItem("multicode_workspace_id");
+    const wsId = localStorage.getItem("alphenix_workspace_id");
     if (wsId) {
       api.setWorkspaceId(wsId);
       // Also sync workspaceId for domain-specific API modules before any async ops.
@@ -41,7 +41,7 @@ export function AuthInitializer({ children }: { children: ReactNode }) {
       .catch((err) => {
         logger.error("auth init failed", err);
         api.setWorkspaceId(null);
-        localStorage.removeItem("multicode_workspace_id");
+        localStorage.removeItem("alphenix_workspace_id");
         clearLoggedInCookie();
         useAuthStore.setState({ user: null, isLoading: false });
       });

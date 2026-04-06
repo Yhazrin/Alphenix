@@ -7,7 +7,7 @@ import type { LandingDict, Locale } from "./types";
 
 const dictionaries: Record<Locale, LandingDict> = { en, zh };
 
-const COOKIE_NAME = "multicode-locale";
+const COOKIE_NAME = "alphenix-locale";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 type LocaleContextValue = {

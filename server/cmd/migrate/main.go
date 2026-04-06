@@ -15,7 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/multica-ai/multicode/server/pkg/migrations"
+	"github.com/multica-ai/alphenix/server/pkg/migrations"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://multicode:multicode@localhost:5432/multicode?sslmode=disable"
+		dbURL = "postgres://alphenix:alphenix@localhost:5432/alphenix?sslmode=disable"
 	}
 
 	db, err := sql.Open("pgx", dbURL)

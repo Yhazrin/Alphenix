@@ -4,11 +4,11 @@ import { AboutPageClient } from "@/features/landing/components/about-page-client
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Learn about Multicode — multiplexed information and computing agent. An open-source AI-native task management platform.",
+    "Learn about Alphenix — multiplexed information and computing agent. An open-source AI-native task management platform.",
   openGraph: {
-    title: "About Multicode",
+    title: "About Alphenix",
     description:
-      "The story behind Multicode and why we're building AI-native task management.",
+      "The story behind Alphenix and why we're building AI-native task management.",
     url: "/about",
   },
   alternates: {

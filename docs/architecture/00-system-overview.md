@@ -2,7 +2,7 @@
 
 ## Project Identity
 
-Multicode is an **AI-native task management platform** — a Linear-like issue tracker where AI agents are first-class participants. Agents can be assigned issues, create issues, comment, change status, and execute code tasks autonomously via local daemon runtimes.
+Alphenix is an **AI-native task management platform** — a Linear-like issue tracker where AI agents are first-class participants. Agents can be assigned issues, create issues, comment, change status, and execute code tasks autonomously via local daemon runtimes.
 
 **Target audience**: 2–10 person engineering teams that want to delegate real coding work to AI agents within a structured, observable workflow.
 
@@ -51,7 +51,7 @@ Run ──┬── RunStep (thinking/text/tool_use/tool_result/error)
 | **Daemon** | Local runtime process, CLI polling, repo cache, execution environment | `server/internal/daemon/` |
 | **Real-time** | WebSocket hub (per-workspace rooms), event bus (sync pub/sub) | `server/internal/realtime/`, `server/internal/events/` |
 | **Database** | PostgreSQL 17 + pgvector, sqlc code generation | `server/migrations/`, `server/pkg/db/` |
-| **CLI** | Cobra-based `multicode` binary for agents and humans | `server/cmd/multicode/` |
+| **CLI** | Cobra-based `alphenix` binary for agents and humans | `server/cmd/alphenix/` |
 
 ## Primary Execution Path
 

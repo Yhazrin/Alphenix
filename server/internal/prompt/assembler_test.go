@@ -48,7 +48,7 @@ func TestAssembler_PriorityOrder(t *testing.T) {
 
 func TestAssemblePrompt_FullContext(t *testing.T) {
 	lctx := &LayerContext{
-		AppName:         "Multicode",
+		AppName:         "Alphenix",
 		AppVersion:      "1.0",
 		AgentRole:       "Senior Developer",
 		WorkspaceRules:  "Always write tests.",
@@ -73,7 +73,7 @@ func TestAssemblePrompt_FullContext(t *testing.T) {
 	// Verify all sections are present in order
 	checks := []string{
 		"only reliable recovery", // compaction safety (Priority 5, highest)
-		"Multicode",
+		"Alphenix",
 		"Startup Sequence",
 		"Senior Developer",
 		"Workspace Policy",
@@ -111,7 +111,7 @@ func TestAssemblePrompt_MinimalContext(t *testing.T) {
 	got := AssemblePrompt(context.Background(), lctx)
 
 	// Should still have base system, just nothing else
-	if !strings.Contains(got, "Multicode") {
+	if !strings.Contains(got, "Alphenix") {
 		t.Error("minimal context should still include app name")
 	}
 	// Compaction safety and startup sequence are always present

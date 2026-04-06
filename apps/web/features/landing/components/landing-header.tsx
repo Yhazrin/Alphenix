@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MulticodeIcon } from "@/components/multicode-icon";
+import { AlphenixIcon } from "@/components/alphenix-icon";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/features/auth";
 import { useLocale } from "../i18n";
@@ -26,7 +26,7 @@ export function LandingHeader({
     >
       <nav className="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between px-4 sm:px-6 lg:px-8" aria-label="Main navigation">
         <Link href="/" className="flex items-center gap-3">
-          <MulticodeIcon
+          <AlphenixIcon
             className={cn(
               "size-5",
               variant === "dark" ? "text-landing-dark-foreground" : "text-foreground",
@@ -40,7 +40,7 @@ export function LandingHeader({
               variant === "dark" ? "text-landing-dark-foreground/90" : "text-foreground",
             )}
           >
-            multicode
+            alphenix
           </span>
         </Link>
 

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// APIClient is a REST client for the Multicode server API.
+// APIClient is a REST client for the Alphenix server API.
 // Used by ctrl subcommands (agent, runtime, status, etc.).
 type APIClient struct {
 	BaseURL     string

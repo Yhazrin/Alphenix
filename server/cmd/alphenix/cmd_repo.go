@@ -32,14 +32,14 @@ func init() {
 func runRepoCheckout(cmd *cobra.Command, args []string) error {
 	repoURL := args[0]
 
-	daemonPort := os.Getenv("MULTICODE_DAEMON_PORT")
+	daemonPort := os.Getenv("ALPHENIX_DAEMON_PORT")
 	if daemonPort == "" {
-		return fmt.Errorf("MULTICODE_DAEMON_PORT not set (this command is intended to be run by an agent inside a daemon task)")
+		return fmt.Errorf("ALPHENIX_DAEMON_PORT not set (this command is intended to be run by an agent inside a daemon task)")
 	}
 
-	workspaceID := os.Getenv("MULTICODE_WORKSPACE_ID")
-	agentName := os.Getenv("MULTICODE_AGENT_NAME")
-	taskID := os.Getenv("MULTICODE_TASK_ID")
+	workspaceID := os.Getenv("ALPHENIX_WORKSPACE_ID")
+	agentName := os.Getenv("ALPHENIX_AGENT_NAME")
+	taskID := os.Getenv("ALPHENIX_TASK_ID")
 
 	// Use current working directory as the checkout target.
 	workDir, err := os.Getwd()

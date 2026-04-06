@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export const githubUrl = "https://github.com/multica-ai/multicode";
+export const githubUrl = "https://github.com/multica-ai/alphenix";
 
 export function GitHubMark({ className }: { className?: string }) {
   return (

@@ -3,7 +3,7 @@ package memory
 import (
 	"sort"
 
-	db "github.com/multica-ai/multicode/server/pkg/db/generated"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 // RRFK is the standard Reciprocal Rank Fusion constant.

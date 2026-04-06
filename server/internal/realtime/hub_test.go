@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
-	"github.com/multica-ai/multicode/server/internal/auth"
+	"github.com/multica-ai/alphenix/server/internal/auth"
 )
 
 const testWorkspaceID = "test-workspace"

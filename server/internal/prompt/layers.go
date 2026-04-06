@@ -11,7 +11,7 @@ const (
 	PriorityCompactionSafety = 5
 	PriorityBaseSystem       = 10
 	PriorityStartupSequence  = 15
-	PriorityMulticodeRole    = 20
+	PriorityAlphenixRole    = 20
 	PriorityWorkspacePolicy  = 30
 	PriorityAgentProfile     = 40
 	PriorityTaskObjective    = 50
@@ -74,7 +74,7 @@ func DefaultLayers() []LayerDef {
 		{Name: "CompactionSafety", Priority: PriorityCompactionSafety, Assemble: assembleCompactionSafety},
 		{Name: "BaseSystem", Priority: PriorityBaseSystem, Assemble: assembleBaseSystem},
 		{Name: "StartupSequence", Priority: PriorityStartupSequence, Assemble: assembleStartupSequence},
-		{Name: "MulticodeRole", Priority: PriorityMulticodeRole, Assemble: assembleMulticodeRole},
+		{Name: "AlphenixRole", Priority: PriorityAlphenixRole, Assemble: assembleAlphenixRole},
 		{Name: "WorkspacePolicy", Priority: PriorityWorkspacePolicy, Assemble: assembleWorkspacePolicy},
 		{Name: "AgentProfile", Priority: PriorityAgentProfile, Assemble: assembleAgentProfile},
 		{Name: "TaskObjective", Priority: PriorityTaskObjective, Assemble: assembleTaskObjective},
@@ -112,7 +112,7 @@ func assembleBaseSystem(ctx context.Context) (string, error) {
 	lctx := getLayerContext(ctx)
 	appName := lctx.AppName
 	if appName == "" {
-		appName = "Multicode"
+		appName = "Alphenix"
 	}
 	version := lctx.AppVersion
 	if version == "" {
@@ -121,7 +121,7 @@ func assembleBaseSystem(ctx context.Context) (string, error) {
 	return fmt.Sprintf("You are an AI assistant operating within %s (v%s). You have access to a workspace containing issues, code, and project artifacts. Always act professionally and follow the workspace policies.", appName, version), nil
 }
 
-func assembleMulticodeRole(ctx context.Context) (string, error) {
+func assembleAlphenixRole(ctx context.Context) (string, error) {
 	lctx := getLayerContext(ctx)
 	if lctx.AgentRole == "" {
 		return "", nil

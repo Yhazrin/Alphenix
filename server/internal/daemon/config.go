@@ -28,10 +28,10 @@ type Config struct {
 	DaemonID           string
 	DeviceName         string
 	RuntimeName        string
-	CLIVersion         string                // multicode CLI version (e.g. "0.1.13")
+	CLIVersion         string                // alphenix CLI version (e.g. "0.1.13")
 	Profile            string                // profile name (empty = default)
 	Agents             map[string]AgentEntry // "claude" -> entry, "codex" -> entry, "opencode" -> entry
-	WorkspacesRoot     string                // base path for execution envs (default: ~/multicode_workspaces)
+	WorkspacesRoot     string                // base path for execution envs (default: ~/alphenix_workspaces)
 	KeepEnvAfterTask   bool                  // preserve env after task for debugging
 	HealthPort         int                   // local HTTP port for health checks (default: 19514)
 	MaxConcurrentTasks int                   // max tasks running in parallel (default: 20)
@@ -60,7 +60,7 @@ type Overrides struct {
 // and optional CLI flag overrides.
 func LoadConfig(overrides Overrides) (Config, error) {
 	// Server URL: override > env > default
-	rawServerURL := envOrDefault("MULTICODE_SERVER_URL", DefaultServerURL)
+	rawServerURL := envOrDefault("ALPHENIX_SERVER_URL", DefaultServerURL)
 	if overrides.ServerURL != "" {
 		rawServerURL = overrides.ServerURL
 	}
@@ -71,25 +71,25 @@ func LoadConfig(overrides Overrides) (Config, error) {
 
 	// Probe available agent CLIs
 	agents := map[string]AgentEntry{}
-	claudePath := envOrDefault("MULTICODE_CLAUDE_PATH", "claude")
+	claudePath := envOrDefault("ALPHENIX_CLAUDE_PATH", "claude")
 	if _, err := exec.LookPath(claudePath); err == nil {
 		agents["claude"] = AgentEntry{
 			Path:  claudePath,
-			Model: strings.TrimSpace(os.Getenv("MULTICODE_CLAUDE_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("ALPHENIX_CLAUDE_MODEL")),
 		}
 	}
-	codexPath := envOrDefault("MULTICODE_CODEX_PATH", "codex")
+	codexPath := envOrDefault("ALPHENIX_CODEX_PATH", "codex")
 	if _, err := exec.LookPath(codexPath); err == nil {
 		agents["codex"] = AgentEntry{
 			Path:  codexPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICODE_CODEX_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("ALPHENIX_CODEX_MODEL")),
 		}
 	}
-	opencodePath := envOrDefault("MULTICODE_OPENCODE_PATH", "opencode")
+	opencodePath := envOrDefault("ALPHENIX_OPENCODE_PATH", "opencode")
 	if _, err := exec.LookPath(opencodePath); err == nil {
 		agents["opencode"] = AgentEntry{
 			Path:  opencodePath,
-			Model: strings.TrimSpace(os.Getenv("MULTICODE_OPENCODE_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("ALPHENIX_OPENCODE_MODEL")),
 		}
 	}
 	if len(agents) == 0 {
@@ -103,7 +103,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	}
 
 	// Durations: override > env > default
-	pollInterval, err := durationFromEnv("MULTICODE_DAEMON_POLL_INTERVAL", DefaultPollInterval)
+	pollInterval, err := durationFromEnv("ALPHENIX_DAEMON_POLL_INTERVAL", DefaultPollInterval)
 	if err != nil {
 		return Config{}, err
 	}
@@ -111,7 +111,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		pollInterval = overrides.PollInterval
 	}
 
-	heartbeatInterval, err := durationFromEnv("MULTICODE_DAEMON_HEARTBEAT_INTERVAL", DefaultHeartbeatInterval)
+	heartbeatInterval, err := durationFromEnv("ALPHENIX_DAEMON_HEARTBEAT_INTERVAL", DefaultHeartbeatInterval)
 	if err != nil {
 		return Config{}, err
 	}
@@ -119,7 +119,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		heartbeatInterval = overrides.HeartbeatInterval
 	}
 
-	agentTimeout, err := durationFromEnv("MULTICODE_AGENT_TIMEOUT", DefaultAgentTimeout)
+	agentTimeout, err := durationFromEnv("ALPHENIX_AGENT_TIMEOUT", DefaultAgentTimeout)
 	if err != nil {
 		return Config{}, err
 	}
@@ -127,7 +127,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		agentTimeout = overrides.AgentTimeout
 	}
 
-	maxConcurrentTasks, err := intFromEnv("MULTICODE_DAEMON_MAX_CONCURRENT_TASKS", DefaultMaxConcurrentTasks)
+	maxConcurrentTasks, err := intFromEnv("ALPHENIX_DAEMON_MAX_CONCURRENT_TASKS", DefaultMaxConcurrentTasks)
 	if err != nil {
 		return Config{}, err
 	}
@@ -139,7 +139,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	profile := overrides.Profile
 
 	// String overrides
-	daemonID := envOrDefault("MULTICODE_DAEMON_ID", host)
+	daemonID := envOrDefault("ALPHENIX_DAEMON_ID", host)
 	if overrides.DaemonID != "" {
 		daemonID = overrides.DaemonID
 	}
@@ -149,30 +149,30 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		daemonID = daemonID + "-" + profile
 	}
 
-	deviceName := envOrDefault("MULTICODE_DAEMON_DEVICE_NAME", host)
+	deviceName := envOrDefault("ALPHENIX_DAEMON_DEVICE_NAME", host)
 	if overrides.DeviceName != "" {
 		deviceName = overrides.DeviceName
 	}
 
-	runtimeName := envOrDefault("MULTICODE_AGENT_RUNTIME_NAME", DefaultRuntimeName)
+	runtimeName := envOrDefault("ALPHENIX_AGENT_RUNTIME_NAME", DefaultRuntimeName)
 	if overrides.RuntimeName != "" {
 		runtimeName = overrides.RuntimeName
 	}
 
-	// Workspaces root: override > env > default (~/multicode_workspaces or ~/multicode_workspaces_<profile>)
-	workspacesRoot := strings.TrimSpace(os.Getenv("MULTICODE_WORKSPACES_ROOT"))
+	// Workspaces root: override > env > default (~/alphenix_workspaces or ~/alphenix_workspaces_<profile>)
+	workspacesRoot := strings.TrimSpace(os.Getenv("ALPHENIX_WORKSPACES_ROOT"))
 	if overrides.WorkspacesRoot != "" {
 		workspacesRoot = overrides.WorkspacesRoot
 	}
 	if workspacesRoot == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return Config{}, fmt.Errorf("resolve home directory: %w (set MULTICODE_WORKSPACES_ROOT to override)", err)
+			return Config{}, fmt.Errorf("resolve home directory: %w (set ALPHENIX_WORKSPACES_ROOT to override)", err)
 		}
 		if profile != "" {
-			workspacesRoot = filepath.Join(home, "multicode_workspaces_"+profile)
+			workspacesRoot = filepath.Join(home, "alphenix_workspaces_"+profile)
 		} else {
-			workspacesRoot = filepath.Join(home, "multicode_workspaces")
+			workspacesRoot = filepath.Join(home, "alphenix_workspaces")
 		}
 	}
 	workspacesRoot, err = filepath.Abs(workspacesRoot)
@@ -182,7 +182,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 
 	// Health port: override > env > default
 	healthPort := DefaultHealthPort
-	if hp, err := intFromEnv("MULTICODE_HEALTH_PORT", 0); err == nil && hp > 0 {
+	if hp, err := intFromEnv("ALPHENIX_HEALTH_PORT", 0); err == nil && hp > 0 {
 		healthPort = hp
 	}
 	if overrides.HealthPort > 0 {
@@ -190,7 +190,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	}
 
 	// Keep env after task: env > default (false)
-	keepEnv := os.Getenv("MULTICODE_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("MULTICODE_KEEP_ENV_AFTER_TASK") == "1"
+	keepEnv := os.Getenv("ALPHENIX_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("ALPHENIX_KEEP_ENV_AFTER_TASK") == "1"
 
 	return Config{
 		ServerBaseURL:      serverBaseURL,
@@ -213,7 +213,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 func NormalizeServerBaseURL(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
-		return "", fmt.Errorf("invalid MULTICODE_SERVER_URL: %w", err)
+		return "", fmt.Errorf("invalid ALPHENIX_SERVER_URL: %w", err)
 	}
 	switch u.Scheme {
 	case "ws":
@@ -222,7 +222,7 @@ func NormalizeServerBaseURL(raw string) (string, error) {
 		u.Scheme = "https"
 	case "http", "https":
 	default:
-		return "", fmt.Errorf("MULTICODE_SERVER_URL must use ws, wss, http, or https")
+		return "", fmt.Errorf("ALPHENIX_SERVER_URL must use ws, wss, http, or https")
 	}
 	if u.Path == "/ws" {
 		u.Path = ""

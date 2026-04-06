@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/multica-ai/multicode/server/internal/cli"
+	"github.com/multica-ai/alphenix/server/internal/cli"
 )
 
 var runtimeCmd = &cobra.Command{
@@ -149,7 +149,7 @@ func runRuntimeJoin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("save join token: %w", err)
 	}
 
-	fmt.Printf("Join token saved. Run 'multicode daemon start' to register this machine as a runtime.\n")
+	fmt.Printf("Join token saved. Run 'alphenix daemon start' to register this machine as a runtime.\n")
 	fmt.Printf("Token prefix: %s...\n", joinToken[:8])
 	return nil
 }
