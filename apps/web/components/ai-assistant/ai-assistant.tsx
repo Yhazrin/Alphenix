@@ -124,7 +124,7 @@ export function AIAssistant() {
         <div className="h-80 overflow-y-auto p-4 space-y-4" role="log" aria-live="polite" aria-label="Chat messages">
           {messages.map((message, index) => (
             <div
-              key={index}
+              key={`${message.role}-${index}`}
               className={cn(
                 "flex",
                 message.role === "user" ? "justify-end" : "justify-start"
