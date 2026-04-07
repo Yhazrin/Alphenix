@@ -136,7 +136,9 @@ func (s *PingStore) Fail(id string, errMsg string, durationMs int64) {
 
 func randomID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
 	return hex.EncodeToString(b)
 }
 

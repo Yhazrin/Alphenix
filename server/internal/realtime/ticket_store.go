@@ -85,7 +85,9 @@ func (ts *MemoryTicketStore) cleanup() {
 // Generate creates a new ticket for the given workspace and user, returns the ticket string.
 func (ts *MemoryTicketStore) Generate(workspaceID, userID string) string {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return ""
+	}
 	ticket := ticketPrefix + hex.EncodeToString(bytes)
 
 	ts.tickets.Store(ticket, &ticketEntry{
