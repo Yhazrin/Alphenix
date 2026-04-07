@@ -41,7 +41,7 @@ func (s *TaskService) SelectRuntime(ctx context.Context, workspaceID, agentID pg
 		WorkspaceID: workspaceID,
 	})
 	if err != nil {
-		if err == pgx.ErrNoRows || !policy.IsActive {
+		if err == pgx.ErrNoRows || (err == nil && !policy.IsActive) {
 			// No policy or inactive — fall back to agent's default runtime.
 			slog.Debug("runtime selection: no active policy, using agent default",
 				"agent_id", util.UUIDToString(agentID))
