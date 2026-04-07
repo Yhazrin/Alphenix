@@ -261,18 +261,21 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch the issue once — used for workspace lookup and shared context query.
+	issue, issueErr := h.Queries.GetIssue(r.Context(), task.IssueID)
+
 	// Include workspace ID and repos so the daemon can set up worktrees.
-	if issue, err := h.Queries.GetIssue(r.Context(), task.IssueID); err == nil {
+	if issueErr == nil {
 		resp.WorkspaceID = uuidToString(issue.WorkspaceID)
 		if ws, err := h.Queries.GetWorkspace(r.Context(), issue.WorkspaceID); err == nil {
-				resp.WorkspaceName = ws.Name
-				if ws.Repos != nil {
-					var repos []RepoData
-					if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
-						resp.Repos = repos
-					}
+			resp.WorkspaceName = ws.Name
+			if ws.Repos != nil {
+				var repos []RepoData
+				if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
+					resp.Repos = repos
 				}
 			}
+		}
 		}
 
 	// Look up the prior session for this (agent, issue) pair so the daemon
@@ -341,7 +344,7 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 	if resp.WorkspaceID != "" {
 		// Use issue title + description as query text for hybrid BM25 memory search.
 		queryText := ""
-		if issue, err := h.Queries.GetIssue(r.Context(), task.IssueID); err == nil {
+		if issueErr == nil {
 			queryText = issue.Title
 			if issue.Description.Valid {
 				queryText += " " + issue.Description.String
