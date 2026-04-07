@@ -45,7 +45,6 @@ func (h *Handler) DaemonForkStarted(w http.ResponseWriter, r *http.Request) {
 
 	// Create a child run with parent_run_id set to the parent run.
 	// Use forkID as the task_id on the child run so we can find it later.
-	phase := "executing"
 	childRun, err := h.RunOrchestrator.CreateRun(r.Context(), service.CreateRunRequest{
 		WorkspaceID:    workspaceID,
 		IssueID:        uuidToString(parentRun.IssueID),
@@ -67,8 +66,6 @@ func (h *Handler) DaemonForkStarted(w http.ResponseWriter, r *http.Request) {
 		slog.Error("fork started: failed to start child run", "run_id", uuidToString(childRun.ID), "error", err)
 		// Non-fatal — the run exists but is in pending phase.
 	}
-
-	_ = phase // used in broadcast payload below
 
 	slog.Info("fork started", "task_id", taskID, "fork_id", forkID, "parent_run_id", uuidToString(parentRun.ID), "child_run_id", uuidToString(childRun.ID))
 
