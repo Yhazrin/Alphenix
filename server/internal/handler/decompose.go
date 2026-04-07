@@ -229,7 +229,11 @@ func (h *Handler) GetDecomposeResult(w http.ResponseWriter, r *http.Request) {
 			RunID:        parseUUID(runID),
 			ArtifactType: "decompose_output",
 		})
-		if err == nil && len(artifacts) > 0 {
+		if err != nil {
+			slog.Warn("decompose: failed to fetch artifacts", "run_id", runID, "error", err)
+			resp.Status = "failed"
+			resp.Error = "failed to retrieve decomposition output"
+		} else if len(artifacts) > 0 {
 			var preview DecomposePreview
 			if err := json.Unmarshal([]byte(artifacts[0].Content), &preview); err == nil {
 				resp.Preview = &preview
