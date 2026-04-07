@@ -575,9 +575,13 @@ func (s *CollaborationService) GetLatestCheckpoint(ctx context.Context, taskID p
 	}
 
 	var state any
-	json.Unmarshal(cp.State, &state)
+	if err := json.Unmarshal(cp.State, &state); err != nil {
+		slog.Warn("GetLatestCheckpoint: failed to unmarshal state", "checkpoint_id", util.UUIDToString(cp.ID), "error", err)
+	}
 	var files any
-	json.Unmarshal(cp.FilesChanged, &files)
+	if err := json.Unmarshal(cp.FilesChanged, &files); err != nil {
+		slog.Warn("GetLatestCheckpoint: failed to unmarshal files", "checkpoint_id", util.UUIDToString(cp.ID), "error", err)
+	}
 
 	return &protocol.CheckpointInfo{
 		ID:           util.UUIDToString(cp.ID),
