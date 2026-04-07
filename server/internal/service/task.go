@@ -545,7 +545,9 @@ func priorityToInt(p string) int32 {
 func (s *TaskService) broadcastTaskDispatch(ctx context.Context, task db.AgentTaskQueue) {
 	var payload map[string]any
 	if task.Context != nil {
-		json.Unmarshal(task.Context, &payload)
+		if err := json.Unmarshal(task.Context, &payload); err != nil {
+			slog.Warn("broadcastTaskDispatch: failed to unmarshal task context", "task_id", util.UUIDToString(task.ID), "error", err)
+		}
 	}
 	if payload == nil {
 		payload = map[string]any{}

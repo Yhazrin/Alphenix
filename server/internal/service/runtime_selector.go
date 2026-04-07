@@ -161,7 +161,9 @@ func tagsMatch(rt db.AgentRuntime, required, forbidden []string) bool {
 
 	var rtTags []string
 	if rt.Tags != nil {
-		_ = json.Unmarshal(rt.Tags, &rtTags)
+		if err := json.Unmarshal(rt.Tags, &rtTags); err != nil {
+			slog.Warn("tagsMatch: failed to unmarshal runtime tags", "runtime_id", util.UUIDToString(rt.ID), "error", err)
+		}
 	}
 
 	tagSet := make(map[string]bool, len(rtTags))
