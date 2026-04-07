@@ -165,10 +165,22 @@ func (h *Handler) CreateRuntimePolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requiredTags, _ := json.Marshal(req.RequiredTags)
-	forbiddenTags, _ := json.Marshal(req.ForbiddenTags)
-	preferredIds, _ := json.Marshal(req.PreferredRuntimeIds)
-	fallbackIds, _ := json.Marshal(req.FallbackRuntimeIds)
+	requiredTags, err := json.Marshal(req.RequiredTags)
+	if err != nil {
+		slog.Warn("CreateRuntimePolicy: failed to marshal requiredTags", "error", err)
+	}
+	forbiddenTags, err := json.Marshal(req.ForbiddenTags)
+	if err != nil {
+		slog.Warn("CreateRuntimePolicy: failed to marshal forbiddenTags", "error", err)
+	}
+	preferredIds, err := json.Marshal(req.PreferredRuntimeIds)
+	if err != nil {
+		slog.Warn("CreateRuntimePolicy: failed to marshal preferredRuntimeIds", "error", err)
+	}
+	fallbackIds, err := json.Marshal(req.FallbackRuntimeIds)
+	if err != nil {
+		slog.Warn("CreateRuntimePolicy: failed to marshal fallbackRuntimeIds", "error", err)
+	}
 
 	params := db.CreateRuntimePolicyParams{
 		WorkspaceID:         parseUUID(workspaceID),
@@ -240,19 +252,31 @@ func (h *Handler) UpdateRuntimePolicy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.RequiredTags != nil {
-		data, _ := json.Marshal(req.RequiredTags)
+		data, merr := json.Marshal(req.RequiredTags)
+		if merr != nil {
+			slog.Warn("UpdateRuntimePolicy: failed to marshal requiredTags", "error", merr)
+		}
 		params.RequiredTags = data
 	}
 	if req.ForbiddenTags != nil {
-		data, _ := json.Marshal(req.ForbiddenTags)
+		data, merr := json.Marshal(req.ForbiddenTags)
+		if merr != nil {
+			slog.Warn("UpdateRuntimePolicy: failed to marshal forbiddenTags", "error", merr)
+		}
 		params.ForbiddenTags = data
 	}
 	if req.PreferredRuntimeIds != nil {
-		data, _ := json.Marshal(req.PreferredRuntimeIds)
+		data, merr := json.Marshal(req.PreferredRuntimeIds)
+		if merr != nil {
+			slog.Warn("UpdateRuntimePolicy: failed to marshal preferredRuntimeIds", "error", merr)
+		}
 		params.PreferredRuntimeIds = data
 	}
 	if req.FallbackRuntimeIds != nil {
-		data, _ := json.Marshal(req.FallbackRuntimeIds)
+		data, merr := json.Marshal(req.FallbackRuntimeIds)
+		if merr != nil {
+			slog.Warn("UpdateRuntimePolicy: failed to marshal fallbackRuntimeIds", "error", merr)
+		}
 		params.FallbackRuntimeIds = data
 	}
 	if req.MaxQueueDepth != nil {

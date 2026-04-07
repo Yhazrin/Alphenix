@@ -236,11 +236,17 @@ func (h *Handler) UpdateWorkspace(w http.ResponseWriter, r *http.Request) {
 		params.Context = pgtype.Text{String: *req.Context, Valid: true}
 	}
 	if req.Settings != nil {
-		s, _ := json.Marshal(req.Settings)
+		s, merr := json.Marshal(req.Settings)
+		if merr != nil {
+			slog.Warn("UpdateWorkspaceSettings: failed to marshal settings", "error", merr)
+		}
 		params.Settings = s
 	}
 	if req.Repos != nil {
-		reposJSON, _ := json.Marshal(req.Repos)
+		reposJSON, merr := json.Marshal(req.Repos)
+		if merr != nil {
+			slog.Warn("UpdateWorkspaceSettings: failed to marshal repos", "error", merr)
+		}
 		params.Repos = reposJSON
 	}
 	if req.IssuePrefix != nil {
