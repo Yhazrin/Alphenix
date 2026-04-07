@@ -315,7 +315,7 @@ export function createMentionSuggestion(): Omit<
         }).then(({ x, y }) => {
           el.style.left = `${x}px`;
           el.style.top = `${y}px`;
-        }).catch(() => {});
+        }).catch((e) => { console.warn("mention popup position error:", e); });
       }
 
       function cleanup() {
