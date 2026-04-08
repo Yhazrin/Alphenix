@@ -18,10 +18,10 @@ import { AgentStatusDot, getAgentIssueStatus } from "./agent-status-dot";
 import { useViewStore } from "@/features/issues/stores/view-store-context";
 
 const PRIORITY_BORDER: Record<string, string> = {
-  urgent: "border-l-destructive",
-  high: "border-l-warning",
-  medium: "border-l-warning/50",
-  low: "border-l-info/40",
+  urgent: "border-destructive/30",
+  high: "border-warning/30",
+  medium: "border-warning/20",
+  low: "border-info/20",
 };
 
 function isOverdue(date: string): boolean {
@@ -70,10 +70,12 @@ export const BoardCardContent = memo(function BoardCardContent({
   const showAssignee = storeProperties.assignee && issue.assignee_type && issue.assignee_id;
   const showDueDate = storeProperties.dueDate && issue.due_date;
 
-  const borderClass = PRIORITY_BORDER[issue.priority] ?? "";
+  const borderClass = PRIORITY_BORDER[issue.priority] ?? "border-border/20";
+  const agentStatus = issue.assignee_type === "agent" ? getAgentIssueStatus(issue) : "idle";
+  const isAgentActive = agentStatus === "working" || agentStatus === "queued";
 
   return (
-    <div className={`rounded-xl border border-l-2 bg-card p-3.5 shadow-apple transition-all group-hover:shadow-apple-hover group-hover:-translate-y-0.5 ${borderClass}`}>
+    <div className={`rounded-xl border bg-card p-3.5 shadow-apple transition-all group-hover:shadow-apple-hover group-hover:-translate-y-0.5 ${borderClass} ${isAgentActive ? "board-agent-active-card" : ""}`}>
       {/* Row 1: Identifier + agent activity indicator */}
       <div className="flex items-center gap-1.5">
         <p className="text-xs text-muted-foreground">{issue.identifier}</p>
