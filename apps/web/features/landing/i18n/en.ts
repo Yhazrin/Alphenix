@@ -131,7 +131,7 @@ export const en: LandingDict = {
       {
         title: "Create your first agent",
         description:
-          "Give it a name, write instructions, attach skills, and set triggers. Choose when it activates: on assignment, on comment, or on mention.",
+          "Give it a name, write instructions, and attach skills. Agents automatically activate on assignment, on comment, or on mention.",
       },
       {
         title: "Assign an issue and watch it work",
@@ -273,6 +273,53 @@ export const en: LandingDict = {
     subtitle: "New updates and improvements to Alphenix.",
     entries: [
       {
+        version: "0.1.9",
+        date: "2026-04-08",
+        title: "Sub-Issues, TanStack Query & Usage Tracking",
+        changes: [
+          "Sub-issue support — create, view, and manage child issues within any issue",
+          "Full migration to TanStack Query for server state (issues, inbox, workspace, runtimes)",
+          "Per-task token usage tracking across all agent providers",
+          "Multiple agents can now run concurrently on the same issue",
+          "Board view: Done column shows total count with infinite scroll",
+          "ReadonlyContent component for lightweight Markdown display in comments",
+          "Optimistic UI updates for reactions and mutations with rollback",
+          "WebSocket-driven cache invalidation replaces polling and refetch-on-focus",
+          "Browser session persists during CLI login flow",
+          "Daemon reuses existing worktrees by updating to latest remote",
+          "Fixed slow tab switching caused by dynamic root layout",
+        ],
+      },
+      {
+        version: "0.1.8",
+        date: "2026-04-07",
+        title: "OAuth, OpenClaw & Issue Loading",
+        changes: [
+          "Google OAuth login",
+          "OpenClaw runtime support for running agents on OpenClaw infrastructure",
+          "Redesigned agent live card — always sticky with manual expand/collapse toggle",
+          "Load all open issues without pagination limit; closed issues paginate on scroll",
+          "JWT and CloudFront cookie expiration extended from 72 hours to 30 days",
+          "Remember last selected workspace after re-login",
+          "Daemon ensures multica CLI is on PATH in agent task environment",
+          "PR template and CLI install guide for agent-driven setup",
+        ],
+      },
+      {
+        version: "0.1.7",
+        date: "2026-04-05",
+        title: "Comment Pagination & CLI Polish",
+        changes: [
+          "Comment list pagination in both the API and CLI",
+          "Inbox archive now dismisses all items for the same issue at once",
+          "CLI help output overhauled to match gh CLI style with examples",
+          "Attachments use UUIDv7 as S3 key and auto-link on issue/comment creation",
+          "@mention assigned agents on done or cancelled issues",
+          "Reply @mention inheritance skips when the reply only mentions members",
+          "Worktree setup preserves existing .env.worktree variables",
+        ],
+      },
+      {
         version: "0.1.6",
         date: "2026-04-03",
         title: "Editor Overhaul & Agent Lifecycle",
@@ -356,7 +403,7 @@ export const en: LandingDict = {
         title: "Core Platform",
         changes: [
           "Multi-workspace switching and creation",
-          "Agent management UI with skills, tools, and triggers",
+          "Agent management UI with skills",
           "Unified agent SDK supporting Claude Code and Codex backends",
           "Comment CRUD with real-time WebSocket updates",
           "Task service layer and daemon REST protocol",

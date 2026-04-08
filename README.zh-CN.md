@@ -73,6 +73,14 @@ make start                                         # 启动应用
 
 ### 安装 CLI
 
+**方式 A — 将以下指令粘贴给你的 coding agent（Claude Code、Codex 等）：**
+
+```
+Fetch https://github.com/multica-ai/multica/blob/main/CLI_INSTALL.md and follow the instructions to install Multica CLI, log in, and start the daemon on this machine.
+```
+
+**方式 B — 手动安装：**
+
 ```bash
 brew tap multica-ai/tap
 brew install alphenix

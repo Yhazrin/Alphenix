@@ -5,7 +5,7 @@ import type { WSEventType } from "@/shared/types";
 import { useWS } from "./provider";
 import { ConnectionState } from "@/shared/api/ws-client";
 
-type EventHandler = (payload: unknown) => void;
+type EventHandler = (payload: unknown, actorId?: string) => void;
 
 /**
  * Hook that subscribes to a WebSocket event and calls the handler.

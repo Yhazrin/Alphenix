@@ -26,13 +26,11 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		return nil, fmt.Errorf("codex executable not found at %q: %w", execPath, err)
 	}
 
-	var runCtx context.Context
-	var cancel context.CancelFunc
-	if opts.Timeout > 0 {
-		runCtx, cancel = context.WithTimeout(ctx, opts.Timeout)
-	} else {
-		runCtx, cancel = context.WithCancel(ctx)
+	timeout := opts.Timeout
+	if timeout == 0 {
+		timeout = 20 * time.Minute
 	}
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
 
 	cmd := exec.CommandContext(runCtx, execPath, "app-server", "--listen", "stdio://")
 	if opts.Cwd != "" {
@@ -72,11 +70,8 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	c := &codexClient{
 		cfg:                  b.cfg,
 		stdin:                stdin,
-		ctx:                  runCtx,
 		pending:              make(map[int]*pendingRPC),
 		notificationProtocol: "unknown",
-		toolPerms:            opts.ToolPermissions,
-		toolHooks:            opts.ToolHooks,
 		onMessage: func(msg Message) {
 			if msg.Type == MessageText {
 				outputMu.Lock()
@@ -129,8 +124,8 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		// 1. Initialize handshake
 		_, err := c.request(runCtx, "initialize", map[string]any{
 			"clientInfo": map[string]any{
-				"name":    "alphenix-agent-sdk",
-				"title":   "Alphenix Agent SDK",
+				"name":    "multica-agent-sdk",
+				"title":   "Multica Agent SDK",
 				"version": "0.2.0",
 			},
 			"capabilities": map[string]any{
@@ -202,7 +197,7 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		case <-runCtx.Done():
 			if runCtx.Err() == context.DeadlineExceeded {
 				finalStatus = "timeout"
-				finalError = fmt.Sprintf("codex timed out after %s", opts.Timeout)
+				finalError = fmt.Sprintf("codex timed out after %s", timeout)
 			} else {
 				finalStatus = "aborted"
 				finalError = "execution cancelled"
@@ -225,47 +220,29 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		finalOutput := output.String()
 		outputMu.Unlock()
 
+		// Build usage map from accumulated codex usage.
+		var usageMap map[string]TokenUsage
+		c.usageMu.Lock()
+		u := c.usage
+		c.usageMu.Unlock()
+		if u.InputTokens > 0 || u.OutputTokens > 0 || u.CacheReadTokens > 0 || u.CacheWriteTokens > 0 {
+			model := opts.Model
+			if model == "" {
+				model = "unknown"
+			}
+			usageMap = map[string]TokenUsage{model: u}
+		}
+
 		resCh <- Result{
 			Status:     finalStatus,
 			Output:     finalOutput,
 			Error:      finalError,
 			DurationMs: duration.Milliseconds(),
+			Usage:      usageMap,
 		}
 	}()
 
 	return &Session{Messages: msgCh, Result: resCh}, nil
-}
-
-func (b *codexBackend) Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error) {
-	// Codex doesn't have native fork support — delegate to Execute with
-	// the parent's session context inherited via environment.
-	execOpts := ExecOptions{
-		Cwd:             opts.Cwd,
-		Model:           opts.Model,
-		MaxTurns:        opts.MaxTurns,
-		Timeout:         opts.Timeout,
-		ResumeSessionID: opts.ParentSessionID,
-		ToolPermissions: opts.ToolPermissions,
-		ToolHooks:       opts.ToolHooks,
-	}
-
-	session, err := b.Execute(ctx, prompt, execOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	resCh := make(chan ForkResult, 1)
-	go func() {
-		result := <-session.Result
-		resCh <- ForkResult{
-			Status:     result.Status,
-			Output:     result.Output,
-			Error:      result.Error,
-			DurationMs: result.DurationMs,
-		}
-	}()
-
-	return &ForkSession{Result: resCh, OutputFile: opts.OutputFile}, nil
 }
 
 // ── codexClient: JSON-RPC 2.0 transport ──
@@ -273,9 +250,7 @@ func (b *codexBackend) Fork(ctx context.Context, prompt string, opts ForkOptions
 type codexClient struct {
 	cfg       Config
 	stdin     interface{ Write([]byte) (int, error) }
-	ctx       context.Context
-	mu        sync.Mutex   // protects pending map and nextID
-	stdinMu   sync.Mutex   // protects stdin writes (request/notify/respond)
+	mu        sync.Mutex
 	nextID    int
 	pending   map[int]*pendingRPC
 	threadID  string
@@ -287,8 +262,8 @@ type codexClient struct {
 	turnStarted          bool
 	completedTurnIDs     map[string]bool
 
-	toolPerms *ToolPermissions
-	toolHooks ToolHooks
+	usageMu sync.Mutex
+	usage   TokenUsage // accumulated from turn events
 }
 
 type pendingRPC struct {
@@ -323,10 +298,7 @@ func (c *codexClient) request(ctx context.Context, method string, params any) (j
 		return nil, err
 	}
 	data = append(data, '\n')
-	c.stdinMu.Lock()
-	_, writeErr := c.stdin.Write(data)
-	c.stdinMu.Unlock()
-	if writeErr != nil {
+	if _, err := c.stdin.Write(data); err != nil {
 		c.mu.Lock()
 		delete(c.pending, id)
 		c.mu.Unlock()
@@ -351,9 +323,7 @@ func (c *codexClient) notify(method string) {
 	}
 	data, _ := json.Marshal(msg)
 	data = append(data, '\n')
-	c.stdinMu.Lock()
 	_, _ = c.stdin.Write(data)
-	c.stdinMu.Unlock()
 }
 
 func (c *codexClient) respond(id int, result any) {
@@ -364,9 +334,7 @@ func (c *codexClient) respond(id int, result any) {
 	}
 	data, _ := json.Marshal(msg)
 	data = append(data, '\n')
-	c.stdinMu.Lock()
 	_, _ = c.stdin.Write(data)
-	c.stdinMu.Unlock()
 }
 
 func (c *codexClient) closeAllPending(err error) {
@@ -443,48 +411,15 @@ func (c *codexClient) handleServerRequest(raw map[string]json.RawMessage) {
 	var method string
 	_ = json.Unmarshal(raw["method"], &method)
 
-	// Map codex tool names to our unified tool names for permission checks.
-	var toolName string
-	var input map[string]any
+	// Auto-approve all exec/patch requests in daemon mode
 	switch method {
 	case "item/commandExecution/requestApproval", "execCommandApproval":
-		toolName = "Bash"
-		if params, ok := raw["params"]; ok {
-			var p map[string]any
-			_ = json.Unmarshal(params, &p)
-			input = p
-		}
+		c.respond(id, map[string]any{"decision": "accept"})
 	case "item/fileChange/requestApproval", "applyPatchApproval":
-		toolName = "Write"
-		if params, ok := raw["params"]; ok {
-			var p map[string]any
-			_ = json.Unmarshal(params, &p)
-			input = p
-		}
+		c.respond(id, map[string]any{"decision": "accept"})
 	default:
 		c.respond(id, map[string]any{})
-		return
 	}
-
-	// Step 1: Check ToolPermissions.
-	if c.toolPerms != nil && !c.toolPerms.IsToolAllowed(toolName) {
-		c.cfg.Logger.Info("codex: tool denied by permissions", "tool", toolName)
-		c.respond(id, map[string]any{"decision": "deny", "message": fmt.Sprintf("tool %q is not allowed for this agent role", toolName)})
-		return
-	}
-
-	// Step 2: Run PreToolUse hook if configured.
-	if c.toolHooks.PreToolUse != nil {
-		result := c.toolHooks.PreToolUse(c.ctx, toolName, input)
-		if result.Deny {
-			c.cfg.Logger.Info("codex: tool denied by hook", "tool", toolName, "reason", result.DenyReason)
-			c.respond(id, map[string]any{"decision": "deny", "message": result.DenyReason})
-			return
-		}
-	}
-
-	// Step 3: Allow the tool call.
-	c.respond(id, map[string]any{"decision": "accept"})
 }
 
 func (c *codexClient) handleNotification(raw map[string]json.RawMessage) {
@@ -561,10 +496,6 @@ func (c *codexClient) handleEvent(msg map[string]any) {
 				Output: output,
 			})
 		}
-		// PostToolUse hook — observe tool result after execution.
-		if c.toolHooks.PostToolUse != nil {
-			c.toolHooks.PostToolUse(c.ctx, "exec_command", nil, output)
-		}
 	case "patch_apply_begin":
 		callID, _ := msg["call_id"].(string)
 		if c.onMessage != nil {
@@ -583,11 +514,9 @@ func (c *codexClient) handleEvent(msg map[string]any) {
 				CallID: callID,
 			})
 		}
-		// PostToolUse hook — observe file change result after execution.
-		if c.toolHooks.PostToolUse != nil {
-			c.toolHooks.PostToolUse(c.ctx, "Write", nil, "")
-		}
 	case "task_complete":
+		// Extract usage from legacy task_complete if present.
+		c.extractUsageFromMap(msg)
 		if c.onTurnDone != nil {
 			c.onTurnDone(false)
 		}
@@ -623,6 +552,11 @@ func (c *codexClient) handleRawNotification(method string, params map[string]any
 				return
 			}
 			c.completedTurnIDs[turnID] = true
+		}
+
+		// Extract usage from turn/completed if present (e.g. params.turn.usage).
+		if turn, ok := params["turn"].(map[string]any); ok {
+			c.extractUsageFromMap(turn)
 		}
 
 		if c.onTurnDone != nil {
@@ -675,10 +609,6 @@ func (c *codexClient) handleItemNotification(method string, params map[string]an
 				Output: output,
 			})
 		}
-		// PostToolUse hook — observe tool result after execution.
-		if c.toolHooks.PostToolUse != nil {
-			c.toolHooks.PostToolUse(c.ctx, "exec_command", nil, output)
-		}
 
 	case method == "item/started" && itemType == "fileChange":
 		if c.onMessage != nil {
@@ -697,12 +627,8 @@ func (c *codexClient) handleItemNotification(method string, params map[string]an
 				CallID: itemID,
 			})
 		}
-		// PostToolUse hook — observe file change result after execution.
-		if c.toolHooks.PostToolUse != nil {
-			c.toolHooks.PostToolUse(c.ctx, "patch_apply", nil, "")
-		}
 
-		case method == "item/completed" && itemType == "agentMessage":
+	case method == "item/completed" && itemType == "agentMessage":
 		text, _ := item["text"].(string)
 		if text != "" && c.onMessage != nil {
 			c.onMessage(Message{Type: MessageText, Content: text})
@@ -714,6 +640,48 @@ func (c *codexClient) handleItemNotification(method string, params map[string]an
 			}
 		}
 	}
+}
+
+// extractUsageFromMap extracts token usage from a map that may contain
+// "usage", "token_usage", or "tokens" fields. Handles various Codex formats.
+func (c *codexClient) extractUsageFromMap(data map[string]any) {
+	// Try common field names for usage data.
+	var usageMap map[string]any
+	for _, key := range []string{"usage", "token_usage", "tokens"} {
+		if v, ok := data[key].(map[string]any); ok {
+			usageMap = v
+			break
+		}
+	}
+	if usageMap == nil {
+		return
+	}
+
+	c.usageMu.Lock()
+	defer c.usageMu.Unlock()
+
+	// Try various key conventions.
+	c.usage.InputTokens += codexInt64(usageMap, "input_tokens", "input", "prompt_tokens")
+	c.usage.OutputTokens += codexInt64(usageMap, "output_tokens", "output", "completion_tokens")
+	c.usage.CacheReadTokens += codexInt64(usageMap, "cache_read_tokens", "cache_read_input_tokens")
+	c.usage.CacheWriteTokens += codexInt64(usageMap, "cache_write_tokens", "cache_creation_input_tokens")
+}
+
+// codexInt64 returns the first non-zero int64 value from the map for the given keys.
+func codexInt64(m map[string]any, keys ...string) int64 {
+	for _, key := range keys {
+		switch v := m[key].(type) {
+		case float64:
+			if v != 0 {
+				return int64(v)
+			}
+		case int64:
+			if v != 0 {
+				return v
+			}
+		}
+	}
+	return 0
 }
 
 // ── Helpers ──

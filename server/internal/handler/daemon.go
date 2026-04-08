@@ -10,12 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	pgvector_go "github.com/pgvector/pgvector-go"
-
-	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
-	"github.com/multica-ai/alphenix/server/internal/service"
-	"github.com/multica-ai/alphenix/server/pkg/protocol"
-	"github.com/multica-ai/alphenix/server/pkg/redact"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/protocol"
+	"github.com/multica-ai/multica/server/pkg/redact"
 )
 
 // ---------------------------------------------------------------------------
@@ -25,9 +22,8 @@ import (
 type DaemonRegisterRequest struct {
 	WorkspaceID string `json:"workspace_id"`
 	DaemonID    string `json:"daemon_id"`
-	InstanceID  string `json:"instance_id"` // per-terminal unique ID
 	DeviceName  string `json:"device_name"`
-	CLIVersion  string `json:"cli_version"` // alphenix CLI version
+	CLIVersion  string `json:"cli_version"` // multica CLI version
 	Runtimes    []struct {
 		Name    string `json:"name"`
 		Type    string `json:"type"`
@@ -38,7 +34,6 @@ type DaemonRegisterRequest struct {
 
 func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 	var req DaemonRegisterRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -46,7 +41,6 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 
 	req.WorkspaceID = strings.TrimSpace(req.WorkspaceID)
 	req.DaemonID = strings.TrimSpace(req.DaemonID)
-	req.InstanceID = strings.TrimSpace(req.InstanceID)
 	req.DeviceName = strings.TrimSpace(req.DeviceName)
 
 	if req.DaemonID == "" {
@@ -60,10 +54,6 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 	if len(req.Runtimes) == 0 {
 		writeError(w, http.StatusBadRequest, "at least one runtime is required")
 		return
-	}
-	// Default InstanceID to DaemonID for backwards compatibility with older daemons.
-	if req.InstanceID == "" {
-		req.InstanceID = req.DaemonID
 	}
 
 	// Verify the caller is a member of the target workspace.
@@ -108,7 +98,6 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 		registered, err := h.Queries.UpsertAgentRuntime(r.Context(), db.UpsertAgentRuntimeParams{
 			WorkspaceID: parseUUID(req.WorkspaceID),
 			DaemonID:    strToText(req.DaemonID),
-			InstanceID:  req.InstanceID,
 			Name:        name,
 			RuntimeMode: "local",
 			Provider:    provider,
@@ -117,8 +106,7 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 			Metadata:    metadata,
 		})
 		if err != nil {
-			slog.Warn("register runtime failed", "error", err)
-				writeError(w, http.StatusInternalServerError, "failed to register runtime")
+			writeError(w, http.StatusInternalServerError, "failed to register runtime: "+err.Error())
 			return
 		}
 		resp = append(resp, runtimeToResponse(registered))
@@ -147,7 +135,6 @@ func (h *Handler) DaemonDeregister(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RuntimeIDs []string `json:"runtime_ids"`
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -194,7 +181,6 @@ type DaemonHeartbeatRequest struct {
 
 func (h *Handler) DaemonHeartbeat(w http.ResponseWriter, r *http.Request) {
 	var req DaemonHeartbeatRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -238,8 +224,7 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.TaskService.ClaimTaskForRuntime(r.Context(), parseUUID(runtimeID))
 	if err != nil {
-		slog.Warn("claim task failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to claim task")
+		writeError(w, http.StatusInternalServerError, "failed to claim task: "+err.Error())
 		return
 	}
 
@@ -261,22 +246,16 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch the issue once — used for workspace lookup and shared context query.
-	issue, issueErr := h.Queries.GetIssue(r.Context(), task.IssueID)
-
 	// Include workspace ID and repos so the daemon can set up worktrees.
-	if issueErr == nil {
+	if issue, err := h.Queries.GetIssue(r.Context(), task.IssueID); err == nil {
 		resp.WorkspaceID = uuidToString(issue.WorkspaceID)
-		if ws, err := h.Queries.GetWorkspace(r.Context(), issue.WorkspaceID); err == nil {
-			resp.WorkspaceName = ws.Name
-			if ws.Repos != nil {
-				var repos []RepoData
-				if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
-					resp.Repos = repos
-				}
+		if ws, err := h.Queries.GetWorkspace(r.Context(), issue.WorkspaceID); err == nil && ws.Repos != nil {
+			var repos []RepoData
+			if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
+				resp.Repos = repos
 			}
 		}
-		}
+	}
 
 	// Look up the prior session for this (agent, issue) pair so the daemon
 	// can resume the Claude Code conversation context.
@@ -291,78 +270,6 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("task claimed by runtime", "task_id", uuidToString(task.ID), "runtime_id", runtimeID, "agent_id", uuidToString(task.AgentID), "prior_session", resp.PriorSessionID)
-
-	// If this is a chained task, include the source task's result so the
-	// daemon can inject it as additional context for the agent.
-	if task.ChainSourceTaskID.Valid {
-		if sourceTask, err := h.Queries.GetAgentTask(r.Context(), task.ChainSourceTaskID); err == nil {
-			var sourceResult any
-			if sourceTask.Result != nil {
-				json.Unmarshal(sourceTask.Result, &sourceResult)
-			}
-			resp.ChainContext = &ChainContext{
-				SourceTaskID: uuidToString(sourceTask.ID),
-				ChainReason:  task.ChainReason,
-				SourceResult: sourceResult,
-			}
-		}
-	}
-
-	// Advertise the agent's capabilities so the daemon can inject them into
-	// the system prompt. This is a static list for now — agents can create
-	// issues, leave comments, chain tasks to other agents, and subscribe.
-	resp.Capabilities = []string{
-		"create_issues",
-		"comment",
-		"assign_agents",
-		"chain_tasks",
-		"subscribe",
-	}
-
-	// Include other agents in the same workspace so the executing agent
-	// knows who it can collaborate with (chain to, mention, etc.).
-	if resp.WorkspaceID != "" {
-		if allAgents, err := h.Queries.ListAgents(r.Context(), parseUUID(resp.WorkspaceID)); err == nil {
-			colleagues := make([]AgentColleague, 0, len(allAgents))
-			for _, a := range allAgents {
-				if uuidToString(a.ID) == uuidToString(task.AgentID) {
-					continue
-				}
-				colleagues = append(colleagues, AgentColleague{
-					ID:          uuidToString(a.ID),
-					Name:        a.Name,
-					Description: a.Description,
-				})
-			}
-			resp.Colleagues = colleagues
-		}
-	}
-
-	// Build the full collaborative shared context for prompt injection.
-	// This includes colleagues, pending messages, dependencies, workspace
-	// memory, and the last checkpoint — giving the agent multi-agent awareness.
-	if resp.WorkspaceID != "" {
-		// Use issue title + description as query text for hybrid BM25 memory search.
-		queryText := ""
-		if issueErr == nil {
-			queryText = issue.Title
-			if issue.Description.Valid {
-				queryText += " " + issue.Description.String
-			}
-		}
-		sc, err := h.CollaborationService.BuildSharedContext(
-			r.Context(),
-			parseUUID(resp.WorkspaceID),
-			task.AgentID,
-			task.ID,
-			pgvector_go.Vector{}, // no embedding available at claim time
-			queryText, // issue title+description for BM25 hybrid search
-		)
-		if err == nil && sc != nil {
-			resp.SharedContext = sc
-		}
-	}
-
 	writeJSON(w, http.StatusOK, map[string]any{"task": resp})
 }
 
@@ -399,15 +306,6 @@ func (h *Handler) StartTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Bridge to RunOrchestrator: transition pending → executing.
-	if h.RunOrchestrator != nil {
-		if run, err := h.Queries.GetRunByTask(r.Context(), parseUUID(taskID)); err == nil {
-			if _, err := h.RunOrchestrator.StartRun(r.Context(), uuidToString(run.ID)); err != nil {
-				slog.Error("failed to start run for task", "task_id", taskID, "error", err)
-			}
-		}
-	}
-
 	slog.Info("task started", "task_id", taskID, "agent_id", uuidToString(task.AgentID))
 	writeJSON(w, http.StatusOK, taskToResponse(*task))
 }
@@ -423,7 +321,6 @@ func (h *Handler) ReportTaskProgress(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "taskId")
 
 	var req TaskProgressRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -454,33 +351,62 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "taskId")
 
 	var req TaskCompleteRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	result, _ := json.Marshal(req)
-	task, err := h.TaskService.CompleteTask(r.Context(), parseUUID(taskID), result, req.SessionID, req.WorkDir, h.ReviewService)
+	task, err := h.TaskService.CompleteTask(r.Context(), parseUUID(taskID), result, req.SessionID, req.WorkDir)
 	if err != nil {
 		slog.Warn("complete task failed", "task_id", taskID, "error", err)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Bridge to RunOrchestrator: mark the associated run as completed.
-	if h.RunOrchestrator != nil {
-		if run, err := h.Queries.GetRunByTask(r.Context(), parseUUID(taskID)); err == nil {
-			if _, err := h.RunOrchestrator.CompleteRun(r.Context(), uuidToString(run.ID)); err != nil {
-				slog.Error("failed to complete run for task", "task_id", taskID, "error", err)
-			}
+	slog.Info("task completed", "task_id", taskID, "agent_id", uuidToString(task.AgentID))
+	writeJSON(w, http.StatusOK, taskToResponse(*task))
+}
+
+// ReportTaskUsage stores per-task token usage. Called independently of
+// complete/fail so usage is captured even when tasks fail or are blocked.
+type TaskUsagePayload struct {
+	Provider         string `json:"provider"`
+	Model            string `json:"model"`
+	InputTokens      int64  `json:"input_tokens"`
+	OutputTokens     int64  `json:"output_tokens"`
+	CacheReadTokens  int64  `json:"cache_read_tokens"`
+	CacheWriteTokens int64  `json:"cache_write_tokens"`
+}
+
+func (h *Handler) ReportTaskUsage(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "taskId")
+
+	var req struct {
+		Usage []TaskUsagePayload `json:"usage"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	for _, u := range req.Usage {
+		if err := h.Queries.UpsertTaskUsage(r.Context(), db.UpsertTaskUsageParams{
+			TaskID:           parseUUID(taskID),
+			Provider:         u.Provider,
+			Model:            u.Model,
+			InputTokens:      u.InputTokens,
+			OutputTokens:     u.OutputTokens,
+			CacheReadTokens:  u.CacheReadTokens,
+			CacheWriteTokens: u.CacheWriteTokens,
+		}); err != nil {
+			slog.Warn("upsert task usage failed", "task_id", taskID, "model", u.Model, "error", err)
 		}
 	}
 
-	slog.Info("task completed", "task_id", taskID, "agent_id", uuidToString(task.AgentID))
-
-	writeJSON(w, http.StatusOK, taskToResponse(*task))
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
+
 // GetTaskStatus returns the current status of a task.
 // Used by the daemon to check whether a task was cancelled mid-execution.
 func (h *Handler) GetTaskStatus(w http.ResponseWriter, r *http.Request) {
@@ -502,7 +428,6 @@ func (h *Handler) FailTask(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "taskId")
 
 	var req TaskFailRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -513,15 +438,6 @@ func (h *Handler) FailTask(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("fail task failed", "task_id", taskID, "error", err)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
-	}
-
-	// Bridge to RunOrchestrator: mark the associated run as failed.
-	if h.RunOrchestrator != nil {
-		if run, err := h.Queries.GetRunByTask(r.Context(), parseUUID(taskID)); err == nil {
-			if _, err := h.RunOrchestrator.FailRun(r.Context(), uuidToString(run.ID), req.Error); err != nil {
-				slog.Error("failed to fail run for task", "task_id", taskID, "error", err)
-			}
-		}
 	}
 
 	slog.Info("task failed", "task_id", taskID, "agent_id", uuidToString(task.AgentID), "task_error", req.Error)
@@ -535,7 +451,6 @@ func (h *Handler) FailTask(w http.ResponseWriter, r *http.Request) {
 type TaskMessageRequest struct {
 	Seq     int            `json:"seq"`
 	Type    string         `json:"type"`
-	CallID  string         `json:"call_id,omitempty"`
 	Tool    string         `json:"tool,omitempty"`
 	Content string         `json:"content,omitempty"`
 	Input   map[string]any `json:"input,omitempty"`
@@ -551,7 +466,6 @@ func (h *Handler) ReportTaskMessages(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "taskId")
 
 	var req TaskMessageBatchRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -572,31 +486,7 @@ func (h *Handler) ReportTaskMessages(w http.ResponseWriter, r *http.Request) {
 		workspaceID = uuidToString(issue.WorkspaceID)
 	}
 
-	// Lazily find or create a Run for this task so we can record steps.
-	// Uses GetOrCreateRun with per-task locking to prevent duplicate runs.
-	runID := ""
-	if h.RunOrchestrator != nil {
-		agentIDStr := uuidToString(task.AgentID)
-		issueIDStr := uuidToString(task.IssueID)
-		run, runErr := h.RunOrchestrator.GetOrCreateRun(r.Context(), service.CreateRunRequest{
-			WorkspaceID: workspaceID,
-			IssueID:     issueIDStr,
-			AgentID:     agentIDStr,
-			TaskID:      taskID,
-		})
-		if runErr != nil {
-			slog.Error("failed to get or create run for task", "task_id", taskID, "error", runErr)
-		} else {
-			runID = uuidToString(run.ID)
-			// If the run is still pending (newly created), start it.
-			if run.Phase == "pending" {
-				if _, startErr := h.RunOrchestrator.StartRun(r.Context(), runID); startErr != nil {
-					slog.Error("failed to start run for task", "task_id", taskID, "run_id", runID, "error", startErr)
-				}
-			}
-		}
-	}
-for _, msg := range req.Messages {
+	for _, msg := range req.Messages {
 		// Redact sensitive information before persisting or broadcasting.
 		msg.Content = redact.Text(msg.Content)
 		msg.Output = redact.Text(msg.Output)
@@ -604,13 +494,9 @@ for _, msg := range req.Messages {
 
 		var inputJSON []byte
 		if msg.Input != nil {
-			var err error
-			inputJSON, err = json.Marshal(msg.Input)
-			if err != nil {
-				slog.Warn("failed to marshal task message input", "task_id", taskID, "error", err)
-			}
+			inputJSON, _ = json.Marshal(msg.Input)
 		}
-		if _, err := h.Queries.CreateTaskMessage(r.Context(), db.CreateTaskMessageParams{
+		h.Queries.CreateTaskMessage(r.Context(), db.CreateTaskMessageParams{
 			TaskID:  parseUUID(taskID),
 			Seq:     int32(msg.Seq),
 			Type:    msg.Type,
@@ -618,22 +504,7 @@ for _, msg := range req.Messages {
 			Content: pgtype.Text{String: msg.Content, Valid: msg.Content != ""},
 			Input:   inputJSON,
 			Output:  pgtype.Text{String: msg.Output, Valid: msg.Output != ""},
-		}); err != nil {
-			slog.Error("failed to create task message", "task_id", taskID, "error", err)
-		}
-
-		// Bridge to RunOrchestrator: record each message as a run step.
-		if runID != "" {
-			stepType := mapMessageTypeToStepType(msg.Type)
-			isError := msg.Type == "error"
-			toolOutput := msg.Output
-			if msg.Type == "text" || msg.Type == "thinking" {
-				toolOutput = msg.Content
-			}
-			if _, err := h.RunOrchestrator.RecordStep(r.Context(), runID, stepType, msg.Tool, msg.CallID, inputJSON, toolOutput, isError); err != nil {
-				slog.Error("failed to record run step", "run_id", runID, "task_id", taskID, "error", err)
-			}
-		}
+		})
 
 		if workspaceID != "" {
 			h.publish(protocol.EventTaskMessage, workspaceID, "system", "", protocol.TaskMessagePayload{
@@ -704,39 +575,22 @@ func (h *Handler) ListTaskMessages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// GetActiveTaskForIssue returns the currently running task for an issue, if any.
+// GetActiveTaskForIssue returns all currently active tasks for an issue.
+// Returns { tasks: [...] } array (may be empty).
 func (h *Handler) GetActiveTaskForIssue(w http.ResponseWriter, r *http.Request) {
 	issueID := chi.URLParam(r, "id")
 
 	tasks, err := h.Queries.ListActiveTasksByIssue(r.Context(), parseUUID(issueID))
-	if err != nil || len(tasks) == 0 {
-		writeJSON(w, http.StatusOK, map[string]any{"task": nil})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"task": taskToResponse(tasks[0])})
-}
-
-// GetTask returns a full task by ID (user-facing, requires workspace membership).
-func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
-	taskID := chi.URLParam(r, "taskId")
-	task, err := h.Queries.GetAgentTask(r.Context(), parseUUID(taskID))
 	if err != nil {
-		writeError(w, http.StatusNotFound, "task not found")
-		return
+		tasks = nil
 	}
 
-	// Verify workspace membership via the issue's workspace.
-	issue, err := h.Queries.GetIssue(r.Context(), task.IssueID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "task not found")
-		return
-	}
-	if _, ok := h.workspaceMember(w, r, uuidToString(issue.WorkspaceID)); !ok {
-		return
+	resp := make([]AgentTaskResponse, len(tasks))
+	for i, t := range tasks {
+		resp[i] = taskToResponse(t)
 	}
 
-	writeJSON(w, http.StatusOK, taskToResponse(task))
+	writeJSON(w, http.StatusOK, map[string]any{"tasks": resp})
 }
 
 // CancelTask cancels a running or queued task by ID.
@@ -746,85 +600,12 @@ func (h *Handler) CancelTask(w http.ResponseWriter, r *http.Request) {
 	task, err := h.TaskService.CancelTask(r.Context(), parseUUID(taskID))
 	if err != nil {
 		slog.Warn("cancel task failed", "task_id", taskID, "error", err)
-		// Distinguish not-found vs invalid-transition errors
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "no rows in result set") || strings.Contains(errMsg, "load task") {
-			writeError(w, http.StatusNotFound, errMsg)
-		} else if strings.Contains(errMsg, "cannot transition") {
-			writeError(w, http.StatusConflict, errMsg)
-		} else {
-			writeError(w, http.StatusBadRequest, errMsg)
-		}
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	slog.Info("task cancelled by user", "task_id", taskID, "issue_id", uuidToString(task.IssueID))
 	writeJSON(w, http.StatusOK, taskToResponse(*task))
-}
-
-// RetryTask resets an in_review task back to queued for re-execution.
-// POST /api/tasks/:taskId/retry
-func (h *Handler) RetryTask(w http.ResponseWriter, r *http.Request) {
-	taskID := chi.URLParam(r, "taskId")
-
-	task, err := h.ReviewService.RetryTask(r.Context(), parseUUID(taskID))
-	if err != nil {
-		slog.Warn("retry task failed", "task_id", taskID, "error", err)
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	slog.Info("task retried", "task_id", taskID, "issue_id", uuidToString(task.IssueID))
-	writeJSON(w, http.StatusOK, taskToResponse(*task))
-}
-
-// ChainTask creates a follow-up task for a target agent based on a completed task.
-// POST /api/tasks/:taskId/chain
-type ChainTaskRequest struct {
-	TargetAgentID string `json:"target_agent_id"`
-	ChainReason   string `json:"chain_reason"`
-}
-
-func (h *Handler) ChainTask(w http.ResponseWriter, r *http.Request) {
-	taskID := chi.URLParam(r, "taskId")
-
-	var req ChainTaskRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.TargetAgentID == "" {
-		writeError(w, http.StatusBadRequest, "target_agent_id is required")
-		return
-	}
-
-	// Verify the caller is a member of the workspace.
-	task, err := h.Queries.GetAgentTask(r.Context(), parseUUID(taskID))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "task not found")
-		return
-	}
-	issue, err := h.Queries.GetIssue(r.Context(), task.IssueID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "issue not found")
-		return
-	}
-	workspaceID := uuidToString(issue.WorkspaceID)
-	if _, ok := h.requireWorkspaceMember(w, r, workspaceID, "workspace not found"); !ok {
-		return
-	}
-
-	chained, err := h.TaskService.ChainTask(r.Context(), parseUUID(taskID), parseUUID(req.TargetAgentID), req.ChainReason)
-	if err != nil {
-		slog.Warn("chain task failed", "task_id", taskID, "error", err)
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	slog.Info("task chained", "source_task_id", taskID, "chained_task_id", uuidToString(chained.ID))
-	writeJSON(w, http.StatusOK, taskToResponse(*chained))
 }
 
 // ListTasksByIssue returns all tasks (any status) for an issue — used for execution history.
@@ -843,22 +624,4 @@ func (h *Handler) ListTasksByIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
-}
-
-// mapMessageTypeToStepType maps task message types to run step types.
-func mapMessageTypeToStepType(msgType string) string {
-	switch msgType {
-	case "thinking":
-		return "thinking"
-	case "text":
-		return "text"
-	case "tool_use":
-		return "tool_use"
-	case "tool_result":
-		return "tool_result"
-	case "error":
-		return "error"
-	default:
-		return msgType
-	}
 }

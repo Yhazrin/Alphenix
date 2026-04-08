@@ -2,6 +2,7 @@ import { Suspense, forwardRef, useRef, useState, useImperativeHandle } from "rea
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Issue, Comment, TimelineEntry } from "@/shared/types";
 
 // Mock next/dynamic — resolve dynamic() imports synchronously in tests
@@ -78,34 +79,11 @@ vi.mock("@/features/workspace", () => ({
   }),
 }));
 
-// Mock issue store — supply a stable full issue object so storeIssue
-// doesn't create a new reference each render (avoids infinite effect loop)
-// and has all required fields for rendering.
-const stableStoreIssues = vi.hoisted(() => [
-  {
-    id: "issue-1",
-    workspace_id: "ws-1",
-    number: 1,
-    identifier: "TES-1",
-    title: "Implement authentication",
-    description: "Add JWT auth to the backend",
-    status: "in_progress",
-    priority: "high",
-    assignee_type: "member",
-    assignee_id: "user-1",
-    creator_type: "member",
-    creator_id: "user-1",
-    parent_issue_id: null,
-    position: 0,
-    due_date: "2026-06-01T00:00:00Z",
-    created_at: "2026-01-15T00:00:00Z",
-    updated_at: "2026-01-20T00:00:00Z",
-  },
-]);
+// Mock issue store — only client state remains (activeIssueId)
 vi.mock("@/features/issues", () => ({
   useIssueStore: Object.assign(
-    (selector: (s: any) => any) => selector({ issues: stableStoreIssues }),
-    { getState: () => ({ issues: stableStoreIssues, addIssue: vi.fn(), updateIssue: vi.fn(), removeIssue: vi.fn() }) },
+    (selector: (s: any) => any) => selector({ activeIssueId: null }),
+    { getState: () => ({ activeIssueId: null, setActiveIssue: vi.fn() }) },
   ),
 }));
 
@@ -122,6 +100,9 @@ vi.mock("@/components/ui/calendar", () => ({
 
 // Mock ContentEditor (Tiptap needs real DOM)
 vi.mock("@/features/editor", () => ({
+  ReadonlyContent: ({ content }: { content: string }) => (
+    <div data-testid="readonly-content">{content}</div>
+  ),
   ContentEditor: forwardRef(({ defaultValue, onUpdate, placeholder, onSubmit }: any, ref: any) => {
     const valueRef = useRef(defaultValue || "");
     const [value, setValue] = useState(defaultValue || "");
@@ -198,9 +179,10 @@ vi.mock("@/shared/api", () => ({
     listIssueSubscribers: vi.fn().mockResolvedValue([]),
     subscribeToIssue: vi.fn().mockResolvedValue(undefined),
     unsubscribeFromIssue: vi.fn().mockResolvedValue(undefined),
-    getActiveTaskForIssue: vi.fn().mockResolvedValue({ task: null }),
+    getActiveTasksForIssue: vi.fn().mockResolvedValue({ tasks: [] }),
     listTasksByIssue: vi.fn().mockResolvedValue([]),
     listTaskMessages: vi.fn().mockResolvedValue([]),
+    listChildIssues: vi.fn().mockResolvedValue({ issues: [] }),
   },
   runsApi: {
     listRunsByIssue: vi.fn().mockResolvedValue([]),
@@ -263,14 +245,26 @@ dynamicHolder.component = IssueDetail;
 
 import IssueDetailPage from "./page";
 
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
 // React 19 use(Promise) needs the promise to resolve within act + Suspense
 async function renderPage(id = "issue-1") {
+  const queryClient = createTestQueryClient();
   let result: ReturnType<typeof render>;
   await act(async () => {
     result = render(
-      <Suspense fallback={<div>Suspense loading...</div>}>
-        <IssueDetailPage params={Promise.resolve({ id })} />
-      </Suspense>,
+      <QueryClientProvider client={queryClient}>
+        <Suspense fallback={<div>Suspense loading...</div>}>
+          <IssueDetailPage params={Promise.resolve({ id })} />
+        </Suspense>
+      </QueryClientProvider>,
     );
   });
   return result!;

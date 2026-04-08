@@ -8,24 +8,22 @@ import (
 	"log/slog"
 
 	"strconv"
-	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/alphenix/server/internal/events"
-	"github.com/multica-ai/alphenix/server/internal/mention"
-	"github.com/multica-ai/alphenix/server/internal/realtime"
-	"github.com/multica-ai/alphenix/server/internal/util"
-	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
-	"github.com/multica-ai/alphenix/server/pkg/protocol"
-	"github.com/multica-ai/alphenix/server/pkg/redact"
+	"github.com/multica-ai/multica/server/internal/events"
+	"github.com/multica-ai/multica/server/internal/mention"
+	"github.com/multica-ai/multica/server/internal/realtime"
+	"github.com/multica-ai/multica/server/internal/util"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/protocol"
+	"github.com/multica-ai/multica/server/pkg/redact"
 )
 
 type TaskService struct {
-	Queries     *db.Queries
-	Hub         *realtime.Hub
-	Bus         *events.Bus
-	prefixCache sync.Map
+	Queries *db.Queries
+	Hub     *realtime.Hub
+	Bus     *events.Bus
 }
 
 func NewTaskService(q *db.Queries, hub *realtime.Hub, bus *events.Bus) *TaskService {
@@ -34,7 +32,7 @@ func NewTaskService(q *db.Queries, hub *realtime.Hub, bus *events.Bus) *TaskServ
 
 // EnqueueTaskForIssue creates a queued task for an agent-assigned issue.
 // No context snapshot is stored — the agent fetches all data it needs at
-// runtime via the alphenix CLI.
+// runtime via the multica CLI.
 func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, triggerCommentID ...pgtype.UUID) (db.AgentTaskQueue, error) {
 	if !issue.AssigneeID.Valid {
 		slog.Error("task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "error", "issue has no assignee")
@@ -55,14 +53,6 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 		return db.AgentTaskQueue{}, fmt.Errorf("agent has no runtime")
 	}
 
-	// Use runtime selection policy if configured, otherwise fall back to agent default.
-	runtimeID, err := s.SelectRuntime(ctx, issue.WorkspaceID, issue.AssigneeID)
-	if err != nil {
-		slog.Warn("runtime selection failed, falling back to agent default",
-			"agent_id", util.UUIDToString(issue.AssigneeID), "error", err)
-		runtimeID = agent.RuntimeID
-	}
-
 	var commentID pgtype.UUID
 	if len(triggerCommentID) > 0 {
 		commentID = triggerCommentID[0]
@@ -70,11 +60,10 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 
 	task, err := s.Queries.CreateAgentTask(ctx, db.CreateAgentTaskParams{
 		AgentID:          issue.AssigneeID,
-		RuntimeID:        runtimeID,
+		RuntimeID:        agent.RuntimeID,
 		IssueID:          issue.ID,
 		Priority:         priorityToInt(issue.Priority),
 		TriggerCommentID: commentID,
-		ChainReason:      pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
 		slog.Error("task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "error", err)
@@ -83,27 +72,6 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 
 	slog.Info("task enqueued", "task_id", util.UUIDToString(task.ID), "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(issue.AssigneeID))
 	return task, nil
-}
-
-// TryEnqueueReadySubIssues finds all sub-issues of a parent issue that have all
-// dependencies satisfied and enqueues tasks for those that are assigned to an agent.
-// This is called after a goal decomposition is confirmed to automatically start
-// unblocked sub-tasks.
-func (s *TaskService) TryEnqueueReadySubIssues(ctx context.Context, parentIssueID pgtype.UUID) {
-	ready, err := s.Queries.ListReadySubIssues(ctx, parentIssueID)
-	if err != nil {
-		slog.Warn("TryEnqueueReadySubIssues: failed to list ready sub-issues", "parent_issue_id", util.UUIDToString(parentIssueID), "error", err)
-		return
-	}
-
-	for _, issue := range ready {
-		if !issue.AssigneeID.Valid {
-			continue // No assignee, skip
-		}
-		if _, err := s.EnqueueTaskForIssue(ctx, issue); err != nil {
-			slog.Warn("TryEnqueueReadySubIssues: failed to enqueue task for sub-issue", "issue_id", util.UUIDToString(issue.ID), "error", err)
-		}
-	}
 }
 
 // EnqueueTaskForMention creates a queued task for a mentioned agent on an issue.
@@ -124,21 +92,12 @@ func (s *TaskService) EnqueueTaskForMention(ctx context.Context, issue db.Issue,
 		return db.AgentTaskQueue{}, fmt.Errorf("agent has no runtime")
 	}
 
-	// Use runtime selection policy if configured, otherwise fall back to agent default.
-	runtimeID, err := s.SelectRuntime(ctx, issue.WorkspaceID, agentID)
-	if err != nil {
-		slog.Warn("runtime selection failed, falling back to agent default",
-			"agent_id", util.UUIDToString(agentID), "error", err)
-		runtimeID = agent.RuntimeID
-	}
-
 	task, err := s.Queries.CreateAgentTask(ctx, db.CreateAgentTaskParams{
 		AgentID:          agentID,
-		RuntimeID:        runtimeID,
+		RuntimeID:        agent.RuntimeID,
 		IssueID:          issue.ID,
 		Priority:         priorityToInt(issue.Priority),
 		TriggerCommentID: triggerCommentID,
-		ChainReason:      pgtype.Text{String: "", Valid: true},
 	})
 	if err != nil {
 		slog.Error("mention task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(agentID), "error", err)
@@ -151,37 +110,12 @@ func (s *TaskService) EnqueueTaskForMention(ctx context.Context, issue db.Issue,
 
 // CancelTasksForIssue cancels all active tasks for an issue.
 func (s *TaskService) CancelTasksForIssue(ctx context.Context, issueID pgtype.UUID) error {
-	// Fetch active tasks before cancelling so we can broadcast per-task events.
-	activeTasks, err := s.Queries.ListActiveTasksByIssue(ctx, issueID)
-	if err != nil {
-		return fmt.Errorf("list active tasks: %w", err)
-	}
-
-	if err := s.Queries.CancelAgentTasksByIssue(ctx, issueID); err != nil {
-		return fmt.Errorf("cancel tasks: %w", err)
-	}
-
-	// Broadcast cancel event for each task so frontends update immediately.
-	for _, t := range activeTasks {
-		t.Status = "cancelled"
-		s.broadcastTaskEvent(ctx, protocol.EventTaskCancelled, t)
-		s.ReconcileAgentStatus(ctx, t.AgentID)
-	}
-
-	return nil
+	return s.Queries.CancelAgentTasksByIssue(ctx, issueID)
 }
 
 // CancelTask cancels a single task by ID. It broadcasts a task:cancelled event
 // so frontends can update immediately.
 func (s *TaskService) CancelTask(ctx context.Context, taskID pgtype.UUID) (*db.AgentTaskQueue, error) {
-	existing, err := s.Queries.GetAgentTask(ctx, taskID)
-	if err != nil {
-		return nil, fmt.Errorf("load task: %w", err)
-	}
-	if !CanTransition(TaskState(existing.Status), TaskStateCancelled) {
-		return nil, fmt.Errorf("cannot transition task from %s to cancelled", existing.Status)
-	}
-
 	task, err := s.Queries.CancelAgentTask(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("cancel task: %w", err)
@@ -232,9 +166,6 @@ func (s *TaskService) ClaimTask(ctx context.Context, agentID pgtype.UUID) (*db.A
 	// Broadcast task:dispatch
 	s.broadcastTaskDispatch(ctx, task)
 
-	// Broadcast agent:started
-	s.broadcastAgentEvent(ctx, protocol.EventAgentStarted, task)
-
 	return &task, nil
 }
 
@@ -269,14 +200,6 @@ func (s *TaskService) ClaimTaskForRuntime(ctx context.Context, runtimeID pgtype.
 // StartTask transitions a dispatched task to running.
 // Issue status is NOT changed here — the agent manages it via the CLI.
 func (s *TaskService) StartTask(ctx context.Context, taskID pgtype.UUID) (*db.AgentTaskQueue, error) {
-	existing, err := s.Queries.GetAgentTask(ctx, taskID)
-	if err != nil {
-		return nil, fmt.Errorf("load task: %w", err)
-	}
-	if !CanTransition(TaskState(existing.Status), TaskStateRunning) {
-		return nil, fmt.Errorf("cannot transition task from %s to running", existing.Status)
-	}
-
 	task, err := s.Queries.StartAgentTask(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("start task: %w", err)
@@ -287,107 +210,76 @@ func (s *TaskService) StartTask(ctx context.Context, taskID pgtype.UUID) (*db.Ag
 }
 
 // CompleteTask marks a task as completed.
-// If the agent has review enabled (max_reviews > 0), the task transitions to
-// in_review instead of directly completing. The ReviewService handles the rest.
 // Issue status is NOT changed here — the agent manages it via the CLI.
-func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, result []byte, sessionID, workDir string, reviewService *ReviewService) (*db.AgentTaskQueue, error) {
-	// Load the task to check review config.
-	task, err := s.Queries.GetAgentTask(ctx, taskID)
-	if err != nil {
-		return nil, fmt.Errorf("load task: %w", err)
-	}
-	if !CanTransition(TaskState(task.Status), TaskStateInReview) && !CanTransition(TaskState(task.Status), TaskStateCompleted) {
-		return nil, fmt.Errorf("cannot transition task from %s to in_review or completed", task.Status)
-	}
-
-	// If review is enabled, transition to in_review instead of completing.
-	if task.MaxReviews > 0 && reviewService != nil {
-		inReview, err := s.Queries.SetTaskInReview(ctx, taskID)
-		if err != nil {
-			return nil, fmt.Errorf("set task in review: %w", err)
-		}
-		slog.Info("task moved to review", "task_id", util.UUIDToString(taskID))
-
-		// Post agent output as a comment even during review.
-		if !task.TriggerCommentID.Valid {
-			var payload protocol.TaskCompletedPayload
-			if err := json.Unmarshal(result, &payload); err == nil {
-				if payload.Output != "" {
-					s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(payload.Output), "comment", task.TriggerCommentID)
-				}
-			}
-		}
-
-		// Broadcast in_review status
-		s.broadcastTaskEvent(ctx, protocol.EventTaskInReview, inReview)
-
-		// Trigger async review
-		go func() {
-			if _, reviewErr := reviewService.ReviewTask(context.Background(), taskID); reviewErr != nil {
-				slog.Error("automated review failed, marking task as failed", "task_id", util.UUIDToString(taskID), "error", reviewErr)
-				if _, failErr := s.FailTask(context.Background(), taskID, fmt.Sprintf("automated review failed: %v", reviewErr)); failErr != nil {
-					slog.Error("failed to mark task as failed after review error", "task_id", util.UUIDToString(taskID), "error", failErr)
-				}
-			}
-		}()
-
-		return &inReview, nil
-	}
-
-	// No review — complete directly (original behavior).
-	completed, err := s.Queries.CompleteAgentTask(ctx, db.CompleteAgentTaskParams{
+func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, result []byte, sessionID, workDir string) (*db.AgentTaskQueue, error) {
+	task, err := s.Queries.CompleteAgentTask(ctx, db.CompleteAgentTaskParams{
 		ID:        taskID,
 		Result:    result,
 		SessionID: pgtype.Text{String: sessionID, Valid: sessionID != ""},
 		WorkDir:   pgtype.Text{String: workDir, Valid: workDir != ""},
 	})
 	if err != nil {
+		// Log the current task state to help debug why the update matched no rows.
+		if existing, lookupErr := s.Queries.GetAgentTask(ctx, taskID); lookupErr == nil {
+			slog.Warn("complete task failed: task not in running state",
+				"task_id", util.UUIDToString(taskID),
+				"current_status", existing.Status,
+				"issue_id", util.UUIDToString(existing.IssueID),
+				"agent_id", util.UUIDToString(existing.AgentID),
+			)
+		} else {
+			slog.Warn("complete task failed: task not found",
+				"task_id", util.UUIDToString(taskID),
+				"lookup_error", lookupErr,
+			)
+		}
 		return nil, fmt.Errorf("complete task: %w", err)
 	}
 
-	slog.Info("task completed", "task_id", util.UUIDToString(completed.ID), "issue_id", util.UUIDToString(completed.IssueID))
-
-	// Check if any dependent tasks are now unblocked.
-	s.checkAndLogReadyDependents(ctx, completed.ID)
+	slog.Info("task completed", "task_id", util.UUIDToString(task.ID), "issue_id", util.UUIDToString(task.IssueID))
 
 	// Post agent output as a comment, but only for assignment-triggered tasks.
 	// Comment-triggered tasks: the agent replies via CLI with --parent, so
 	// posting here would create a duplicate.
-	if !completed.TriggerCommentID.Valid {
+	if !task.TriggerCommentID.Valid {
 		var payload protocol.TaskCompletedPayload
 		if err := json.Unmarshal(result, &payload); err == nil {
 			if payload.Output != "" {
-				s.createAgentComment(ctx, completed.IssueID, completed.AgentID, redact.Text(payload.Output), "comment", completed.TriggerCommentID)
+				s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(payload.Output), "comment", task.TriggerCommentID)
 			}
 		}
 	}
 
 	// Reconcile agent status
-	s.ReconcileAgentStatus(ctx, completed.AgentID)
+	s.ReconcileAgentStatus(ctx, task.AgentID)
 
 	// Broadcast
-	s.broadcastTaskEvent(ctx, protocol.EventTaskCompleted, completed)
-	s.broadcastAgentEvent(ctx, protocol.EventAgentCompleted, completed)
+	s.broadcastTaskEvent(ctx, protocol.EventTaskCompleted, task)
 
-	return &completed, nil
+	return &task, nil
 }
 
 // FailTask marks a task as failed.
 // Issue status is NOT changed here — the agent manages it via the CLI.
 func (s *TaskService) FailTask(ctx context.Context, taskID pgtype.UUID, errMsg string) (*db.AgentTaskQueue, error) {
-	existing, err := s.Queries.GetAgentTask(ctx, taskID)
-	if err != nil {
-		return nil, fmt.Errorf("load task: %w", err)
-	}
-	if !CanTransition(TaskState(existing.Status), TaskStateFailed) {
-		return nil, fmt.Errorf("cannot transition task from %s to failed", existing.Status)
-	}
-
 	task, err := s.Queries.FailAgentTask(ctx, db.FailAgentTaskParams{
 		ID:    taskID,
 		Error: pgtype.Text{String: errMsg, Valid: true},
 	})
 	if err != nil {
+		if existing, lookupErr := s.Queries.GetAgentTask(ctx, taskID); lookupErr == nil {
+			slog.Warn("fail task failed: task not in dispatched/running state",
+				"task_id", util.UUIDToString(taskID),
+				"current_status", existing.Status,
+				"issue_id", util.UUIDToString(existing.IssueID),
+				"agent_id", util.UUIDToString(existing.AgentID),
+			)
+		} else {
+			slog.Warn("fail task failed: task not found",
+				"task_id", util.UUIDToString(taskID),
+				"lookup_error", lookupErr,
+			)
+		}
 		return nil, fmt.Errorf("fail task: %w", err)
 	}
 
@@ -401,7 +293,6 @@ func (s *TaskService) FailTask(ctx context.Context, taskID pgtype.UUID, errMsg s
 
 	// Broadcast
 	s.broadcastTaskEvent(ctx, protocol.EventTaskFailed, task)
-	s.broadcastAgentEvent(ctx, protocol.EventAgentFailed, task)
 
 	return &task, nil
 }
@@ -485,48 +376,6 @@ type AgentSkillFileData struct {
 	Content string `json:"content"`
 }
 
-// ChainTask creates a follow-up task for a target agent, linking it to the source task.
-// The source task's result is included as context so the target agent has full background.
-func (s *TaskService) ChainTask(ctx context.Context, sourceTaskID, targetAgentID pgtype.UUID, chainReason string) (*db.AgentTaskQueue, error) {
-	sourceTask, err := s.Queries.GetAgentTask(ctx, sourceTaskID)
-	if err != nil {
-		return nil, fmt.Errorf("load source task: %w", err)
-	}
-
-	agent, err := s.Queries.GetAgent(ctx, targetAgentID)
-	if err != nil {
-		return nil, fmt.Errorf("load target agent: %w", err)
-	}
-	if agent.ArchivedAt.Valid {
-		return nil, fmt.Errorf("target agent is archived")
-	}
-	if !agent.RuntimeID.Valid {
-		return nil, fmt.Errorf("target agent has no runtime")
-	}
-
-	task, err := s.Queries.CreateAgentTask(ctx, db.CreateAgentTaskParams{
-		AgentID:           targetAgentID,
-		RuntimeID:         agent.RuntimeID,
-		IssueID:           sourceTask.IssueID,
-		Priority:          sourceTask.Priority,
-		ChainSourceTaskID: sourceTaskID,
-		ChainReason:       pgtype.Text{String: chainReason, Valid: true},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create chained task: %w", err)
-	}
-
-	slog.Info("task chained",
-		"source_task_id", util.UUIDToString(sourceTaskID),
-		"chained_task_id", util.UUIDToString(task.ID),
-		"target_agent_id", util.UUIDToString(targetAgentID),
-		"chain_reason", chainReason,
-	)
-
-	s.broadcastTaskEvent(ctx, protocol.EventTaskChained, task)
-	return &task, nil
-}
-
 func priorityToInt(p string) int32 {
 	switch p {
 	case "urgent":
@@ -545,9 +394,7 @@ func priorityToInt(p string) int32 {
 func (s *TaskService) broadcastTaskDispatch(ctx context.Context, task db.AgentTaskQueue) {
 	var payload map[string]any
 	if task.Context != nil {
-		if err := json.Unmarshal(task.Context, &payload); err != nil {
-			slog.Warn("broadcastTaskDispatch: failed to unmarshal task context", "task_id", util.UUIDToString(task.ID), "error", err)
-		}
+		json.Unmarshal(task.Context, &payload)
 	}
 	if payload == nil {
 		payload = map[string]any{}
@@ -593,88 +440,8 @@ func (s *TaskService) broadcastTaskEvent(ctx context.Context, eventType string, 
 	})
 }
 
-// broadcastAgentEvent publishes an agent lifecycle event (agent:started, agent:completed, agent:failed).
-// These complement the task:* events and allow frontends to react at the agent level.
-func (s *TaskService) broadcastAgentEvent(ctx context.Context, eventType string, task db.AgentTaskQueue) {
-	workspaceID := ""
-	if issue, err := s.Queries.GetIssue(ctx, task.IssueID); err == nil {
-		workspaceID = util.UUIDToString(issue.WorkspaceID)
-	}
-	if workspaceID == "" {
-		return
-	}
-	s.Bus.Publish(events.Event{
-		Type:        eventType,
-		WorkspaceID: workspaceID,
-		ActorType:   "system",
-		ActorID:     "",
-		Payload: map[string]any{
-			"task_id":  util.UUIDToString(task.ID),
-			"agent_id": util.UUIDToString(task.AgentID),
-			"issue_id": util.UUIDToString(task.IssueID),
-		},
-	})
-}
-
-// checkAndLogReadyDependents checks if any tasks depending on the completed task
-// are now fully unblocked (all dependencies satisfied). Logs and publishes events
-// for tasks that become ready.
-func (s *TaskService) checkAndLogReadyDependents(ctx context.Context, completedTaskID pgtype.UUID) {
-	dependents, err := s.Queries.GetTaskDependents(ctx, completedTaskID)
-	if err != nil {
-		slog.Warn("failed to check dependents", "task_id", util.UUIDToString(completedTaskID), "error", err)
-		return
-	}
-
-	for _, dep := range dependents {
-		// Check if ALL dependencies for this dependent task are now satisfied.
-		deps, err := s.Queries.GetTaskDependencies(ctx, dep.TaskID)
-		if err != nil {
-			continue
-		}
-		allSatisfied := true
-		for _, d := range deps {
-			if depTask, err := s.Queries.GetAgentTask(ctx, d.DependsOnTaskID); err != nil || (depTask.Status != "completed" && depTask.Status != "failed" && depTask.Status != "cancelled") {
-				allSatisfied = false
-				break
-			}
-		}
-		if !allSatisfied {
-			continue
-		}
-
-		// All dependencies satisfied — log and publish event.
-		readyTask, err := s.Queries.GetAgentTask(ctx, dep.TaskID)
-		if err != nil {
-			continue
-		}
-		slog.Info("dependent task unblocked",
-			"task_id", util.UUIDToString(readyTask.ID),
-			"issue_id", util.UUIDToString(readyTask.IssueID),
-			"unblocked_by", util.UUIDToString(completedTaskID),
-		)
-
-		workspaceID := ""
-		if issue, err := s.Queries.GetIssue(ctx, readyTask.IssueID); err == nil {
-			workspaceID = util.UUIDToString(issue.WorkspaceID)
-		}
-		if workspaceID != "" {
-			s.Bus.Publish(events.Event{
-				Type:        "task:dependencies_satisfied",
-				WorkspaceID: workspaceID,
-				ActorType:   "system",
-				ActorID:     "",
-				Payload: map[string]any{
-					"task_id":        util.UUIDToString(readyTask.ID),
-					"unblocked_by":   util.UUIDToString(completedTaskID),
-				},
-			})
-		}
-	}
-}
-
 func (s *TaskService) broadcastIssueUpdated(issue db.Issue) {
-	prefix := s.getIssuePrefix(context.Background(), issue.WorkspaceID)
+	prefix := s.getIssuePrefix(issue.WorkspaceID)
 	s.Bus.Publish(events.Event{
 		Type:        protocol.EventIssueUpdated,
 		WorkspaceID: util.UUIDToString(issue.WorkspaceID),
@@ -684,18 +451,12 @@ func (s *TaskService) broadcastIssueUpdated(issue db.Issue) {
 	})
 }
 
-func (s *TaskService) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
-	key := util.UUIDToString(workspaceID)
-	if v, ok := s.prefixCache.Load(key); ok {
-		return v.(string)
-	}
-	ws, err := s.Queries.GetWorkspace(ctx, workspaceID)
+func (s *TaskService) getIssuePrefix(workspaceID pgtype.UUID) string {
+	ws, err := s.Queries.GetWorkspace(context.Background(), workspaceID)
 	if err != nil {
 		return ""
 	}
-	prefix := ws.IssuePrefix
-	s.prefixCache.Store(key, prefix)
-	return prefix
+	return ws.IssuePrefix
 }
 
 func (s *TaskService) createAgentComment(ctx context.Context, issueID, agentID pgtype.UUID, content, commentType string, parentID pgtype.UUID) {
@@ -768,21 +529,7 @@ func issueToMap(issue db.Issue, issuePrefix string) map[string]any {
 func agentToMap(a db.Agent) map[string]any {
 	var rc any
 	if a.RuntimeConfig != nil {
-		if err := json.Unmarshal(a.RuntimeConfig, &rc); err != nil {
-			slog.Warn("failed to unmarshal agent runtime_config", "error", err)
-		}
-	}
-	var tools any
-	if a.Tools != nil {
-		if err := json.Unmarshal(a.Tools, &tools); err != nil {
-			slog.Warn("failed to unmarshal agent tools", "error", err)
-		}
-	}
-	var triggers any
-	if a.Triggers != nil {
-		if err := json.Unmarshal(a.Triggers, &triggers); err != nil {
-			slog.Warn("failed to unmarshal agent triggers", "error", err)
-		}
+		json.Unmarshal(a.RuntimeConfig, &rc)
 	}
 	return map[string]any{
 		"id":                   util.UUIDToString(a.ID),
@@ -798,8 +545,6 @@ func agentToMap(a db.Agent) map[string]any {
 		"max_concurrent_tasks": a.MaxConcurrentTasks,
 		"owner_id":             util.UUIDToPtr(a.OwnerID),
 		"skills":               []any{},
-		"tools":                tools,
-		"triggers":             triggers,
 		"created_at":           util.TimestampToString(a.CreatedAt),
 		"updated_at":           util.TimestampToString(a.UpdatedAt),
 		"archived_at":          util.TimestampToPtr(a.ArchivedAt),

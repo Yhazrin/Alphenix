@@ -13,7 +13,7 @@ import (
 
 var runtimeCmd = &cobra.Command{
 	Use:   "runtime",
-	Short: "Manage agent runtimes",
+	Short: "Work with agent runtimes",
 }
 
 var runtimeListCmd = &cobra.Command{
@@ -38,28 +38,28 @@ var runtimeLeaveCmd = &cobra.Command{
 var runtimeUsageCmd = &cobra.Command{
 	Use:   "usage <runtime-id>",
 	Short: "Get token usage for a runtime",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1),
 	RunE:  runRuntimeUsage,
 }
 
 var runtimeActivityCmd = &cobra.Command{
 	Use:   "activity <runtime-id>",
 	Short: "Get hourly task activity for a runtime",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1),
 	RunE:  runRuntimeActivity,
 }
 
 var runtimePingCmd = &cobra.Command{
 	Use:   "ping <runtime-id>",
 	Short: "Ping a runtime to check connectivity",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1),
 	RunE:  runRuntimePing,
 }
 
 var runtimeUpdateCmd = &cobra.Command{
 	Use:   "update <runtime-id>",
 	Short: "Initiate a CLI update on a runtime",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1),
 	RunE:  runRuntimeUpdate,
 }
 

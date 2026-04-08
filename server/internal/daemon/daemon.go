@@ -11,13 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/multica-ai/alphenix/server/internal/cli"
-	"github.com/multica-ai/alphenix/server/internal/daemon/execenv"
-	"github.com/multica-ai/alphenix/server/internal/daemon/repocache"
-	"github.com/multica-ai/alphenix/server/internal/daemon/usage"
-	"github.com/multica-ai/alphenix/server/internal/events"
-	"github.com/multica-ai/alphenix/server/internal/service"
-	"github.com/multica-ai/alphenix/server/pkg/agent"
+	"github.com/multica-ai/multica/server/internal/cli"
+	"github.com/multica-ai/multica/server/internal/daemon/execenv"
+	"github.com/multica-ai/multica/server/internal/daemon/repocache"
+	"github.com/multica-ai/multica/server/internal/daemon/usage"
+	"github.com/multica-ai/multica/server/pkg/agent"
 )
 
 // workspaceState tracks registered runtimes for a single workspace.
@@ -32,9 +30,6 @@ type Daemon struct {
 	client    *Client
 	repoCache *repocache.Cache
 	logger    *slog.Logger
-	bus       *events.Bus
-	hooks     *HookService
-	snapshot  *SnapshotService
 
 	mu           sync.Mutex
 	workspaces   map[string]*workspaceState
@@ -49,16 +44,11 @@ type Daemon struct {
 // New creates a new Daemon instance.
 func New(cfg Config, logger *slog.Logger) *Daemon {
 	cacheRoot := filepath.Join(cfg.WorkspacesRoot, ".repos")
-	bus := events.New()
-	client := NewClient(cfg.ServerBaseURL)
 	return &Daemon{
 		cfg:          cfg,
-		client:       client,
+		client:       NewClient(cfg.ServerBaseURL),
 		repoCache:    repocache.New(cacheRoot, logger),
 		logger:       logger,
-		bus:          bus,
-		hooks:        NewHookService(bus, logger),
-		snapshot:     NewSnapshotService(client, logger),
 		workspaces:   make(map[string]*workspaceState),
 		runtimeIndex: make(map[string]Runtime),
 	}
@@ -146,9 +136,9 @@ func (d *Daemon) resolveAuth() error {
 		return fmt.Errorf("load CLI config: %w", err)
 	}
 	if cfg.Token == "" {
-		loginHint := "'alphenix login'"
+		loginHint := "'multica login'"
 		if d.cfg.Profile != "" {
-			loginHint = fmt.Sprintf("'alphenix login --profile %s'", d.cfg.Profile)
+			loginHint = fmt.Sprintf("'multica login --profile %s'", d.cfg.Profile)
 		}
 		d.logger.Warn("not authenticated — run " + loginHint + " to authenticate, then restart the daemon")
 		return fmt.Errorf("not authenticated: run %s first", loginHint)
@@ -166,7 +156,7 @@ func (d *Daemon) loadWatchedWorkspaces(ctx context.Context) error {
 	}
 
 	if len(cfg.WatchedWorkspaces) == 0 {
-		return fmt.Errorf("no watched workspaces configured: run 'alphenix workspace watch <id>' to add one")
+		return fmt.Errorf("no watched workspaces configured: run 'multica workspace watch <id>' to add one")
 	}
 
 	var registered int
@@ -243,10 +233,6 @@ func (d *Daemon) registerRuntimesForWorkspace(ctx context.Context, workspaceID s
 		version, err := agent.DetectVersion(ctx, entry.Path)
 		if err != nil {
 			d.logger.Warn("skip registering runtime", "name", name, "error", err)
-			continue
-		}
-		if name == "" {
-			d.logger.Warn("skip registering runtime with empty name")
 			continue
 		}
 		displayName := strings.ToUpper(name[:1]) + name[1:]
@@ -608,7 +594,7 @@ func (d *Daemon) handleUpdate(ctx context.Context, runtimeID string, update *Pen
 }
 
 // triggerRestart initiates a graceful daemon restart after a successful CLI update.
-// For brew installs, it keeps the symlink path (e.g. /opt/homebrew/bin/alphenix)
+// For brew installs, it keeps the symlink path (e.g. /opt/homebrew/bin/multica)
 // so the restarted daemon picks up the new Cellar version automatically.
 // For non-brew installs, it resolves to the absolute path of the replaced binary.
 // The caller (cmd_daemon.go) checks RestartBinary() and launches the new process.
@@ -813,7 +799,7 @@ func (d *Daemon) handleTask(ctx context.Context, task Task) {
 			case <-runCtx.Done():
 				return
 			case <-ticker.C:
-				if status, err := d.client.GetTaskStatus(runCtx, task.ID); err == nil && status == "cancelled" {
+				if status, err := d.client.GetTaskStatus(ctx, task.ID); err == nil && status == "cancelled" {
 					taskLog.Info("task cancelled by server, interrupting agent")
 					runCancel()
 					close(cancelledByPoll)
@@ -841,14 +827,21 @@ func (d *Daemon) handleTask(ctx context.Context, task Task) {
 		return
 	}
 
-	_ = d.client.ReportProgress(runCtx, task.ID, "Finishing task", 2, 2)
+	_ = d.client.ReportProgress(ctx, task.ID, "Finishing task", 2, 2)
 
 	// Check if the task was cancelled while it was running (e.g. issue
 	// was reassigned). If so, skip reporting results — the server already
 	// moved the task to 'cancelled' so complete/fail would fail anyway.
-	if status, err := d.client.GetTaskStatus(runCtx, task.ID); err == nil && status == "cancelled" {
+	if status, err := d.client.GetTaskStatus(ctx, task.ID); err == nil && status == "cancelled" {
 		taskLog.Info("task cancelled during execution, discarding result")
 		return
+	}
+
+	// Report usage independently so it's captured even for failed/blocked tasks.
+	if len(result.Usage) > 0 {
+		if err := d.client.ReportTaskUsage(ctx, task.ID, result.Usage); err != nil {
+			taskLog.Warn("report task usage failed", "error", err)
+		}
 	}
 
 	switch result.Status {
@@ -884,7 +877,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 
 	// Prepare isolated execution environment.
 	// Repos are passed as metadata only — the agent checks them out on demand
-	// via `alphenix repo checkout <url>`.
+	// via `multica repo checkout <url>`.
 	taskCtx := execenv.TaskContextForEnv{
 		IssueID:           task.IssueID,
 		TriggerCommentID:  task.TriggerCommentID,
@@ -902,13 +895,12 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	if env == nil {
 		var err error
 		env, err = execenv.Prepare(execenv.PrepareParams{
-			WorkspacesRoot:    d.cfg.WorkspacesRoot,
-			WorkspaceID:       task.WorkspaceID,
-			TaskID:            task.ID,
-			AgentName:         agentName,
-			Provider:          provider,
-			Task:              taskCtx,
-			RepoCLAUDEProvider: d.repoCache,
+			WorkspacesRoot: d.cfg.WorkspacesRoot,
+			WorkspaceID:    task.WorkspaceID,
+			TaskID:         task.ID,
+			AgentName:      agentName,
+			Provider:       provider,
+			Task:           taskCtx,
 		}, d.logger)
 		if err != nil {
 			return TaskResult{}, fmt.Errorf("prepare execution environment: %w", err)
@@ -926,15 +918,23 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	prompt := BuildPrompt(task)
 
 	// Pass the daemon's auth credentials and context so the spawned agent CLI
-	// can call the Alphenix API and the local daemon (e.g. `alphenix repo checkout`).
+	// can call the Multica API and the local daemon (e.g. `multica repo checkout`).
 	agentEnv := map[string]string{
-		"ALPHENIX_TOKEN":        d.client.Token(),
-		"ALPHENIX_SERVER_URL":   d.cfg.ServerBaseURL,
-		"ALPHENIX_DAEMON_PORT":  fmt.Sprintf("%d", d.cfg.HealthPort),
-		"ALPHENIX_WORKSPACE_ID": task.WorkspaceID,
-		"ALPHENIX_AGENT_NAME":   agentName,
-		"ALPHENIX_AGENT_ID":     task.AgentID,
-		"ALPHENIX_TASK_ID":      task.ID,
+		"MULTICA_TOKEN":        d.client.Token(),
+		"MULTICA_SERVER_URL":   d.cfg.ServerBaseURL,
+		"MULTICA_DAEMON_PORT":  fmt.Sprintf("%d", d.cfg.HealthPort),
+		"MULTICA_WORKSPACE_ID": task.WorkspaceID,
+		"MULTICA_AGENT_NAME":   agentName,
+		"MULTICA_AGENT_ID":     task.AgentID,
+		"MULTICA_TASK_ID":      task.ID,
+	}
+	// Ensure the multica CLI is on PATH inside the agent's environment.
+	// Some runtimes (e.g. Codex) run in an isolated sandbox that may not
+	// inherit the daemon's PATH. Prepend the directory of the running
+	// multica binary so that `multica` commands in the agent always resolve.
+	if selfBin, err := os.Executable(); err == nil {
+		binDir := filepath.Dir(selfBin)
+		agentEnv["PATH"] = binDir + string(os.PathListSeparator) + os.Getenv("PATH")
 	}
 	// Point Codex to the per-task CODEX_HOME so it discovers skills natively
 	// without polluting the system ~/.codex/skills/.
@@ -950,20 +950,12 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		return TaskResult{}, fmt.Errorf("create agent backend: %w", err)
 	}
 
-	// Determine tool permissions based on agent role.
-	var toolPerms *agent.ToolPermissions
-	isCoordinator := task.Agent != nil && task.Agent.Role == "coordinator"
-	if task.Agent != nil && task.Agent.Role != "" {
-		toolPerms = DefaultToolPermissions(task.Agent.Role)
-	}
-
 	reused := task.PriorWorkDir != "" && env.WorkDir == task.PriorWorkDir
 	taskLog.Info("starting agent",
 		"provider", provider,
 		"workdir", env.WorkDir,
 		"model", entry.Model,
 		"reused", reused,
-		"coordinator", isCoordinator,
 	)
 	if task.PriorSessionID != "" {
 		taskLog.Info("resuming session", "session_id", task.PriorSessionID)
@@ -971,234 +963,52 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 
 	taskStart := time.Now()
 
-	// Build tool hooks for lifecycle observability (pre/post tool use events on bus).
-	toolHooks := d.hooks.BuildToolHooks(task.WorkspaceID, task.ID, task.AgentID)
-	d.hooks.PublishAgentStarted(task.WorkspaceID, task.ID, task.AgentID, provider)
-
-	// Build lifecycle hooks for session_start and stop events.
-	lifecycleHooks := agent.LifecycleHooks{
-		SessionStart: func(ctx context.Context, sessionID string) {
-			d.hooks.PublishAgentSessionStart(task.WorkspaceID, task.ID, task.AgentID, sessionID)
-		},
-		Stop: func(ctx context.Context, result agent.Result) {
-			d.hooks.PublishAgentStop(task.WorkspaceID, task.ID, task.AgentID, result)
-		},
+	session, err := backend.Execute(ctx, prompt, agent.ExecOptions{
+		Cwd:             env.WorkDir,
+		Model:           entry.Model,
+		Timeout:         d.cfg.AgentTimeout,
+		ResumeSessionID: task.PriorSessionID,
+	})
+	if err != nil {
+		return TaskResult{}, err
 	}
 
-	// Coordinator agents use Fork mode: a lightweight sub-agent that inherits
-	// the parent's codebase context and writes results to an output file.
-	// The "Don't peek" rule applies — we wait for ForkSession.Result before reading.
-	//
-	// Coordinators also get a ForkManager for multi-agent parallel orchestration.
-	// The ForkManager is available via context for the coordinator to dispatch
-	// multiple sub-agents in isolated worktrees.
-	var session *agent.Session
-	if isCoordinator {
-		// Create ForkManager for multi-fork support.
-		forkMgr := agent.NewForkManager(backend, env.WorkDir, agent.ForkManagerOptions{
-			DefaultTimeout:  d.cfg.AgentTimeout,
-			Model:           entry.Model,
-			ToolPermissions: toolPerms,
-			ToolHooks:       toolHooks,
-			OnForkStarted: func(forkID string, spec agent.ForkSpec) {
-				d.hooks.PublishForkStarted(task.WorkspaceID, task.ID, task.AgentID, forkID)
-			},
-			OnForkCompleted: func(forkID string, output agent.ForkOutput) {
-				d.hooks.PublishForkCompleted(task.WorkspaceID, task.ID, task.AgentID, forkID, output.DurationMs)
-			},
-			OnForkFailed: func(forkID string, output agent.ForkOutput) {
-				d.hooks.PublishForkFailed(task.WorkspaceID, task.ID, task.AgentID, forkID, output.Error)
-			},
-		})
-		defer forkMgr.Close()
-
-		// Single fork path (default) — backward compatible with existing behavior.
-		forkOutput := filepath.Join(env.WorkDir, ".alphenix", "fork_result.txt")
-		if mkErr := os.MkdirAll(filepath.Dir(forkOutput), 0o755); mkErr != nil {
-			return TaskResult{}, fmt.Errorf("create fork output dir: %w", mkErr)
-		}
-
-		forkSession, forkErr := backend.Fork(ctx, prompt, agent.ForkOptions{
-			Cwd:             env.WorkDir,
-			Model:           entry.Model,
-			Timeout:         d.cfg.AgentTimeout,
-			ToolPermissions: toolPerms,
-			ToolHooks:       toolHooks,
-			ParentSessionID: task.PriorSessionID,
-			OutputFile:      forkOutput,
-		})
-		if forkErr != nil {
-			return TaskResult{}, fmt.Errorf("fork agent: %w", forkErr)
-		}
-
-		// Convert ForkSession into a Session-compatible interface by draining
-		// the fork result and synthesizing a Session with empty messages.
-		msgCh := make(chan agent.Message)
-		resCh := make(chan agent.Result, 1)
-		go func() {
-			defer close(msgCh)
-			defer close(resCh)
-			fr := <-forkSession.Result
-			// Read the output file after fork completes ("Don't peek" until done).
-			output := fr.Output
-			if output == "" && forkSession.OutputFile != "" {
-				if data, readErr := os.ReadFile(forkSession.OutputFile); readErr == nil {
-					output = string(data)
-				}
-			}
-
-			// Collect results from any additional forks launched via ForkManager.
-			forkResults := forkMgr.WaitAll()
-			if len(forkResults) > 0 {
-				var forkSummary strings.Builder
-				forkSummary.WriteString(output)
-				forkSummary.WriteString("\n\n## Sub-Agent Results\n\n")
-				for _, fr := range forkResults {
-					forkSummary.WriteString(fmt.Sprintf("### Fork: %s (status: %s, %dms)\n\n",
-						fr.Spec.ID, fr.Status, fr.DurationMs))
-					if fr.Output != "" {
-						forkSummary.WriteString(fr.Output)
-					} else if fr.Error != "" {
-						forkSummary.WriteString(fmt.Sprintf("Error: %s", fr.Error))
-					}
-					forkSummary.WriteString("\n\n")
-				}
-				output = forkSummary.String()
-			}
-
-			resCh <- agent.Result{
-				Status:     fr.Status,
-				Output:     output,
-				Error:      fr.Error,
-				DurationMs: fr.DurationMs,
-			}
-		}()
-		session = &agent.Session{Messages: msgCh, Result: resCh}
-	} else {
-		var execErr error
-		session, execErr = backend.Execute(ctx, prompt, agent.ExecOptions{
-			Cwd:             env.WorkDir,
-			Model:           entry.Model,
-			Timeout:         d.cfg.AgentTimeout,
-			ResumeSessionID: task.PriorSessionID,
-			ToolPermissions: toolPerms,
-			ToolHooks:       toolHooks,
-			LifecycleHooks:  lifecycleHooks,
-		})
-		if execErr != nil {
-			return TaskResult{}, execErr
-		}
-	}
-
-		// Drain message channel — forward to server for live output + log locally.
-		// Uses Coalescer (350ms sliding window): thinking/text chunks are folded,
-		// tool_use/tool_result flush pending and pass through, errors flush immediately.
-		var toolCount atomic.Int32
+	// Drain message channel — forward to server for live output + log locally.
+	var toolCount atomic.Int32
+	go func() {
 		var seq atomic.Int32
-		var batchMu sync.Mutex
+		var mu sync.Mutex
+		var pendingText strings.Builder
+		var pendingThinking strings.Builder
 		var batch []TaskMessageData
 		callIDToTool := map[string]string{} // track callID → tool name for tool_result
 
-		coalescer := service.NewCoalescer(350*time.Millisecond, func(ev service.CoalescedEvent) {
-			s := int(seq.Add(1))
-			msg := TaskMessageData{Seq: s, Type: ev.Type, Content: ev.Content}
-			switch ev.Type {
-			case "tool_use":
-				msg.CallID = ev.CallID
-				msg.Tool = ev.Tool
-				if m, ok := ev.Input.(map[string]any); ok {
-					msg.Input = m
-				}
-			case "tool_result":
-				msg.CallID = ev.CallID
-				msg.Tool = ev.Tool
-				msg.Output = ev.Output
+		flush := func() {
+			mu.Lock()
+			// Flush any accumulated thinking as a single message.
+			if pendingThinking.Len() > 0 {
+				s := seq.Add(1)
+				batch = append(batch, TaskMessageData{
+					Seq:     int(s),
+					Type:    "thinking",
+					Content: pendingThinking.String(),
+				})
+				pendingThinking.Reset()
 			}
-			batchMu.Lock()
-			batch = append(batch, msg)
-			batchMu.Unlock()
-		})
-
-		go func() {
-			for msg := range session.Messages {
-				switch msg.Type {
-				case agent.MessageToolUse:
-					n := toolCount.Add(1)
-					taskLog.Info(fmt.Sprintf("tool #%d: %s", n, msg.Tool))
-					if msg.CallID != "" {
-						batchMu.Lock()
-						callIDToTool[msg.CallID] = msg.Tool
-						batchMu.Unlock()
-					}
-					coalescer.PushToolUse(msg.CallID, msg.Tool, msg.Input)
-
-					// Flush batch immediately after tool_use (avoids holding tool results).
-					batchMu.Lock()
-					toSend := batch
-					batch = nil
-					batchMu.Unlock()
-					if len(toSend) > 0 {
-						sendCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-						if err := d.client.ReportTaskMessages(sendCtx, task.ID, toSend); err != nil {
-							taskLog.Debug("failed to report task messages", "error", err)
-						}
-						cancel()
-					}
-
-				case agent.MessageToolResult:
-					output := msg.Output
-					if len(output) > 8192 {
-						output = output[:8192]
-					}
-					toolName := msg.Tool
-					if toolName == "" && msg.CallID != "" {
-						batchMu.Lock()
-						toolName = callIDToTool[msg.CallID]
-						batchMu.Unlock()
-					}
-					coalescer.PushToolResult(msg.CallID, toolName, output)
-
-					// Capture post-tool snapshot for file-modifying tools.
-					d.snapshot.CaptureTool(ctx, task.ID, env.WorkDir, toolName)
-
-				case agent.MessageThinking:
-					if msg.Content != "" {
-						coalescer.Push("thinking", msg.Content, service.ClassFold)
-					}
-
-				case agent.MessageText:
-					if msg.Content != "" {
-						taskLog.Debug("agent", "text", truncateLog(msg.Content, 200))
-						coalescer.Push("text", msg.Content, service.ClassFold)
-
-						// Detect structured progress patterns and report to server.
-						if prog := DetectProgress(msg.Content); prog != nil {
-							step := prog.Current
-							total := prog.Total
-							if step == 0 && total > 0 {
-								step = 1
-							}
-							summary := prog.Summary
-							if summary == "" {
-								summary = prog.Phase
-							}
-							_ = d.client.ReportProgress(context.Background(), task.ID, summary, step, total)
-						}
-					}
-
-				case agent.MessageError:
-					taskLog.Error("agent error", "content", msg.Content)
-					coalescer.Push("error", msg.Content, service.ClassFlush)
-				}
+			// Flush any accumulated text as a single message.
+			if pendingText.Len() > 0 {
+				s := seq.Add(1)
+				batch = append(batch, TaskMessageData{
+					Seq:     int(s),
+					Type:    "text",
+					Content: pendingText.String(),
+				})
+				pendingText.Reset()
 			}
-
-			coalescer.Close()
-
-			// Final flush — send any remaining batched messages.
-			batchMu.Lock()
 			toSend := batch
 			batch = nil
-			batchMu.Unlock()
+			mu.Unlock()
+
 			if len(toSend) > 0 {
 				sendCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				if err := d.client.ReportTaskMessages(sendCtx, task.ID, toSend); err != nil {
@@ -1206,8 +1016,93 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 				}
 				cancel()
 			}
+		}
+
+		// Periodically flush accumulated text/thinking messages.
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+
+		done := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					flush()
+				case <-done:
+					return
+				}
+			}
 		}()
 
+		for msg := range session.Messages {
+			switch msg.Type {
+			case agent.MessageToolUse:
+				n := toolCount.Add(1)
+				taskLog.Info(fmt.Sprintf("tool #%d: %s", n, msg.Tool))
+				if msg.CallID != "" {
+					mu.Lock()
+					callIDToTool[msg.CallID] = msg.Tool
+					mu.Unlock()
+				}
+				s := seq.Add(1)
+				mu.Lock()
+				batch = append(batch, TaskMessageData{
+					Seq:   int(s),
+					Type:  "tool_use",
+					Tool:  msg.Tool,
+					Input: msg.Input,
+				})
+				mu.Unlock()
+			case agent.MessageToolResult:
+				s := seq.Add(1)
+				output := msg.Output
+				if len(output) > 8192 {
+					output = output[:8192]
+				}
+				// Resolve tool name from callID if not set directly.
+				toolName := msg.Tool
+				if toolName == "" && msg.CallID != "" {
+					mu.Lock()
+					toolName = callIDToTool[msg.CallID]
+					mu.Unlock()
+				}
+				mu.Lock()
+				batch = append(batch, TaskMessageData{
+					Seq:    int(s),
+					Type:   "tool_result",
+					Tool:   toolName,
+					Output: output,
+				})
+				mu.Unlock()
+			case agent.MessageThinking:
+				if msg.Content != "" {
+					mu.Lock()
+					pendingThinking.WriteString(msg.Content)
+					mu.Unlock()
+				}
+			case agent.MessageText:
+				if msg.Content != "" {
+					taskLog.Debug("agent", "text", truncateLog(msg.Content, 200))
+					mu.Lock()
+					pendingText.WriteString(msg.Content)
+					mu.Unlock()
+				}
+			case agent.MessageError:
+				taskLog.Error("agent error", "content", msg.Content)
+				s := seq.Add(1)
+				mu.Lock()
+				batch = append(batch, TaskMessageData{
+					Seq:     int(s),
+					Type:    "error",
+					Content: msg.Content,
+				})
+				mu.Unlock()
+			}
+		}
+
+		close(done)
+		flush() // Final flush after channel closes.
+	}()
 
 	result := <-session.Result
 	elapsed := time.Since(taskStart).Round(time.Second)
@@ -1217,17 +1112,20 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		"tools", toolCount.Load(),
 	)
 
-	// Publish lifecycle completion event and capture final snapshot.
-	if result.Status == "completed" {
-		d.hooks.PublishAgentCompleted(task.WorkspaceID, task.ID, task.AgentID, result.DurationMs)
-		d.snapshot.CaptureDone(ctx, task.ID, env.WorkDir, "completed")
-	} else {
-		errMsg := result.Error
-		if errMsg == "" {
-			errMsg = fmt.Sprintf("%s %s", provider, result.Status)
+	// Convert agent usage map to task usage entries.
+	var usageEntries []TaskUsageEntry
+	for model, u := range result.Usage {
+		if u.InputTokens == 0 && u.OutputTokens == 0 && u.CacheReadTokens == 0 && u.CacheWriteTokens == 0 {
+			continue
 		}
-		d.hooks.PublishAgentFailed(task.WorkspaceID, task.ID, task.AgentID, errMsg)
-		d.snapshot.CaptureDone(ctx, task.ID, env.WorkDir, "failed")
+		usageEntries = append(usageEntries, TaskUsageEntry{
+			Provider:         provider,
+			Model:            model,
+			InputTokens:      u.InputTokens,
+			OutputTokens:     u.OutputTokens,
+			CacheReadTokens:  u.CacheReadTokens,
+			CacheWriteTokens: u.CacheWriteTokens,
+		})
 	}
 
 	switch result.Status {
@@ -1240,6 +1138,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 			Comment:   result.Output,
 			SessionID: result.SessionID,
 			WorkDir:   env.WorkDir,
+			Usage:     usageEntries,
 		}, nil
 	case "timeout":
 		return TaskResult{}, fmt.Errorf("%s timed out after %s", provider, d.cfg.AgentTimeout)
@@ -1248,7 +1147,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		if errMsg == "" {
 			errMsg = fmt.Sprintf("%s execution %s", provider, result.Status)
 		}
-		return TaskResult{Status: "blocked", Comment: errMsg}, nil
+		return TaskResult{Status: "blocked", Comment: errMsg, Usage: usageEntries}, nil
 	}
 }
 

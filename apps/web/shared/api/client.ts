@@ -190,6 +190,13 @@ export class ApiClient {
     });
   }
 
+  async googleLogin(code: string, redirectUri: string): Promise<LoginResponse> {
+    return this.fetch("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ code, redirect_uri: redirectUri }),
+    });
+  }
+
   async getMe(): Promise<User> {
     return this.fetch("/api/me");
   }
@@ -225,6 +232,7 @@ export class ApiClient {
     if (params?.status) search.set("status", params.status);
     if (params?.priority) search.set("priority", params.priority);
     if (params?.assignee_id) search.set("assignee_id", params.assignee_id);
+    if (params?.open_only) search.set("open_only", "true");
     return this.fetch(`/api/issues?${search}`);
   }
 
@@ -246,6 +254,10 @@ export class ApiClient {
       method: "PUT",
       body: JSON.stringify(data),
     });
+  }
+
+  async listChildIssues(id: string): Promise<{ issues: Issue[] }> {
+    return this.fetch(`/api/issues/${id}/children`);
   }
 
   async deleteIssue(id: string): Promise<void> {
@@ -432,7 +444,7 @@ export class ApiClient {
     return this.fetch(`/api/agents/${agentId}/tasks`);
   }
 
-  async getActiveTaskForIssue(issueId: string): Promise<{ task: AgentTask | null }> {
+  async getActiveTasksForIssue(issueId: string): Promise<{ tasks: AgentTask[] }> {
     return this.fetch(`/api/issues/${issueId}/active-task`);
   }
 

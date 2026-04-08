@@ -1,4 +1,4 @@
-.PHONY: dev daemon cli alphenix build build-mcp-server build-all build-docker test test-coverage migrate-up migrate-down sqlc check-migrations seed clean setup start stop check check-prereqs worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
+.PHONY: dev daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down
 
 MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
@@ -8,23 +8,23 @@ ifneq ($(wildcard $(ENV_FILE)),)
 include $(ENV_FILE)
 endif
 
-POSTGRES_DB ?= alphenix
-POSTGRES_USER ?= alphenix
-POSTGRES_PASSWORD ?= alphenix
+POSTGRES_DB ?= multica
+POSTGRES_USER ?= multica
+POSTGRES_PASSWORD ?= multica
 POSTGRES_PORT ?= 5432
 PORT ?= 8080
 FRONTEND_PORT ?= 3000
 FRONTEND_ORIGIN ?= http://localhost:$(FRONTEND_PORT)
-ALPHENIX_APP_URL ?= $(FRONTEND_ORIGIN)
+MULTICA_APP_URL ?= $(FRONTEND_ORIGIN)
 DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 NEXT_PUBLIC_API_URL ?= http://localhost:$(PORT)
 NEXT_PUBLIC_WS_URL ?= ws://localhost:$(PORT)/ws
 GOOGLE_REDIRECT_URI ?= $(FRONTEND_ORIGIN)/auth/callback
-ALPHENIX_SERVER_URL ?= ws://localhost:$(PORT)/ws
+MULTICA_SERVER_URL ?= ws://localhost:$(PORT)/ws
 
 export
 
-ALPHENIX_ARGS ?= $(ARGS)
+MULTICA_ARGS ?= $(ARGS)
 
 COMPOSE := docker compose
 
@@ -56,38 +56,30 @@ start:
 	@echo "Using env file: $(ENV_FILE)"
 	@echo "Backend: http://localhost:$(PORT)"
 	@echo "Frontend: http://localhost:$(FRONTEND_PORT)"
-	@bash scripts/check-ports.sh $(PORT) $(FRONTEND_PORT)
 	@bash scripts/ensure-postgres.sh "$(ENV_FILE)"
 	@echo "Starting backend and frontend..."
-	@trap 'echo ""; echo "==> Shutting down..."; kill $$! 2>/dev/null; wait $$! 2>/dev/null; echo "✓ Stopped."' EXIT INT TERM; \
+	@trap 'kill 0' EXIT; \
 		(cd server && go run ./cmd/server) & \
 		pnpm dev:web & \
 		wait
-
-# Start with docker dev profile (hot reload)
-start-dev:
-	$(REQUIRE_ENV)
-	@echo "Starting dev environment with hot reload..."
-	@bash scripts/ensure-postgres.sh "$(ENV_FILE)"
-	docker compose --profile dev up dev-backend dev-frontend
 
 # Stop all services
 stop:
 	$(REQUIRE_ENV)
 	@echo "Stopping services..."
-	@-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null || true
-	@-lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || true
-	@-docker compose --profile dev down 2>/dev/null || true
-	@echo "✓ App processes stopped. Shared PostgreSQL is still running on localhost:5432."
+	@-lsof -ti:$(PORT) | xargs kill -9 2>/dev/null
+	@-lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null
+	@case "$(DATABASE_URL)" in \
+		""|*@localhost:*|*@localhost/*|*@127.0.0.1:*|*@127.0.0.1/*|*@\[::1\]:*|*@\[::1\]/*) \
+			echo "✓ App processes stopped. Shared PostgreSQL is still running on localhost:$(POSTGRES_PORT)." ;; \
+		*) \
+			echo "✓ App processes stopped. Remote PostgreSQL was not affected." ;; \
+	esac
 
 # Full verification: typecheck + unit tests + Go tests + E2E
 check:
 	$(REQUIRE_ENV)
 	@ENV_FILE="$(ENV_FILE)" bash scripts/check.sh
-
-# Verify development prerequisites
-check-prereqs:
-	@bash scripts/check-prerequisites.sh
 
 db-up:
 	@$(COMPOSE) up -d postgres
@@ -111,8 +103,12 @@ check-main:
 	@ENV_FILE=$(MAIN_ENV_FILE) bash scripts/check.sh
 
 setup-worktree:
-	@echo "==> Generating $(WORKTREE_ENV_FILE) with unique ports..."
-	@FORCE=1 bash scripts/init-worktree-env.sh $(WORKTREE_ENV_FILE)
+	@if [ ! -f "$(WORKTREE_ENV_FILE)" ]; then \
+		echo "==> Generating $(WORKTREE_ENV_FILE) with unique ports..."; \
+		bash scripts/init-worktree-env.sh $(WORKTREE_ENV_FILE); \
+	else \
+		echo "==> Using existing $(WORKTREE_ENV_FILE)"; \
+	fi
 	@$(MAKE) setup ENV_FILE=$(WORKTREE_ENV_FILE)
 
 start-worktree:
@@ -133,36 +129,26 @@ dev:
 	cd server && go run ./cmd/server
 
 daemon:
-	@$(MAKE) alphenix ALPHENIX_ARGS="daemon"
+	@$(MAKE) multica MULTICA_ARGS="daemon"
 
 cli:
-	@$(MAKE) alphenix ALPHENIX_ARGS="$(ALPHENIX_ARGS)"
+	@$(MAKE) multica MULTICA_ARGS="$(MULTICA_ARGS)"
 
-alphenix:
-	cd server && go run ./cmd/alphenix $$(ALPHENIX_ARGS)
+multica:
+	cd server && go run ./cmd/multica $(MULTICA_ARGS)
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
 build:
 	cd server && go build -o bin/server ./cmd/server
-	cd server && go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o bin/alphenix ./cmd/alphenix
-
-build-mcp-server:
-	cd server && go build -o bin/mcp-server ./cmd/mcp-server
-
-build-all: build build-mcp-server
-
-build-docker:
-	$(COMPOSE) build --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT)
-
-test-coverage:
-	cd server && go test -coverprofile=coverage.out -covermode=atomic ./...
-	go tool cover -func=server/coverage.out | tail -1
+	cd server && go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o bin/multica ./cmd/multica
+	cd server && go build -o bin/migrate ./cmd/migrate
 
 test:
 	$(REQUIRE_ENV)
 	@bash scripts/ensure-postgres.sh "$(ENV_FILE)"
+	cd server && go run ./cmd/migrate up
 	cd server && go test ./...
 
 # Database
@@ -178,18 +164,6 @@ migrate-down:
 
 sqlc:
 	cd server && sqlc generate
-
-# Verify migration directories are in sync
-check-migrations:
-	@echo "Checking migration sync..."
-	@diff_output=$$(diff <(ls server/migrations/) <(ls server/pkg/migrations/migrations/)); \
-	if [ -n "$$diff_output" ]; then \
-		echo "MISMATCH between server/migrations/ and server/pkg/migrations/migrations/:"; \
-		echo "$$diff_output"; \
-		echo "Run: cp server/migrations/* server/pkg/migrations/migrations/"; \
-		exit 1; \
-	fi
-	@echo "✓ Migrations in sync."
 
 # Cleanup
 clean:

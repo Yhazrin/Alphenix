@@ -1,6 +1,6 @@
 # CLI and Agent Daemon Guide
 
-The `alphenix` CLI connects your local machine to Alphenix. It handles authentication, workspace management, issue tracking, and runs the agent daemon that executes AI tasks locally.
+The `multica` CLI connects your local machine to Multica. It handles authentication, workspace management, issue tracking, and runs the agent daemon that executes AI tasks locally.
 
 ## Installation
 
@@ -8,22 +8,22 @@ The `alphenix` CLI connects your local machine to Alphenix. It handles authentic
 
 ```bash
 brew tap multica-ai/tap
-brew install alphenix-cli
+brew install multica
 ```
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/multica-ai/alphenix.git
-cd alphenix
+git clone https://github.com/multica-ai/multica.git
+cd multica
 make build
-cp server/bin/alphenix /usr/local/bin/alphenix
+cp server/bin/multica /usr/local/bin/multica
 ```
 
 ### Update
 
 ```bash
-alphenix update
+multica update
 ```
 
 This auto-detects your installation method (Homebrew or manual) and upgrades accordingly.
@@ -32,22 +32,22 @@ This auto-detects your installation method (Homebrew or manual) and upgrades acc
 
 ```bash
 # 1. Authenticate (opens browser for login)
-alphenix login
+multica login
 
 # 2. Start the agent daemon
-alphenix daemon start
+multica daemon start
 
 # 3. Done — agents in your watched workspaces can now execute tasks on your machine
 ```
 
-`alphenix login` automatically discovers all workspaces you belong to and adds them to the daemon watch list.
+`multica login` automatically discovers all workspaces you belong to and adds them to the daemon watch list.
 
 ## Authentication
 
 ### Browser Login
 
 ```bash
-alphenix login
+multica login
 ```
 
 Opens your browser for OAuth authentication, creates a 90-day personal access token, and auto-configures your workspaces.
@@ -55,7 +55,7 @@ Opens your browser for OAuth authentication, creates a 90-day personal access to
 ### Token Login
 
 ```bash
-alphenix login --token
+multica login --token
 ```
 
 Authenticate by pasting a personal access token directly. Useful for headless environments.
@@ -63,7 +63,7 @@ Authenticate by pasting a personal access token directly. Useful for headless en
 ### Check Status
 
 ```bash
-alphenix auth status
+multica auth status
 ```
 
 Shows your current server, user, and token validity.
@@ -71,40 +71,40 @@ Shows your current server, user, and token validity.
 ### Logout
 
 ```bash
-alphenix auth logout
+multica auth logout
 ```
 
 Removes the stored authentication token.
 
 ## Agent Daemon
 
-The daemon is the local agent runtime. It detects available AI CLIs on your machine, registers them with the Alphenix server, and executes tasks when agents are assigned work.
+The daemon is the local agent runtime. It detects available AI CLIs on your machine, registers them with the Multica server, and executes tasks when agents are assigned work.
 
 ### Start
 
 ```bash
-alphenix daemon start
+multica daemon start
 ```
 
-By default, the daemon runs in the background and logs to `~/.alphenix/daemon.log`.
+By default, the daemon runs in the background and logs to `~/.multica/daemon.log`.
 
 To run in the foreground (useful for debugging):
 
 ```bash
-alphenix daemon start --foreground
+multica daemon start --foreground
 ```
 
 ### Stop
 
 ```bash
-alphenix daemon stop
+multica daemon stop
 ```
 
 ### Status
 
 ```bash
-alphenix daemon status
-alphenix daemon status --output json
+multica daemon status
+multica daemon status --output json
 ```
 
 Shows PID, uptime, detected agents, and watched workspaces.
@@ -112,9 +112,9 @@ Shows PID, uptime, detected agents, and watched workspaces.
 ### Logs
 
 ```bash
-alphenix daemon logs              # Last 50 lines
-alphenix daemon logs -f           # Follow (tail -f)
-alphenix daemon logs -n 100       # Last 100 lines
+multica daemon logs              # Last 50 lines
+multica daemon logs -f           # Follow (tail -f)
+multica daemon logs -n 100       # Last 100 lines
 ```
 
 ### Supported Agents
@@ -142,41 +142,41 @@ Daemon behavior is configured via flags or environment variables:
 
 | Setting | Flag | Env Variable | Default |
 |---------|------|--------------|---------|
-| Poll interval | `--poll-interval` | `ALPHENIX_DAEMON_POLL_INTERVAL` | `3s` |
-| Heartbeat interval | `--heartbeat-interval` | `ALPHENIX_DAEMON_HEARTBEAT_INTERVAL` | `15s` |
-| Agent timeout | `--agent-timeout` | `ALPHENIX_AGENT_TIMEOUT` | `2h` |
-| Max concurrent tasks | `--max-concurrent-tasks` | `ALPHENIX_DAEMON_MAX_CONCURRENT_TASKS` | `20` |
-| Daemon ID | `--daemon-id` | `ALPHENIX_DAEMON_ID` | hostname |
-| Device name | `--device-name` | `ALPHENIX_DAEMON_DEVICE_NAME` | hostname |
-| Runtime name | `--runtime-name` | `ALPHENIX_AGENT_RUNTIME_NAME` | `Local Agent` |
-| Workspaces root | — | `ALPHENIX_WORKSPACES_ROOT` | `~/alphenix_workspaces` |
+| Poll interval | `--poll-interval` | `MULTICA_DAEMON_POLL_INTERVAL` | `3s` |
+| Heartbeat interval | `--heartbeat-interval` | `MULTICA_DAEMON_HEARTBEAT_INTERVAL` | `15s` |
+| Agent timeout | `--agent-timeout` | `MULTICA_AGENT_TIMEOUT` | `2h` |
+| Max concurrent tasks | `--max-concurrent-tasks` | `MULTICA_DAEMON_MAX_CONCURRENT_TASKS` | `20` |
+| Daemon ID | `--daemon-id` | `MULTICA_DAEMON_ID` | hostname |
+| Device name | `--device-name` | `MULTICA_DAEMON_DEVICE_NAME` | hostname |
+| Runtime name | `--runtime-name` | `MULTICA_AGENT_RUNTIME_NAME` | `Local Agent` |
+| Workspaces root | — | `MULTICA_WORKSPACES_ROOT` | `~/multica_workspaces` |
 
 Agent-specific overrides:
 
 | Variable | Description |
 |----------|-------------|
-| `ALPHENIX_CLAUDE_PATH` | Custom path to the `claude` binary |
-| `ALPHENIX_CLAUDE_MODEL` | Override the Claude model used |
-| `ALPHENIX_CODEX_PATH` | Custom path to the `codex` binary |
-| `ALPHENIX_CODEX_MODEL` | Override the Codex model used |
+| `MULTICA_CLAUDE_PATH` | Custom path to the `claude` binary |
+| `MULTICA_CLAUDE_MODEL` | Override the Claude model used |
+| `MULTICA_CODEX_PATH` | Custom path to the `codex` binary |
+| `MULTICA_CODEX_MODEL` | Override the Codex model used |
 
 ### Self-Hosted Server
 
-When connecting to a self-hosted Alphenix instance, point the CLI to your server before logging in:
+When connecting to a self-hosted Multica instance, point the CLI to your server before logging in:
 
 ```bash
-export ALPHENIX_APP_URL=https://app.example.com
-export ALPHENIX_SERVER_URL=wss://api.example.com/ws
+export MULTICA_APP_URL=https://app.example.com
+export MULTICA_SERVER_URL=wss://api.example.com/ws
 
-alphenix login
-alphenix daemon start
+multica login
+multica daemon start
 ```
 
 Or set them persistently:
 
 ```bash
-alphenix config set app_url https://app.example.com
-alphenix config set server_url wss://api.example.com/ws
+multica config set app_url https://app.example.com
+multica config set server_url wss://api.example.com/ws
 ```
 
 ### Profiles
@@ -185,21 +185,21 @@ Profiles let you run multiple daemons on the same machine — for example, one f
 
 ```bash
 # Start a daemon for the staging server
-alphenix --profile staging login
-alphenix --profile staging daemon start
+multica --profile staging login
+multica --profile staging daemon start
 
 # Default profile runs separately
-alphenix daemon start
+multica daemon start
 ```
 
-Each profile gets its own config directory (`~/.alphenix/profiles/<name>/`), daemon state, health port, and workspace root.
+Each profile gets its own config directory (`~/.multica/profiles/<name>/`), daemon state, health port, and workspace root.
 
 ## Workspaces
 
 ### List Workspaces
 
 ```bash
-alphenix workspace list
+multica workspace list
 ```
 
 Watched workspaces are marked with `*`. The daemon only processes tasks for watched workspaces.
@@ -207,21 +207,21 @@ Watched workspaces are marked with `*`. The daemon only processes tasks for watc
 ### Watch / Unwatch
 
 ```bash
-alphenix workspace watch <workspace-id>
-alphenix workspace unwatch <workspace-id>
+multica workspace watch <workspace-id>
+multica workspace unwatch <workspace-id>
 ```
 
 ### Get Details
 
 ```bash
-alphenix workspace get <workspace-id>
-alphenix workspace get <workspace-id> --output json
+multica workspace get <workspace-id>
+multica workspace get <workspace-id> --output json
 ```
 
 ### List Members
 
 ```bash
-alphenix workspace members <workspace-id>
+multica workspace members <workspace-id>
 ```
 
 ## Issues
@@ -229,10 +229,10 @@ alphenix workspace members <workspace-id>
 ### List Issues
 
 ```bash
-alphenix issue list
-alphenix issue list --status in_progress
-alphenix issue list --priority urgent --assignee "Agent Name"
-alphenix issue list --limit 20 --output json
+multica issue list
+multica issue list --status in_progress
+multica issue list --priority urgent --assignee "Agent Name"
+multica issue list --limit 20 --output json
 ```
 
 Available filters: `--status`, `--priority`, `--assignee`, `--limit`.
@@ -240,14 +240,14 @@ Available filters: `--status`, `--priority`, `--assignee`, `--limit`.
 ### Get Issue
 
 ```bash
-alphenix issue get <id>
-alphenix issue get <id> --output json
+multica issue get <id>
+multica issue get <id> --output json
 ```
 
 ### Create Issue
 
 ```bash
-alphenix issue create --title "Fix login bug" --description "..." --priority high --assignee "Lambda"
+multica issue create --title "Fix login bug" --description "..." --priority high --assignee "Lambda"
 ```
 
 Flags: `--title` (required), `--description`, `--status`, `--priority`, `--assignee`, `--parent`, `--due-date`.
@@ -255,20 +255,20 @@ Flags: `--title` (required), `--description`, `--status`, `--priority`, `--assig
 ### Update Issue
 
 ```bash
-alphenix issue update <id> --title "New title" --priority urgent
+multica issue update <id> --title "New title" --priority urgent
 ```
 
 ### Assign Issue
 
 ```bash
-alphenix issue assign <id> --to "Lambda"
-alphenix issue assign <id> --unassign
+multica issue assign <id> --to "Lambda"
+multica issue assign <id> --unassign
 ```
 
 ### Change Status
 
 ```bash
-alphenix issue status <id> in_progress
+multica issue status <id> in_progress
 ```
 
 Valid statuses: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`.
@@ -277,31 +277,31 @@ Valid statuses: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`
 
 ```bash
 # List comments
-alphenix issue comment list <issue-id>
+multica issue comment list <issue-id>
 
 # Add a comment
-alphenix issue comment add <issue-id> --content "Looks good, merging now"
+multica issue comment add <issue-id> --content "Looks good, merging now"
 
 # Reply to a specific comment
-alphenix issue comment add <issue-id> --parent <comment-id> --content "Thanks!"
+multica issue comment add <issue-id> --parent <comment-id> --content "Thanks!"
 
 # Delete a comment
-alphenix issue comment delete <comment-id>
+multica issue comment delete <comment-id>
 ```
 
 ### Execution History
 
 ```bash
 # List all execution runs for an issue
-alphenix issue runs <issue-id>
-alphenix issue runs <issue-id> --output json
+multica issue runs <issue-id>
+multica issue runs <issue-id> --output json
 
 # View messages for a specific execution run
-alphenix issue run-messages <task-id>
-alphenix issue run-messages <task-id> --output json
+multica issue run-messages <task-id>
+multica issue run-messages <task-id> --output json
 
 # Incremental fetch (only messages after a given sequence number)
-alphenix issue run-messages <task-id> --since 42 --output json
+multica issue run-messages <task-id> --since 42 --output json
 ```
 
 The `runs` command shows all past and current executions for an issue, including running tasks. The `run-messages` command shows the detailed message log (tool calls, thinking, text, errors) for a single run. Use `--since` for efficient polling of in-progress runs.
@@ -311,7 +311,7 @@ The `runs` command shows all past and current executions for an issue, including
 ### View Config
 
 ```bash
-alphenix config show
+multica config show
 ```
 
 Shows config file path, server URL, app URL, and default workspace.
@@ -319,17 +319,17 @@ Shows config file path, server URL, app URL, and default workspace.
 ### Set Values
 
 ```bash
-alphenix config set server_url wss://api.example.com/ws
-alphenix config set app_url https://app.example.com
-alphenix config set workspace_id <workspace-id>
+multica config set server_url wss://api.example.com/ws
+multica config set app_url https://app.example.com
+multica config set workspace_id <workspace-id>
 ```
 
 ## Other Commands
 
 ```bash
-alphenix version              # Show CLI version and commit hash
-alphenix update               # Update to latest version
-alphenix agent list           # List agents in the current workspace
+multica version              # Show CLI version and commit hash
+multica update               # Update to latest version
+multica agent list           # List agents in the current workspace
 ```
 
 ## Output Formats
@@ -340,6 +340,6 @@ Most commands support `--output` with two formats:
 - `json` — structured JSON (useful for scripting and automation)
 
 ```bash
-alphenix issue list --output json
-alphenix daemon status --output json
+multica issue list --output json
+multica daemon status --output json
 ```

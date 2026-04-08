@@ -2,21 +2,18 @@ package handler
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/alphenix/server/internal/logger"
-	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
-	"github.com/multica-ai/alphenix/server/pkg/protocol"
+	"github.com/multica-ai/multica/server/internal/logger"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // IssueResponse is the JSON response for an issue.
@@ -34,32 +31,12 @@ type IssueResponse struct {
 	CreatorType        string                  `json:"creator_type"`
 	CreatorID          string                  `json:"creator_id"`
 	ParentIssueID      *string                 `json:"parent_issue_id"`
-	RepoID             *string                 `json:"repo_id"`
 	Position           float64                 `json:"position"`
 	DueDate            *string                 `json:"due_date"`
 	CreatedAt          string                  `json:"created_at"`
 	UpdatedAt          string                  `json:"updated_at"`
-	IssueKind          string                  `json:"issue_kind"`
-	LatestTaskStatus   *string                 `json:"latest_task_status,omitempty"`
 	Reactions          []IssueReactionResponse `json:"reactions,omitempty"`
 	Attachments        []AttachmentResponse    `json:"attachments,omitempty"`
-}
-
-type agentTriggerSnapshot struct {
-	Type    string         `json:"type"`
-	Enabled bool           `json:"enabled"`
-	Config  map[string]any `json:"config"`
-}
-
-// defaultAgentTriggers returns the default trigger config for new agents:
-// all three triggers explicitly enabled.
-func defaultAgentTriggers() []byte {
-	b, _ := json.Marshal([]agentTriggerSnapshot{
-		{Type: "on_assign", Enabled: true},
-		{Type: "on_comment", Enabled: true},
-		{Type: "on_mention", Enabled: true},
-	})
-	return b
 }
 
 func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
@@ -78,8 +55,6 @@ func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 		CreatorType:   i.CreatorType,
 		CreatorID:     uuidToString(i.CreatorID),
 		ParentIssueID: uuidToPtr(i.ParentIssueID),
-		RepoID:        uuidToPtr(i.RepoID),
-		IssueKind:     i.IssueKind,
 		Position:      i.Position,
 		DueDate:       timestampToPtr(i.DueDate),
 		CreatedAt:     timestampToString(i.CreatedAt),
@@ -87,53 +62,13 @@ func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 	}
 }
 
-// issueCursor is the keyset cursor for issue pagination.
-type issueCursor struct {
-	Position  float64 `json:"p"`
-	CreatedAt string  `json:"t"` // RFC3339
-	ID        string  `json:"i"`
-}
-
-func encodeIssueCursor(c issueCursor) string {
-	b, _ := json.Marshal(c)
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
-func decodeIssueCursor(s string) (issueCursor, error) {
-	b, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return issueCursor{}, fmt.Errorf("invalid cursor encoding")
-	}
-	var c issueCursor
-	if err := json.Unmarshal(b, &c); err != nil {
-		return issueCursor{}, fmt.Errorf("invalid cursor format")
-	}
-	return c, nil
-}
-
 func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	workspaceID := resolveWorkspaceID(r)
-
-	limit := 100
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil {
-			if v < 0 {
-				v = 0
-			}
-			if v > 200 {
-				v = 200
-			}
-			limit = v
-		}
-	}
+	wsUUID := parseUUID(workspaceID)
 
 	// Parse optional filter params
-	var statusFilter pgtype.Text
-	if s := r.URL.Query().Get("status"); s != "" {
-		statusFilter = pgtype.Text{String: s, Valid: true}
-	}
 	var priorityFilter pgtype.Text
 	if p := r.URL.Query().Get("priority"); p != "" {
 		priorityFilter = pgtype.Text{String: p, Valid: true}
@@ -143,97 +78,51 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		assigneeFilter = parseUUID(a)
 	}
 
-	prefix := h.getIssuePrefix(ctx, parseUUID(workspaceID))
-
-	// Cursor-based pagination path
-	if cursorStr := r.URL.Query().Get("cursor"); cursorStr != "" {
-		cursor, err := decodeIssueCursor(cursorStr)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid cursor")
-			return
-		}
-		cursorTime, err := time.Parse(time.RFC3339, cursor.CreatedAt)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid cursor timestamp")
-			return
-		}
-
-		// Fetch limit+1 to determine if there are more pages
-		rows, err := h.Queries.ListIssuesWithTaskStatusCursor(ctx, db.ListIssuesWithTaskStatusCursorParams{
-			WorkspaceID:     parseUUID(workspaceID),
-			Limit:           int32(limit + 1),
-			Status:          statusFilter,
-			Priority:        priorityFilter,
-			AssigneeID:      assigneeFilter,
-			CursorPosition:  pgtype.Float8{Float64: cursor.Position, Valid: true},
-			CursorCreatedAt: pgtype.Timestamptz{Time: cursorTime, Valid: true},
-			CursorID:        parseUUID(cursor.ID),
+	// open_only=true returns all non-done/cancelled issues (no limit).
+	if r.URL.Query().Get("open_only") == "true" {
+		issues, err := h.Queries.ListOpenIssues(ctx, db.ListOpenIssuesParams{
+			WorkspaceID: wsUUID,
+			Priority:    priorityFilter,
+			AssigneeID:  assigneeFilter,
 		})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to list issues")
 			return
 		}
 
-		hasMore := len(rows) > limit
-		if hasMore {
-			rows = rows[:limit]
+		prefix := h.getIssuePrefix(ctx, wsUUID)
+		resp := make([]IssueResponse, len(issues))
+		for i, issue := range issues {
+			resp[i] = issueToResponse(issue, prefix)
 		}
 
-		resp := make([]IssueResponse, len(rows))
-		for i, row := range rows {
-			r := issueToResponse(db.Issue{
-				ID:            row.ID,
-				WorkspaceID:   row.WorkspaceID,
-				Title:         row.Title,
-				Description:   row.Description,
-				Status:        row.Status,
-				Priority:      row.Priority,
-				AssigneeType:  row.AssigneeType,
-				AssigneeID:    row.AssigneeID,
-				CreatorType:   row.CreatorType,
-				CreatorID:     row.CreatorID,
-				ParentIssueID: row.ParentIssueID,
-				Position:      row.Position,
-				DueDate:       row.DueDate,
-				CreatedAt:     row.CreatedAt,
-				UpdatedAt:     row.UpdatedAt,
-				Number:        row.Number,
-				RepoID:        row.RepoID,
-			}, prefix)
-			if row.LatestTaskStatus != "" {
-				s := row.LatestTaskStatus
-				r.LatestTaskStatus = &s
-			}
-			resp[i] = r
-		}
-
-		result := map[string]any{
+		writeJSON(w, http.StatusOK, map[string]any{
 			"issues": resp,
 			"total":  len(resp),
-		}
-		if hasMore && len(resp) > 0 {
-			last := resp[len(resp)-1]
-			result["next_cursor"] = encodeIssueCursor(issueCursor{
-				Position:  last.Position,
-				CreatedAt: last.CreatedAt,
-				ID:        last.ID,
-			})
-		}
-
-		writeJSON(w, http.StatusOK, result)
+		})
 		return
 	}
 
-	// Legacy offset-based path (kept for backwards compatibility)
+	limit := 100
 	offset := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil {
+			limit = v
+		}
+	}
 	if o := r.URL.Query().Get("offset"); o != "" {
 		if v, err := strconv.Atoi(o); err == nil {
 			offset = v
 		}
 	}
 
-	rows, err := h.Queries.ListIssuesWithTaskStatus(ctx, db.ListIssuesWithTaskStatusParams{
-		WorkspaceID: parseUUID(workspaceID),
+	var statusFilter pgtype.Text
+	if s := r.URL.Query().Get("status"); s != "" {
+		statusFilter = pgtype.Text{String: s, Valid: true}
+	}
+
+	issues, err := h.Queries.ListIssues(ctx, db.ListIssuesParams{
+		WorkspaceID: wsUUID,
 		Limit:       int32(limit),
 		Offset:      int32(offset),
 		Status:      statusFilter,
@@ -245,37 +134,26 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := make([]IssueResponse, len(rows))
-	for i, row := range rows {
-		r := issueToResponse(db.Issue{
-			ID:            row.ID,
-			WorkspaceID:   row.WorkspaceID,
-			Title:         row.Title,
-			Description:   row.Description,
-			Status:        row.Status,
-			Priority:      row.Priority,
-			AssigneeType:  row.AssigneeType,
-			AssigneeID:    row.AssigneeID,
-			CreatorType:   row.CreatorType,
-			CreatorID:     row.CreatorID,
-			ParentIssueID: row.ParentIssueID,
-			Position:      row.Position,
-			DueDate:       row.DueDate,
-			CreatedAt:     row.CreatedAt,
-			UpdatedAt:     row.UpdatedAt,
-			Number:        row.Number,
-			RepoID:        row.RepoID,
-		}, prefix)
-		if row.LatestTaskStatus != "" {
-			s := row.LatestTaskStatus
-			r.LatestTaskStatus = &s
-		}
-		resp[i] = r
+	// Get the true total count for pagination awareness.
+	total, err := h.Queries.CountIssues(ctx, db.CountIssuesParams{
+		WorkspaceID: wsUUID,
+		Status:      statusFilter,
+		Priority:    priorityFilter,
+		AssigneeID:  assigneeFilter,
+	})
+	if err != nil {
+		total = int64(len(issues))
+	}
+
+	prefix := h.getIssuePrefix(ctx, wsUUID)
+	resp := make([]IssueResponse, len(issues))
+	for i, issue := range issues {
+		resp[i] = issueToResponse(issue, prefix)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"issues": resp,
-		"total":  len(resp),
+		"total":  total,
 	})
 }
 
@@ -312,22 +190,41 @@ func (h *Handler) GetIssue(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (h *Handler) ListChildIssues(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	issue, ok := h.loadIssueForUser(w, r, id)
+	if !ok {
+		return
+	}
+	children, err := h.Queries.ListChildIssues(r.Context(), issue.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list child issues")
+		return
+	}
+	prefix := h.getIssuePrefix(r.Context(), issue.WorkspaceID)
+	resp := make([]IssueResponse, len(children))
+	for i, child := range children {
+		resp[i] = issueToResponse(child, prefix)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"issues": resp,
+	})
+}
+
 type CreateIssueRequest struct {
-	Title              string  `json:"title"`
-	Description        *string `json:"description"`
-	Status             string  `json:"status"`
-	Priority           string  `json:"priority"`
-	AssigneeType       *string `json:"assignee_type"`
-	AssigneeID         *string `json:"assignee_id"`
-	ParentIssueID      *string `json:"parent_issue_id"`
-	RepoID             *string `json:"repo_id"`
-	DueDate            *string `json:"due_date"`
-	IssueKind          string  `json:"issue_kind"`
+	Title              string   `json:"title"`
+	Description        *string  `json:"description"`
+	Status             string   `json:"status"`
+	Priority           string   `json:"priority"`
+	AssigneeType       *string  `json:"assignee_type"`
+	AssigneeID         *string  `json:"assignee_id"`
+	ParentIssueID      *string  `json:"parent_issue_id"`
+	DueDate            *string  `json:"due_date"`
+	AttachmentIDs      []string `json:"attachment_ids,omitempty"`
 }
 
 func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	var req CreateIssueRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -335,10 +232,6 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	if req.Title == "" {
 		writeError(w, http.StatusBadRequest, "title is required")
-		return
-	}
-	if len(req.Title) > 500 {
-		writeError(w, http.StatusBadRequest, "title must be 500 characters or fewer")
 		return
 	}
 
@@ -379,6 +272,15 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	var parentIssueID pgtype.UUID
 	if req.ParentIssueID != nil {
 		parentIssueID = parseUUID(*req.ParentIssueID)
+		// Validate parent exists in the same workspace.
+		parent, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
+			ID:          parentIssueID,
+			WorkspaceID: parseUUID(workspaceID),
+		})
+		if err != nil || !parent.ID.Valid {
+			writeError(w, http.StatusBadRequest, "parent issue not found in this workspace")
+			return
+		}
 	}
 
 	var dueDate pgtype.Timestamptz
@@ -389,11 +291,6 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		dueDate = pgtype.Timestamptz{Time: t, Valid: true}
-	}
-
-	var repoID pgtype.UUID
-	if req.RepoID != nil {
-		repoID = parseUUID(*req.RepoID)
 	}
 
 	// Use a transaction to atomically increment the workspace issue counter
@@ -430,12 +327,10 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		Position:           0,
 		DueDate:            dueDate,
 		Number:             issueNumber,
-		RepoID:             repoID,
-		Column15:           req.IssueKind,
 	})
 	if err != nil {
 		slog.Warn("create issue failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to create issue")
+		writeError(w, http.StatusInternalServerError, "failed to create issue: "+err.Error())
 		return
 	}
 
@@ -444,19 +339,35 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Link any pre-uploaded attachments to this issue.
+	if len(req.AttachmentIDs) > 0 {
+		h.linkAttachmentsByIssueIDs(r.Context(), issue.ID, issue.WorkspaceID, req.AttachmentIDs)
+	}
+
 	prefix := h.getIssuePrefix(r.Context(), issue.WorkspaceID)
 	resp := issueToResponse(issue, prefix)
+
+	// Fetch linked attachments so they appear in the response.
+	if len(req.AttachmentIDs) > 0 {
+		attachments, err := h.Queries.ListAttachmentsByIssue(r.Context(), db.ListAttachmentsByIssueParams{
+			IssueID:     issue.ID,
+			WorkspaceID: issue.WorkspaceID,
+		})
+		if err == nil && len(attachments) > 0 {
+			resp.Attachments = make([]AttachmentResponse, len(attachments))
+			for i, a := range attachments {
+				resp.Attachments[i] = h.attachmentToResponse(a)
+			}
+		}
+	}
+
 	slog.Info("issue created", append(logger.RequestAttrs(r), "issue_id", uuidToString(issue.ID), "title", issue.Title, "status", issue.Status, "workspace_id", workspaceID)...)
 	h.publish(protocol.EventIssueCreated, workspaceID, creatorType, actualCreatorID, map[string]any{"issue": resp})
 
 	// Only ready issues in todo are enqueued for agents.
 	if issue.AssigneeType.Valid && issue.AssigneeID.Valid {
-		slog.Debug("CreateIssue: assignee set, checking trigger", "issue_id", uuidToString(issue.ID))
 		if h.shouldEnqueueAgentTask(r.Context(), issue) {
-			slog.Debug("CreateIssue: trigger enabled, enqueuing task", "issue_id", uuidToString(issue.ID))
 			h.TaskService.EnqueueTaskForIssue(r.Context(), issue)
-		} else {
-			slog.Debug("CreateIssue: trigger disabled", "issue_id", uuidToString(issue.ID))
 		}
 	}
 
@@ -471,8 +382,8 @@ type UpdateIssueRequest struct {
 	AssigneeType       *string  `json:"assignee_type"`
 	AssigneeID         *string  `json:"assignee_id"`
 	Position           *float64 `json:"position"`
-	RepoID             *string  `json:"repo_id"`
 	DueDate            *string  `json:"due_date"`
+	ParentIssueID      *string  `json:"parent_issue_id"`
 }
 
 func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
@@ -485,7 +396,6 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 	workspaceID := uuidToString(prevIssue.WorkspaceID)
 
 	// Read body as raw bytes so we can detect which fields were explicitly sent.
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "failed to read request body")
@@ -500,18 +410,15 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 
 	// Track which fields were explicitly present in JSON (even if null)
 	var rawFields map[string]json.RawMessage
-	if err := json.Unmarshal(bodyBytes, &rawFields); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
+	json.Unmarshal(bodyBytes, &rawFields)
 
 	// Pre-fill nullable fields (bare sqlc.narg) with current values
 	params := db.UpdateIssueParams{
-		ID:           prevIssue.ID,
-		AssigneeType: prevIssue.AssigneeType,
-		AssigneeID:   prevIssue.AssigneeID,
-		DueDate:      prevIssue.DueDate,
-		RepoID:       prevIssue.RepoID,
+		ID:            prevIssue.ID,
+		AssigneeType:  prevIssue.AssigneeType,
+		AssigneeID:    prevIssue.AssigneeID,
+		DueDate:       prevIssue.DueDate,
+		ParentIssueID: prevIssue.ParentIssueID,
 	}
 
 	// COALESCE fields — only set when explicitly provided
@@ -557,11 +464,38 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 			params.DueDate = pgtype.Timestamptz{Valid: false} // explicit null = clear date
 		}
 	}
-	if _, ok := rawFields["repo_id"]; ok {
-		if req.RepoID != nil {
-			params.RepoID = parseUUID(*req.RepoID)
+	if _, ok := rawFields["parent_issue_id"]; ok {
+		if req.ParentIssueID != nil {
+			newParentID := parseUUID(*req.ParentIssueID)
+			// Cannot set self as parent.
+			if uuidToString(newParentID) == id {
+				writeError(w, http.StatusBadRequest, "an issue cannot be its own parent")
+				return
+			}
+			// Validate parent exists in the same workspace.
+			if _, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
+				ID:          newParentID,
+				WorkspaceID: prevIssue.WorkspaceID,
+			}); err != nil {
+				writeError(w, http.StatusBadRequest, "parent issue not found in this workspace")
+				return
+			}
+			// Cycle detection: walk up from the new parent to ensure we don't reach this issue.
+			cursor := newParentID
+			for depth := 0; depth < 10; depth++ {
+				ancestor, err := h.Queries.GetIssue(r.Context(), cursor)
+				if err != nil || !ancestor.ParentIssueID.Valid {
+					break
+				}
+				if uuidToString(ancestor.ParentIssueID) == id {
+					writeError(w, http.StatusBadRequest, "circular parent relationship detected")
+					return
+				}
+				cursor = ancestor.ParentIssueID
+			}
+			params.ParentIssueID = newParentID
 		} else {
-			params.RepoID = pgtype.UUID{Valid: false} // explicit null = unassign
+			params.ParentIssueID = pgtype.UUID{Valid: false} // explicit null = remove parent
 		}
 	}
 
@@ -576,7 +510,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 	issue, err := h.Queries.UpdateIssue(r.Context(), params)
 	if err != nil {
 		slog.Warn("update issue failed", append(logger.RequestAttrs(r), "error", err, "issue_id", id, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to update issue")
+		writeError(w, http.StatusInternalServerError, "failed to update issue: "+err.Error())
 		return
 	}
 
@@ -664,8 +598,9 @@ func (h *Handler) canAssignAgent(ctx context.Context, r *http.Request, agentID, 
 // the assigned agent. No status gate — assignment is an explicit human action,
 // so it should trigger regardless of issue status (e.g. assigning an agent to
 // a done issue to fix a discovered problem).
+// All trigger types (on_assign, on_comment, on_mention) are always enabled.
 func (h *Handler) shouldEnqueueAgentTask(ctx context.Context, issue db.Issue) bool {
-	return h.isAgentTriggerEnabled(ctx, issue, "on_assign")
+	return h.isAgentAssigneeReady(ctx, issue)
 }
 
 // shouldEnqueueOnComment returns true if a member comment on this issue should
@@ -676,89 +611,35 @@ func (h *Handler) shouldEnqueueOnComment(ctx context.Context, issue db.Issue) bo
 	if issue.Status == "done" || issue.Status == "cancelled" {
 		return false
 	}
-	if !h.isAgentTriggerEnabled(ctx, issue, "on_comment") {
+	if !h.isAgentAssigneeReady(ctx, issue) {
 		return false
 	}
 	// Coalescing queue: allow enqueue when a task is running (so the agent
-	// picks up new comments on the next cycle) but skip if a pending task
-	// already exists (natural dedup for rapid-fire comments).
-	hasPending, err := h.Queries.HasPendingTaskForIssue(ctx, issue.ID)
+	// picks up new comments on the next cycle) but skip if this agent already
+	// has a pending task (natural dedup for rapid-fire comments).
+	hasPending, err := h.Queries.HasPendingTaskForIssueAndAgent(ctx, db.HasPendingTaskForIssueAndAgentParams{
+		IssueID: issue.ID,
+		AgentID: issue.AssigneeID,
+	})
 	if err != nil || hasPending {
 		return false
 	}
 	return true
 }
 
-// isAgentTriggerEnabled checks if an issue is assigned to an agent with a
-// specific trigger type enabled. Returns true if the agent has no triggers
-// configured (default-enabled behavior for backwards compatibility).
-func (h *Handler) isAgentTriggerEnabled(ctx context.Context, issue db.Issue, triggerType string) bool {
-	if !issue.AssigneeType.Valid {
-		slog.Debug("isAgentTriggerEnabled: AssigneeType not valid", "issue_id", uuidToString(issue.ID))
-		return false
-	}
-	if issue.AssigneeType.String != "agent" {
-		slog.Debug("isAgentTriggerEnabled: AssigneeType not agent", "issue_id", uuidToString(issue.ID), "assignee_type", issue.AssigneeType.String)
-		return false
-	}
-	if !issue.AssigneeID.Valid {
-		slog.Debug("isAgentTriggerEnabled: AssigneeID not valid", "issue_id", uuidToString(issue.ID))
+// isAgentAssigneeReady checks if an issue is assigned to an active agent
+// with a valid runtime.
+func (h *Handler) isAgentAssigneeReady(ctx context.Context, issue db.Issue) bool {
+	if !issue.AssigneeType.Valid || issue.AssigneeType.String != "agent" || !issue.AssigneeID.Valid {
 		return false
 	}
 
 	agent, err := h.Queries.GetAgent(ctx, issue.AssigneeID)
-	if err != nil {
-		slog.Debug("isAgentTriggerEnabled: GetAgent failed", "issue_id", uuidToString(issue.ID), "error", err)
-		return false
-	}
-	if !agent.RuntimeID.Valid {
-		slog.Debug("isAgentTriggerEnabled: agent.RuntimeID not valid", "issue_id", uuidToString(issue.ID), "agent_id", uuidToString(issue.AssigneeID))
-		return false
-	}
-	if agent.ArchivedAt.Valid {
-		slog.Debug("isAgentTriggerEnabled: agent is archived", "issue_id", uuidToString(issue.ID), "agent_id", uuidToString(issue.AssigneeID))
+	if err != nil || !agent.RuntimeID.Valid || agent.ArchivedAt.Valid {
 		return false
 	}
 
-	enabled := agentHasTriggerEnabled(agent.Triggers, triggerType)
-	slog.Debug("isAgentTriggerEnabled", "issue_id", uuidToString(issue.ID), "trigger", triggerType, "enabled", enabled)
-	return enabled
-}
-
-// isAgentMentionTriggerEnabled checks if a specific agent has the on_mention
-// trigger enabled. Unlike isAgentTriggerEnabled, this takes an explicit agent
-// ID rather than deriving it from the issue assignee.
-func (h *Handler) isAgentMentionTriggerEnabled(ctx context.Context, agentID pgtype.UUID) bool {
-	agent, err := h.Queries.GetAgent(ctx, agentID)
-	if err != nil || !agent.RuntimeID.Valid {
-		return false
-	}
-
-	return agentHasTriggerEnabled(agent.Triggers, "on_mention")
-}
-
-// agentHasTriggerEnabled checks if a trigger type is enabled in the agent's
-// trigger config. Returns true (default-enabled) when the triggers list is
-// empty or does not contain the requested type — for backwards compatibility
-// with agents created before explicit trigger config was introduced.
-func agentHasTriggerEnabled(raw []byte, triggerType string) bool {
-	if raw == nil || len(raw) == 0 {
-		return true
-	}
-
-	var triggers []agentTriggerSnapshot
-	if err := json.Unmarshal(raw, &triggers); err != nil {
-		return false
-	}
-	if len(triggers) == 0 {
-		return true // Empty array = default-enabled (backwards compat)
-	}
-	for _, trigger := range triggers {
-		if trigger.Type == triggerType {
-			return trigger.Enabled
-		}
-	}
-	return true // Trigger type not configured = enabled by default
+	return true
 }
 
 func (h *Handler) DeleteIssue(w http.ResponseWriter, r *http.Request) {
@@ -771,13 +652,9 @@ func (h *Handler) DeleteIssue(w http.ResponseWriter, r *http.Request) {
 	h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
 
 	// Collect all attachment URLs (issue-level + comment-level) before CASCADE delete.
-	attachmentURLs, err := h.Queries.ListAttachmentURLsByIssueOrComments(r.Context(), issue.ID)
-	if err != nil {
-		slog.Warn("failed to list attachment URLs for issue cleanup", "issue_id", uuidToString(issue.ID), "error", err)
-		attachmentURLs = nil
-	}
+	attachmentURLs, _ := h.Queries.ListAttachmentURLsByIssueOrComments(r.Context(), issue.ID)
 
-	err = h.Queries.DeleteIssue(r.Context(), parseUUID(id))
+	err := h.Queries.DeleteIssue(r.Context(), parseUUID(id))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete issue")
 		return
@@ -801,7 +678,6 @@ type BatchUpdateIssuesRequest struct {
 }
 
 func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "failed to read request body")
@@ -818,10 +694,6 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "issue_ids is required")
 		return
 	}
-	if len(req.IssueIDs) > 500 {
-		writeError(w, http.StatusBadRequest, "too many issue IDs (max 500)")
-		return
-	}
 
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -830,62 +702,29 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 
 	// Detect which fields in "updates" were explicitly set (including null).
 	var rawTop map[string]json.RawMessage
-	if err := json.Unmarshal(bodyBytes, &rawTop); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
+	json.Unmarshal(bodyBytes, &rawTop)
 	var rawUpdates map[string]json.RawMessage
 	if raw, exists := rawTop["updates"]; exists {
-		if err := json.Unmarshal(raw, &rawUpdates); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid request body")
-			return
-		}
+		json.Unmarshal(raw, &rawUpdates)
 	}
 
 	workspaceID := resolveWorkspaceID(r)
-
-	// Batch fetch all issues in a single query instead of N+1.
-	prevIssues, err := h.batchGetIssuesByIDs(r.Context(), req.IssueIDs, workspaceID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to fetch issues")
-		return
-	}
-
-	// Index by ID for quick lookup.
-	prevByID := make(map[string]db.Issue, len(prevIssues))
-	for _, issue := range prevIssues {
-		prevByID[uuidToString(issue.ID)] = issue
-	}
-
 	updated := 0
-	prefix := h.getIssuePrefix(r.Context(), parseUUID(workspaceID))
-
-	// Wrap batch updates in a transaction for atomicity.
-	tx, err := h.TxStarter.Begin(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to begin transaction")
-		return
-	}
-	defer tx.Rollback(r.Context())
-	txQueries := h.Queries.WithTx(tx)
-
-	type pendingEvent struct {
-		workspaceID, actorType, actorID string
-		payload                         map[string]any
-	}
-	var events []pendingEvent
-
 	for _, issueID := range req.IssueIDs {
-		prevIssue, ok := prevByID[issueID]
-		if !ok {
+		prevIssue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
+			ID:          parseUUID(issueID),
+			WorkspaceID: parseUUID(workspaceID),
+		})
+		if err != nil {
 			continue
 		}
 
 		params := db.UpdateIssueParams{
-			ID:           prevIssue.ID,
-			AssigneeType: prevIssue.AssigneeType,
-			AssigneeID:   prevIssue.AssigneeID,
-			DueDate:      prevIssue.DueDate,
+			ID:            prevIssue.ID,
+			AssigneeType:  prevIssue.AssigneeType,
+			AssigneeID:    prevIssue.AssigneeID,
+			DueDate:       prevIssue.DueDate,
+			ParentIssueID: prevIssue.ParentIssueID,
 		}
 
 		if req.Updates.Title != nil {
@@ -936,12 +775,13 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		issue, err := txQueries.UpdateIssue(r.Context(), params)
+		issue, err := h.Queries.UpdateIssue(r.Context(), params)
 		if err != nil {
 			slog.Warn("batch update issue failed", "issue_id", issueID, "error", err)
 			continue
 		}
 
+		prefix := h.getIssuePrefix(r.Context(), issue.WorkspaceID)
 		resp := issueToResponse(issue, prefix)
 		actorType, actorID := h.resolveActor(r, userID, workspaceID)
 
@@ -950,16 +790,11 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		statusChanged := req.Updates.Status != nil && prevIssue.Status != issue.Status
 		priorityChanged := req.Updates.Priority != nil && prevIssue.Priority != issue.Priority
 
-		events = append(events, pendingEvent{
-			workspaceID: workspaceID,
-			actorType:   actorType,
-			actorID:     actorID,
-			payload: map[string]any{
-				"issue":            resp,
-				"assignee_changed": assigneeChanged,
-				"status_changed":   statusChanged,
-				"priority_changed": priorityChanged,
-			},
+		h.publish(protocol.EventIssueUpdated, workspaceID, actorType, actorID, map[string]any{
+			"issue":            resp,
+			"assignee_changed": assigneeChanged,
+			"status_changed":   statusChanged,
+			"priority_changed": priorityChanged,
 		})
 
 		if assigneeChanged {
@@ -972,15 +807,6 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		updated++
 	}
 
-	if err := tx.Commit(r.Context()); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to commit transaction")
-		return
-	}
-
-	for _, e := range events {
-		h.publish(protocol.EventIssueUpdated, e.workspaceID, e.actorType, e.actorID, e.payload)
-	}
-
 	slog.Info("batch update issues", append(logger.RequestAttrs(r), "count", updated)...)
 	writeJSON(w, http.StatusOK, map[string]any{"updated": updated})
 }
@@ -991,7 +817,6 @@ type BatchDeleteIssuesRequest struct {
 
 func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 	var req BatchDeleteIssuesRequest
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -1001,10 +826,6 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "issue_ids is required")
 		return
 	}
-	if len(req.IssueIDs) > 500 {
-		writeError(w, http.StatusBadRequest, "too many issue IDs (max 500)")
-		return
-	}
 
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -1012,249 +833,28 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 	}
 
 	workspaceID := resolveWorkspaceID(r)
-
-	// Batch fetch all issues in a single query instead of N+1.
-	issues, err := h.batchGetIssuesByIDs(r.Context(), req.IssueIDs, workspaceID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to fetch issues")
-		return
-	}
-
-	// Cancel tasks for all fetched issues.
-	for _, issue := range issues {
-		h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
-	}
-
-	// Collect attachment URLs before delete.
-	for _, issue := range issues {
-		attachmentURLs, err := h.Queries.ListAttachmentURLsByIssueOrComments(r.Context(), issue.ID)
+	deleted := 0
+	for _, issueID := range req.IssueIDs {
+		issue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
+			ID:          parseUUID(issueID),
+			WorkspaceID: parseUUID(workspaceID),
+		})
 		if err != nil {
-			slog.Warn("failed to list attachment URLs for batch issue cleanup", "issue_id", uuidToString(issue.ID), "error", err)
 			continue
 		}
-		h.deleteS3Objects(r.Context(), attachmentURLs)
+
+		h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
+
+		if err := h.Queries.DeleteIssue(r.Context(), parseUUID(issueID)); err != nil {
+			slog.Warn("batch delete issue failed", "issue_id", issueID, "error", err)
+			continue
+		}
+
+		actorType, actorID := h.resolveActor(r, userID, workspaceID)
+		h.publish(protocol.EventIssueDeleted, workspaceID, actorType, actorID, map[string]any{"issue_id": issueID})
+		deleted++
 	}
 
-	// Batch delete all issues in a single query.
-	if err := h.batchDeleteIssues(r.Context(), req.IssueIDs, workspaceID); err != nil {
-		slog.Warn("batch delete issues failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to delete issues")
-		return
-	}
-
-	// Publish delete events for each issue.
-	actorType, actorID := h.resolveActor(r, userID, workspaceID)
-	for _, issue := range issues {
-		h.publish(protocol.EventIssueDeleted, workspaceID, actorType, actorID, map[string]any{"issue_id": uuidToString(issue.ID)})
-	}
-
-	deleted := len(issues)
 	slog.Info("batch delete issues", append(logger.RequestAttrs(r), "count", deleted)...)
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": deleted})
-}
-
-func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	workspaceID := resolveWorkspaceID(r)
-
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	if q == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"issues": []IssueResponse{}, "total": 0})
-		return
-	}
-
-	limit := 20
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 50 {
-			limit = v
-		}
-	}
-
-	rows, err := h.Queries.SearchIssues(ctx, db.SearchIssuesParams{
-		WorkspaceID: parseUUID(workspaceID),
-		Column2:     pgtype.Text{String: q, Valid: q != ""},
-		Limit:       int32(limit),
-	})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "search failed")
-		return
-	}
-
-	prefix := h.getIssuePrefix(ctx, parseUUID(workspaceID))
-	resp := make([]IssueResponse, len(rows))
-	for i, issue := range rows {
-		resp[i] = issueToResponse(issue, prefix)
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"issues": resp,
-		"total":  len(resp),
-	})
-}
-
-// ── Issue identifier helpers ──────────────────────────────────────────────────
-
-type identifierParts struct {
-	prefix string
-	number int32
-}
-
-// splitIdentifier parses "PREFIX-NUMBER" into its components.
-// Returns nil if the string is not in that format.
-func splitIdentifier(id string) *identifierParts {
-	idx := -1
-	for i := len(id) - 1; i >= 0; i-- {
-		if id[i] == '-' {
-			idx = i
-			break
-		}
-	}
-	if idx <= 0 || idx >= len(id)-1 {
-		return nil
-	}
-	numStr := id[idx+1:]
-	num := 0
-	for _, c := range numStr {
-		if c < '0' || c > '9' {
-			return nil
-		}
-		num = num*10 + int(c-'0')
-	}
-	if num <= 0 {
-		return nil
-	}
-	return &identifierParts{prefix: id[:idx], number: int32(num)}
-}
-
-// getIssuePrefix fetches the issue_prefix for a workspace, using an in-memory
-// cache to avoid repeated DB lookups. Falls back to generating a prefix from
-// the workspace name if the stored prefix is empty.
-func (h *Handler) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
-	key := uuidToString(workspaceID)
-	if cached, ok := h.prefixCache.Load(key); ok {
-		if s, ok := cached.(string); ok {
-			return s
-		}
-	}
-	ws, err := h.Queries.GetWorkspace(ctx, workspaceID)
-	if err != nil {
-		return ""
-	}
-	prefix := ws.IssuePrefix
-	if prefix == "" {
-		prefix = generateIssuePrefix(ws.Name)
-	}
-	h.prefixCache.Store(key, prefix)
-	return prefix
-}
-
-// resolveIssueByIdentifier tries to look up an issue by "PREFIX-NUMBER" format.
-// The prefix must match the workspace's actual issue_prefix, preventing ambiguous
-// resolution (e.g. MUL-42 vs XXX-42 both resolving to number 42).
-func (h *Handler) resolveIssueByIdentifier(ctx context.Context, id, workspaceID string) (db.Issue, bool) {
-	parts := splitIdentifier(id)
-	if parts == nil {
-		return db.Issue{}, false
-	}
-	if workspaceID == "" {
-		return db.Issue{}, false
-	}
-	wsUUID := parseUUID(workspaceID)
-	expectedPrefix := h.getIssuePrefix(ctx, wsUUID)
-	if expectedPrefix != "" && !strings.EqualFold(parts.prefix, expectedPrefix) {
-		return db.Issue{}, false
-	}
-	issue, err := h.Queries.GetIssueByNumber(ctx, db.GetIssueByNumberParams{
-		WorkspaceID: wsUUID,
-		Number:      parts.number,
-	})
-	if err != nil {
-		return db.Issue{}, false
-	}
-	return issue, true
-}
-
-// loadIssueForUser resolves an issue by ID or "PREFIX-NUMBER" identifier,
-// verifying the caller is authenticated and the issue belongs to their workspace.
-func (h *Handler) loadIssueForUser(w http.ResponseWriter, r *http.Request, issueID string) (db.Issue, bool) {
-	if _, ok := requireUserID(w, r); !ok {
-		return db.Issue{}, false
-	}
-
-	workspaceID := resolveWorkspaceID(r)
-	if workspaceID == "" {
-		writeError(w, http.StatusBadRequest, "workspace_id is required")
-		return db.Issue{}, false
-	}
-
-	if issue, ok := h.resolveIssueByIdentifier(r.Context(), issueID, workspaceID); ok {
-		return issue, true
-	}
-
-	issue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
-		ID:          parseUUID(issueID),
-		WorkspaceID: parseUUID(workspaceID),
-	})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "issue not found")
-		return db.Issue{}, false
-	}
-	return issue, true
-}
-
-// batchGetIssuesByIDs fetches multiple issues in a single query, returning only
-// those that belong to the given workspace. Avoids N+1 queries in batch operations.
-func (h *Handler) batchGetIssuesByIDs(ctx context.Context, issueIDs []string, workspaceID string) ([]db.Issue, error) {
-	if h.DB == nil || len(issueIDs) == 0 {
-		return nil, nil
-	}
-	uuids := make([]pgtype.UUID, len(issueIDs))
-	for i, id := range issueIDs {
-		uuids[i] = parseUUID(id)
-	}
-	rows, err := h.DB.Query(ctx,
-		`SELECT id, workspace_id, title, description, status, priority,
-		        assignee_type, assignee_id, creator_type, creator_id,
-		        parent_issue_id, acceptance_criteria, context_refs,
-		        position, due_date, created_at, updated_at, number, repo_id
-		 FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
-		uuids, parseUUID(workspaceID),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var issues []db.Issue
-	for rows.Next() {
-		var i db.Issue
-		err := rows.Scan(
-			&i.ID, &i.WorkspaceID, &i.Title, &i.Description, &i.Status, &i.Priority,
-			&i.AssigneeType, &i.AssigneeID, &i.CreatorType, &i.CreatorID,
-			&i.ParentIssueID, &i.AcceptanceCriteria, &i.ContextRefs,
-			&i.Position, &i.DueDate, &i.CreatedAt, &i.UpdatedAt, &i.Number,
-				&i.RepoID,
-		)
-		if err != nil {
-			return nil, err
-		}
-		issues = append(issues, i)
-	}
-	return issues, rows.Err()
-}
-
-// batchDeleteIssues deletes multiple issues in a single SQL statement.
-func (h *Handler) batchDeleteIssues(ctx context.Context, issueIDs []string, workspaceID string) error {
-	if h.DB == nil || len(issueIDs) == 0 {
-		return nil
-	}
-	uuids := make([]pgtype.UUID, len(issueIDs))
-	for i, id := range issueIDs {
-		uuids[i] = parseUUID(id)
-	}
-	_, err := h.DB.Exec(ctx,
-		`DELETE FROM issue WHERE id = ANY($1::uuid[]) AND workspace_id = $2`,
-		uuids, parseUUID(workspaceID),
-	)
-	return err
 }

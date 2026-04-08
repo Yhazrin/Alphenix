@@ -73,6 +73,14 @@ Full guide: [Self-Hosting Guide](SELF_HOSTING.md)
 
 ### Install the CLI
 
+**Option A — paste this to your coding agent (Claude Code, Codex, etc.):**
+
+```
+Fetch https://github.com/multica-ai/multica/blob/main/CLI_INSTALL.md and follow the instructions to install Multica CLI, log in, and start the daemon on this machine.
+```
+
+**Option B — install manually:**
+
 ```bash
 brew tap multica-ai/tap
 brew install alphenix

@@ -1,14 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { WSClient } from "@/shared/api";
 import { toast } from "sonner";
-import { useIssueStore } from "@/features/issues";
-import { useInboxStore } from "@/features/inbox";
 import { useWorkspaceStore } from "@/features/workspace";
 import { useAuthStore } from "@/features/auth";
 import { createLogger } from "@/shared/logger";
-import { api } from "@/shared/api";
+import { issueKeys } from "@core/issues/queries";
+import {
+  onIssueCreated,
+  onIssueUpdated,
+  onIssueDeleted,
+} from "@core/issues/ws-updaters";
+import { onInboxNew, onInboxInvalidate, onInboxIssueStatusChanged } from "@core/inbox/ws-updaters";
+import { inboxKeys } from "@core/inbox/queries";
+import { workspaceKeys } from "@core/workspace/queries";
 import type {
   MemberAddedPayload,
   WorkspaceDeletedPayload,
@@ -17,17 +24,19 @@ import type {
   IssueCreatedPayload,
   IssueDeletedPayload,
   InboxNewPayload,
-  InboxReadPayload,
-  InboxArchivedPayload,
+  CommentCreatedPayload,
+  CommentUpdatedPayload,
+  CommentDeletedPayload,
+  ActivityCreatedPayload,
+  ReactionAddedPayload,
+  ReactionRemovedPayload,
+  IssueReactionAddedPayload,
+  IssueReactionRemovedPayload,
+  SubscriberAddedPayload,
+  SubscriberRemovedPayload,
 } from "@/shared/types";
 
 const logger = createLogger("realtime-sync");
-
-/** Safely cast WS payload to typed shape, returning null if invalid. */
-function asPayload<T>(payload: unknown): T | null {
-  if (payload && typeof payload === "object") return payload as T;
-  return null;
-}
 
 /**
  * Centralized WS → store sync. Called once from WSProvider.
@@ -37,51 +46,36 @@ function asPayload<T>(payload: unknown): T | null {
  * - Debounce per-prefix prevents rapid-fire refetches (e.g. bulk issue updates)
  * - Precise handlers only for side effects (toast, navigation, self-check)
  *
- * Per-page events (comments, activity, subscribers, daemon) are still handled
- * by individual components via useWSEvent — not here.
+ * Per-issue events (comments, activity, reactions, subscribers) are handled
+ * both here (invalidation fallback) and by per-page useWSEvent hooks (granular
+ * updates). Daemon events are handled by individual components only.
  */
 export function useRealtimeSync(ws: WSClient | null) {
+  const qc = useQueryClient();
   // Main sync: onAny → refreshMap with debounce
   useEffect(() => {
     if (!ws) return;
 
-    // Event types handled by specific handlers below — skip generic refresh.
-    // Agent lifecycle events (tool_use, tool_result) fire frequently during
-    // execution and must NOT trigger refreshAgents().
-    // agent:started/completed/failed are NOT here — they fall through to the
-    // "agent" prefix → refreshAgents() so the agent list stays up to date.
-    const specificEvents = new Set([
-      "issue:updated", "issue:created", "issue:deleted",
-      "inbox:new", "inbox:read", "inbox:archived", "inbox:batch-read", "inbox:batch-archived",
-      "issue_reaction:added", "issue_reaction:removed",
-      "agent:tool_use", "agent:tool_result",
-      "agent:stop", "agent:session_start", "agent:message",
-      "task:dispatch",
-    ]);
-
     const refreshMap: Record<string, () => void> = {
-      inbox: () => useInboxStore.getState().fetch().catch((err) => { logger.error("inbox refresh failed", err); }),
-      agent: () => useWorkspaceStore.getState().refreshAgents().catch((err) => { logger.error("agent refresh failed", err); }),
-      member: () => useWorkspaceStore.getState().refreshMembers().catch((err) => { logger.error("member refresh failed", err); }),
-      task: () => useIssueStore.getState().fetch().catch((err) => { logger.error("task refresh failed", err); }),
-      workspace: () => {
-        // Lightweight: only re-fetch workspace list, don't hydrate everything.
-        // workspace:deleted is handled by a precise side-effect handler below.
-        api.listWorkspaces().then((wsList) => {
-          const current = useWorkspaceStore.getState().workspace;
-          const updated = current
-            ? wsList.find((w) => w.id === current.id)
-            : null;
-          if (updated) useWorkspaceStore.getState().updateWorkspace(updated);
-        }).catch((err) => {
-          logger.error("workspace refresh failed", err);
-        });
+      inbox: () => {
+        const wsId = useWorkspaceStore.getState().workspace?.id;
+        if (wsId) onInboxInvalidate(qc, wsId);
       },
-      skill: () => useWorkspaceStore.getState().refreshSkills().catch((err) => { logger.error("skill refresh failed", err); }),
-      // Run events are page-specific — handled by useRunTimeline hook.
-      // No global store refresh needed, but register the prefix so onAny
-      // doesn't log warnings for unknown prefixes.
-      run: () => {},
+      agent: () => {
+        const wsId = useWorkspaceStore.getState().workspace?.id;
+        if (wsId) qc.invalidateQueries({ queryKey: workspaceKeys.agents(wsId) });
+      },
+      member: () => {
+        const wsId = useWorkspaceStore.getState().workspace?.id;
+        if (wsId) qc.invalidateQueries({ queryKey: workspaceKeys.members(wsId) });
+      },
+      workspace: () => {
+        qc.invalidateQueries({ queryKey: workspaceKeys.list() });
+      },
+      skill: () => {
+        const wsId = useWorkspaceStore.getState().workspace?.id;
+        if (wsId) qc.invalidateQueries({ queryKey: workspaceKeys.skills(wsId) });
+      },
     };
 
     const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -97,84 +91,129 @@ export function useRealtimeSync(ws: WSClient | null) {
       );
     };
 
+    // Event types handled by specific handlers below — skip generic refresh
+    const specificEvents = new Set([
+      "issue:updated", "issue:created", "issue:deleted", "inbox:new",
+      "comment:created", "comment:updated", "comment:deleted",
+      "activity:created",
+      "reaction:added", "reaction:removed",
+      "issue_reaction:added", "issue_reaction:removed",
+      "subscriber:added", "subscriber:removed",
+    ]);
+
     const unsubAny = ws.onAny((msg) => {
-      const myUserId = useAuthStore.getState().user?.id;
-      if (msg.actor_id && msg.actor_id === myUserId) {
-        logger.debug("skipping self-event", msg.type);
-        return;
-      }
       if (specificEvents.has(msg.type)) return;
       const prefix = msg.type.split(":")[0] ?? "";
       const refresh = refreshMap[prefix];
       if (refresh) debouncedRefresh(prefix, refresh);
     });
 
-    // --- Specific event handlers (granular updates, no full refetch) ---
+    // --- Specific event handlers (granular cache updates) ---
+    // No self-event filtering: actor_id identifies the USER, not the TAB.
+    // Filtering by actor_id would block other tabs of the same user.
+    // Instead, both mutations and WS handlers use dedup checks to be idempotent.
 
     const unsubIssueUpdated = ws.on("issue:updated", (p) => {
-      const payload = asPayload<IssueUpdatedPayload>(p);
-      const issue = payload?.issue;
+      const { issue } = p as IssueUpdatedPayload;
       if (!issue?.id) return;
-      useIssueStore.getState().updateIssue(issue.id, issue);
-      if (issue.status) {
-        useInboxStore.getState().updateIssueStatus(issue.id, issue.status);
+      const wsId = useWorkspaceStore.getState().workspace?.id;
+      if (wsId) {
+        onIssueUpdated(qc, wsId, issue);
+        if (issue.status) {
+          onInboxIssueStatusChanged(qc, wsId, issue.id, issue.status);
+        }
       }
     });
 
     const unsubIssueCreated = ws.on("issue:created", (p) => {
-      const payload = asPayload<IssueCreatedPayload>(p);
-      if (payload?.issue) useIssueStore.getState().addIssue(payload.issue);
+      const { issue } = p as IssueCreatedPayload;
+      if (!issue) return;
+      const wsId = useWorkspaceStore.getState().workspace?.id;
+      if (wsId) onIssueCreated(qc, wsId, issue);
     });
 
     const unsubIssueDeleted = ws.on("issue:deleted", (p) => {
-      const payload = asPayload<IssueDeletedPayload>(p);
-      if (payload?.issue_id) useIssueStore.getState().removeIssue(payload.issue_id);
+      const { issue_id } = p as IssueDeletedPayload;
+      if (!issue_id) return;
+      const wsId = useWorkspaceStore.getState().workspace?.id;
+      if (wsId) onIssueDeleted(qc, wsId, issue_id);
     });
 
     const unsubInboxNew = ws.on("inbox:new", (p) => {
-      const payload = asPayload<InboxNewPayload>(p);
-      if (payload?.item) useInboxStore.getState().addItem(payload.item);
+      const { item } = p as InboxNewPayload;
+      if (!item) return;
+      const wsId = useWorkspaceStore.getState().workspace?.id;
+      if (wsId) onInboxNew(qc, wsId, item);
     });
 
-    const unsubInboxRead = ws.on("inbox:read", (p) => {
-      const payload = asPayload<InboxReadPayload>(p);
-      if (payload?.item_id) useInboxStore.getState().markRead(payload.item_id);
+    // --- Timeline event handlers (global fallback) ---
+    // These events are also handled granularly by useIssueTimeline when
+    // IssueDetail is mounted. This global handler ensures the timeline cache
+    // is invalidated even when IssueDetail is unmounted, so stale data
+    // isn't served on next mount (staleTime: Infinity relies on this).
+
+    const invalidateTimeline = (issueId: string) => {
+      qc.invalidateQueries({ queryKey: issueKeys.timeline(issueId) });
+    };
+
+    const unsubCommentCreated = ws.on("comment:created", (p) => {
+      const { comment } = p as CommentCreatedPayload;
+      if (comment?.issue_id) invalidateTimeline(comment.issue_id);
     });
 
-    const unsubInboxArchived = ws.on("inbox:archived", (p) => {
-      const payload = asPayload<InboxArchivedPayload>(p);
-      if (payload?.item_id) useInboxStore.getState().archive(payload.item_id);
+    const unsubCommentUpdated = ws.on("comment:updated", (p) => {
+      const { comment } = p as CommentUpdatedPayload;
+      if (comment?.issue_id) invalidateTimeline(comment.issue_id);
     });
 
-    const unsubInboxBatchRead = ws.on("inbox:batch-read", () => {
-      useInboxStore.getState().markAllRead();
+    const unsubCommentDeleted = ws.on("comment:deleted", (p) => {
+      const { issue_id } = p as CommentDeletedPayload;
+      if (issue_id) invalidateTimeline(issue_id);
     });
 
-    const unsubInboxBatchArchived = ws.on("inbox:batch-archived", () => {
-      useInboxStore.getState().archiveAll();
+    const unsubActivityCreated = ws.on("activity:created", (p) => {
+      const { issue_id } = p as ActivityCreatedPayload;
+      if (issue_id) invalidateTimeline(issue_id);
     });
 
-    // --- Reaction event handlers ---
-    // issue_reaction:* are for issue-level reactions (not comment reactions).
-    // Comment reactions are already handled by useIssueTimeline's reaction:added/removed.
-    // Registered here so specificEvents blocks the generic onAny refresh for them.
-    // Issue-level reaction UI is component-local — handled by detail components.
-
-    const unsubIssueReactionAdded = ws.on("issue_reaction:added", () => {
-      // Blocked from generic refresh via specificEvents; component handles UI update.
+    const unsubReactionAdded = ws.on("reaction:added", (p) => {
+      const { issue_id } = p as ReactionAddedPayload;
+      if (issue_id) invalidateTimeline(issue_id);
     });
 
-    const unsubIssueReactionRemoved = ws.on("issue_reaction:removed", () => {
-      // Blocked from generic refresh via specificEvents; component handles UI update.
+    const unsubReactionRemoved = ws.on("reaction:removed", (p) => {
+      const { issue_id } = p as ReactionRemovedPayload;
+      if (issue_id) invalidateTimeline(issue_id);
+    });
+
+    // --- Issue-level reactions & subscribers (global fallback) ---
+
+    const unsubIssueReactionAdded = ws.on("issue_reaction:added", (p) => {
+      const { issue_id } = p as IssueReactionAddedPayload;
+      if (issue_id) qc.invalidateQueries({ queryKey: issueKeys.reactions(issue_id) });
+    });
+
+    const unsubIssueReactionRemoved = ws.on("issue_reaction:removed", (p) => {
+      const { issue_id } = p as IssueReactionRemovedPayload;
+      if (issue_id) qc.invalidateQueries({ queryKey: issueKeys.reactions(issue_id) });
+    });
+
+    const unsubSubscriberAdded = ws.on("subscriber:added", (p) => {
+      const { issue_id } = p as SubscriberAddedPayload;
+      if (issue_id) qc.invalidateQueries({ queryKey: issueKeys.subscribers(issue_id) });
+    });
+
+    const unsubSubscriberRemoved = ws.on("subscriber:removed", (p) => {
+      const { issue_id } = p as SubscriberRemovedPayload;
+      if (issue_id) qc.invalidateQueries({ queryKey: issueKeys.subscribers(issue_id) });
     });
 
     // --- Side-effect handlers (toast, navigation) ---
 
     const unsubWsDeleted = ws.on("workspace:deleted", (p) => {
-      const payload = asPayload<WorkspaceDeletedPayload>(p);
-      const workspace_id = payload?.workspace_id;
+      const { workspace_id } = p as WorkspaceDeletedPayload;
       const currentWs = useWorkspaceStore.getState().workspace;
-      if (workspace_id && currentWs?.id === workspace_id) {
+      if (currentWs?.id === workspace_id) {
         logger.warn("current workspace deleted, switching");
         toast.info("This workspace was deleted");
         useWorkspaceStore.getState().refreshWorkspaces();
@@ -182,10 +221,9 @@ export function useRealtimeSync(ws: WSClient | null) {
     });
 
     const unsubMemberRemoved = ws.on("member:removed", (p) => {
-      const payload = asPayload<MemberRemovedPayload>(p);
-      const user_id = payload?.user_id;
+      const { user_id } = p as MemberRemovedPayload;
       const myUserId = useAuthStore.getState().user?.id;
-      if (user_id && user_id === myUserId) {
+      if (user_id === myUserId) {
         logger.warn("removed from workspace, switching");
         toast.info("You were removed from this workspace");
         useWorkspaceStore.getState().refreshWorkspaces();
@@ -193,12 +231,12 @@ export function useRealtimeSync(ws: WSClient | null) {
     });
 
     const unsubMemberAdded = ws.on("member:added", (p) => {
-      const payload = asPayload<MemberAddedPayload>(p);
+      const { member, workspace_name } = p as MemberAddedPayload;
       const myUserId = useAuthStore.getState().user?.id;
-      if (payload?.member?.user_id === myUserId) {
+      if (member.user_id === myUserId) {
         useWorkspaceStore.getState().refreshWorkspaces();
         toast.info(
-          `You were invited to ${payload?.workspace_name ?? "a workspace"}`,
+          `You were invited to ${workspace_name ?? "a workspace"}`,
         );
       }
     });
@@ -209,19 +247,23 @@ export function useRealtimeSync(ws: WSClient | null) {
       unsubIssueCreated();
       unsubIssueDeleted();
       unsubInboxNew();
-      unsubInboxRead();
-      unsubInboxArchived();
-      unsubInboxBatchRead();
-      unsubInboxBatchArchived();
+      unsubCommentCreated();
+      unsubCommentUpdated();
+      unsubCommentDeleted();
+      unsubActivityCreated();
+      unsubReactionAdded();
+      unsubReactionRemoved();
       unsubIssueReactionAdded();
       unsubIssueReactionRemoved();
+      unsubSubscriberAdded();
+      unsubSubscriberRemoved();
       unsubWsDeleted();
       unsubMemberRemoved();
       unsubMemberAdded();
       timers.forEach(clearTimeout);
       timers.clear();
     };
-  }, [ws]);
+  }, [ws, qc]);
 
   // Reconnect → refetch all data to recover missed events
   useEffect(() => {
@@ -230,26 +272,20 @@ export function useRealtimeSync(ws: WSClient | null) {
     const unsub = ws.onReconnect(async () => {
       logger.info("reconnected, refetching all data");
       try {
-        await Promise.all([
-          useIssueStore.getState().fetch(),
-          useInboxStore.getState().fetch(),
-          useWorkspaceStore.getState().refreshAgents(),
-          useWorkspaceStore.getState().refreshMembers(),
-          useWorkspaceStore.getState().refreshSkills(),
-        ]);
-
-        // Refetch the currently-viewed issue's timeline if on an issue detail page
-        const match = window.location.pathname.match(/\/issues\/([a-f0-9-]+)/);
-        if (match?.[1]) {
-          api.listTimeline(match[1]).catch((err) => {
-            logger.error("reconnect timeline refetch failed", err);
-          });
+        const wsId = useWorkspaceStore.getState().workspace?.id;
+        if (wsId) {
+          qc.invalidateQueries({ queryKey: issueKeys.all(wsId) });
+          qc.invalidateQueries({ queryKey: inboxKeys.all(wsId) });
+          qc.invalidateQueries({ queryKey: workspaceKeys.agents(wsId) });
+          qc.invalidateQueries({ queryKey: workspaceKeys.members(wsId) });
+          qc.invalidateQueries({ queryKey: workspaceKeys.skills(wsId) });
         }
+        qc.invalidateQueries({ queryKey: workspaceKeys.list() });
       } catch (e) {
         logger.error("reconnect refetch failed", e);
       }
     });
 
     return unsub;
-  }, [ws]);
+  }, [ws, qc]);
 }
