@@ -58,7 +58,7 @@ export function RuntimeList({
   onSelect,
 }: {
   runtimes: AgentRuntime[];
-  selectedId: string;
+  selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
   return (

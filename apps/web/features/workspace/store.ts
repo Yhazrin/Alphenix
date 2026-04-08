@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { Workspace } from "@/shared/types";
+import type { Workspace, Agent, Skill, MemberWithUser } from "@/shared/types";
 import { toast } from "sonner";
 import { api } from "@/shared/api";
 import { createLogger } from "@/shared/logger";
@@ -11,6 +11,11 @@ const logger = createLogger("workspace-store");
 interface WorkspaceState {
   workspace: Workspace | null;
   workspaces: Workspace[];
+  // Stub properties for backwards compatibility
+  // Actual data is managed by TanStack Query in @core/workspace
+  members: MemberWithUser[];
+  agents: Agent[];
+  skills: Skill[];
 }
 
 interface WorkspaceActions {
@@ -29,6 +34,13 @@ interface WorkspaceActions {
   leaveWorkspace: (workspaceId: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   clearWorkspace: () => void;
+  // Stub actions for backwards compatibility
+  refreshAgents: () => Promise<void>;
+  refreshSkills: () => Promise<void>;
+  refreshMembers: () => Promise<void>;
+  updateAgent: (id: string, updates: Partial<Agent>) => void;
+  upsertSkill: (skill: Skill) => void;
+  removeSkill: (id: string) => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
@@ -37,6 +49,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   // State
   workspace: null,
   workspaces: [],
+  members: [],
+  agents: [],
+  skills: [],
 
   // Actions
   hydrateWorkspace: (wsList, preferredWorkspaceId) => {
@@ -52,7 +67,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     if (!nextWorkspace) {
       api.setWorkspaceId(null);
       localStorage.removeItem("multica_workspace_id");
-      set({ workspace: null });
+      set({ workspace: null, members: [], agents: [], skills: [] });
       return null;
     }
 
@@ -78,7 +93,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     // All data caches (issues, inbox, members, agents, skills, runtimes)
     // are managed by TanStack Query, keyed by wsId — auto-refetch on switch.
-    set({ workspace: ws });
+    set({ workspace: ws, members: [], agents: [], skills: [] });
 
     hydrateWorkspace(workspaces, ws.id);
   },
@@ -132,6 +147,42 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   clearWorkspace: () => {
     api.setWorkspaceId(null);
-    set({ workspace: null, workspaces: [] });
+    set({ workspace: null, workspaces: [], members: [], agents: [], skills: [] });
   },
+
+  // Stub actions for backwards compatibility
+  refreshAgents: async () => {
+    // Actual implementation uses TanStack Query
+  },
+
+  refreshSkills: async () => {
+    // Actual implementation uses TanStack Query
+  },
+
+  refreshMembers: async () => {
+    // Actual implementation uses TanStack Query
+  },
+
+  updateAgent: (id, updates) =>
+    set((state) => ({
+      agents: state.agents.map((a) =>
+        a.id === id ? { ...a, ...updates } : a,
+      ),
+    })),
+
+  upsertSkill: (skill) =>
+    set((state) => {
+      const idx = state.skills.findIndex((s) => s.id === skill.id);
+      if (idx >= 0) {
+        const next = [...state.skills];
+        next[idx] = skill;
+        return { skills: next };
+      }
+      return { skills: [...state.skills, skill] };
+    }),
+
+  removeSkill: (id) =>
+    set((state) => ({
+      skills: state.skills.filter((s) => s.id !== id),
+    })),
 }));

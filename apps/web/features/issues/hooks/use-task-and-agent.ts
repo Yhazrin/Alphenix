@@ -11,10 +11,10 @@ export function useTaskAndAgent(issueId: string) {
     let cancelled = false;
     setError(null);
     api
-      .getActiveTaskForIssue(issueId)
-      .then(({ task }) => {
+      .getActiveTasksForIssue(issueId)
+      .then(({ tasks }) => {
         if (!cancelled) {
-          setActiveTask(task);
+          setActiveTask(tasks[0] ?? null);
         }
       })
       .catch((e: unknown) => {
