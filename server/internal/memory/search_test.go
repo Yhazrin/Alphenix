@@ -118,3 +118,50 @@ func searchSubstr(s, sub string) bool {
 	}
 	return false
 }
+
+// ---------------------------------------------------------------------------
+// formatUUID
+// ---------------------------------------------------------------------------
+
+func TestFormatUUID_KnownValue(t *testing.T) {
+	// UUID: 00000000-0000-0000-0000-000000000000
+	b := [16]byte{}
+	got := formatUUID(b)
+	if got != "00000000-0000-0000-0000-000000000000" {
+		t.Errorf("expected zero UUID, got %q", got)
+	}
+}
+
+func TestFormatUUID_HexDigits(t *testing.T) {
+	// UUID: 01234567-89ab-cdef-0123-456789abcdef
+	b := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef}
+	got := formatUUID(b)
+	if got != "01234567-89ab-cdef-0123-456789abcdef" {
+		t.Errorf("expected '01234567-89ab-cdef-0123-456789abcdef', got %q", got)
+	}
+}
+
+func TestFormatUUID_FFBytes(t *testing.T) {
+	b := [16]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	got := formatUUID(b)
+	if got != "ffffffff-ffff-ffff-ffff-ffffffffffff" {
+		t.Errorf("expected all-f UUID, got %q", got)
+	}
+}
+
+func TestFormatUUID_CorrectLength(t *testing.T) {
+	b := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	got := formatUUID(b)
+	if len(got) != 36 {
+		t.Errorf("expected 36 chars, got %d: %q", len(got), got)
+	}
+}
+
+func TestFormatUUID_DashPositions(t *testing.T) {
+	b := [16]byte{0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89}
+	got := formatUUID(b)
+	// Check dashes at positions 8, 13, 18, 23
+	if got[8] != '-' || got[13] != '-' || got[18] != '-' || got[23] != '-' {
+		t.Errorf("dashes not at expected positions: %q", got)
+	}
+}

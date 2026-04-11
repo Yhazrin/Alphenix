@@ -260,3 +260,64 @@ func TestCreateWorktreeNotCached(t *testing.T) {
 func trimLine(s string) string {
 	return strings.TrimSpace(s)
 }
+
+// ---------------------------------------------------------------------------
+// Pure helper tests
+// ---------------------------------------------------------------------------
+
+func TestRepoNameFromURL(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input, want string
+	}{
+		{"https://github.com/org/my-repo.git", "my-repo"},
+		{"https://github.com/org/my-repo", "my-repo"},
+		{"git@github.com:org/my-repo.git", "my-repo"},
+		{"https://github.com/org/repo/", "repo"},
+		{"my-repo", "my-repo"},
+		{"", "repo"},
+	}
+	for _, tt := range tests {
+		if got := repoNameFromURL(tt.input); got != tt.want {
+			t.Errorf("repoNameFromURL(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestSanitizeName(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input, want string
+	}{
+		{"Code Reviewer", "code-reviewer"},
+		{"my_agent!@#v2", "my-agent-v2"},
+		{"  spaces  ", "spaces"},
+		{"UPPERCASE", "uppercase"},
+		{"a-very-long-name-that-exceeds-thirty-characters-total", "a-very-long-name-that-exceeds"},
+		{"", "agent"},
+		{"---", "agent"},
+		{"日本語テスト", "agent"},
+	}
+	for _, tt := range tests {
+		if got := sanitizeName(tt.input); got != tt.want {
+			t.Errorf("sanitizeName(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestShortID(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input, want string
+	}{
+		{"a1b2c3d4-e5f6-7890-abcd-ef1234567890", "a1b2c3d4"},
+		{"abcdef12", "abcdef12"},
+		{"ab", "ab"},
+		{"a1b2c3d4e5f67890", "a1b2c3d4"},
+	}
+	for _, tt := range tests {
+		if got := shortID(tt.input); got != tt.want {
+			t.Errorf("shortID(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}

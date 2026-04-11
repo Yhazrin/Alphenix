@@ -1,8 +1,8 @@
 -- name: CreateRunStep :one
 INSERT INTO run_steps (
-    run_id, seq, tool_name, tool_input, tool_output, is_error, started_at
+    run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, step_type, call_id
 ) VALUES (
-    $1, $2, $3, sqlc.narg(tool_input), sqlc.narg(tool_output), $4, $5
+    $1, $2, $3, sqlc.narg(tool_input), sqlc.narg(tool_output), $4, $5, $6, sqlc.narg(call_id)
 )
 RETURNING *;
 

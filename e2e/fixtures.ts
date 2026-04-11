@@ -4,7 +4,7 @@
  * Uses raw fetch so E2E tests have zero build-time coupling to the web app.
  */
 
-import pg from "pg";
+import * as pg from "pg";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? "8080"}`;
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://alphenix:alphenix@localhost:5432/alphenix?sslmode=disable";
@@ -23,6 +23,8 @@ export class TestApiClient {
   private createdRuntimeIds: string[] = [];
   private createdPolicyIds: string[] = [];
   private createdTaskIds: string[] = [];
+  private createdRunIds: string[] = [];
+  private createdTeamIds: string[] = [];
 
   async login(email: string, name: string) {
     // Step 1: Send verification code (retry on 429 rate limit)
@@ -225,29 +227,132 @@ export class TestApiClient {
     }
   }
 
-  /** Clean up all issues created during this test. */
-  async cleanup() {
+  /** Create a queued task with a specific runtime_id (for daemon loop tests). */
+  async createQueuedTask(agentId: string, runtimeId: string, issueId: string) {
     const client = new pg.Client(DATABASE_URL);
     await client.connect();
     try {
-      // Delete tasks via DB (no API endpoint for task deletion)
-      for (const id of this.createdTaskIds) {
-        try { await client.query(`DELETE FROM agent_task_queue WHERE id = $1`, [id]); } catch { /* ignore */ }
-      }
-      // Delete policies via API
-      for (const id of this.createdPolicyIds) {
-        try { await this.authedFetch(`/api/runtime-policies/${id}`, { method: "DELETE" }); } catch { /* ignore */ }
-      }
-      // Delete agents via DB (cascading)
-      for (const id of this.createdAgentIds) {
-        try { await client.query(`DELETE FROM agent WHERE id = $1`, [id]); } catch { /* ignore */ }
-      }
-      // Delete test runtimes via DB
-      for (const id of this.createdRuntimeIds) {
-        try { await client.query(`DELETE FROM agent_runtime WHERE id = $1`, [id]); } catch { /* ignore */ }
-      }
+      const result = await client.query(
+        `INSERT INTO agent_task_queue (agent_id, runtime_id, issue_id, status, created_at)
+         VALUES ($1, $2, $3, 'queued', now())
+         RETURNING id`,
+        [agentId, runtimeId, issueId]
+      );
+      const id = result.rows[0].id;
+      this.createdTaskIds.push(id);
+      return { id, agent_id: agentId, runtime_id: runtimeId, issue_id: issueId, status: "queued" };
     } finally {
       await client.end();
+    }
+  }
+
+  /** Look up the runtime_id for an agent (needed for daemon claim URL). */
+  async getAgentRuntimeId(agentId: string): Promise<string | null> {
+    const res = await this.authedFetch(`/api/agents/${agentId}`);
+    if (!res.ok) return null;
+    const agent = await res.json();
+    return agent.runtime_id ?? null;
+  }
+
+  /** Create a run via direct DB insert (for fork lifecycle tests). */
+  async createRun(opts: {
+    agentId: string;
+    issueId: string;
+    taskId?: string;
+    parentRunId?: string;
+    phase?: string;
+    status?: string;
+    modelName?: string;
+    permissionMode?: string;
+  }): Promise<string> {
+    const client = new pg.Client(DATABASE_URL);
+    await client.connect();
+    try {
+      const wsId = this.workspaceId;
+      const result = await client.query(
+        `INSERT INTO runs (workspace_id, issue_id, agent_id, task_id, parent_run_id, phase, status, model_name, permission_mode, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+         RETURNING id`,
+        [
+          wsId,
+          opts.issueId,
+          opts.agentId,
+          opts.taskId ?? null,
+          opts.parentRunId ?? null,
+          opts.phase ?? "pending",
+          opts.status ?? "active",
+          opts.modelName ?? "claude-sonnet-4-20250514",
+          opts.permissionMode ?? "default",
+        ]
+      );
+      const id = result.rows[0].id;
+      this.createdRunIds.push(id);
+      return id;
+    } finally {
+      await client.end();
+    }
+  }
+
+  /** Create a team via API. */
+  async createTeam(name: string, opts?: { description?: string; lead_agent_id?: string; member_agent_ids?: string[] }) {
+    const res = await this.authedFetch("/api/teams", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        description: opts?.description,
+        lead_agent_id: opts?.lead_agent_id,
+        member_agent_ids: opts?.member_agent_ids ?? [],
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`createTeam failed: ${res.status} ${await res.text()}`);
+    }
+    const team = await res.json();
+    this.createdTeamIds.push(team.id);
+    return team;
+  }
+
+  /** Clean up all issues created during this test. */
+  async cleanup() {
+    // Delete items that need direct DB access (best-effort — DB may not be reachable)
+    let client: pg.Client | null = null;
+    try {
+      client = new pg.Client(DATABASE_URL);
+      await client.connect();
+    } catch {
+      console.warn("[fixtures] Cannot connect to DB for cleanup, skipping DB deletions");
+    }
+
+    if (client) {
+      try {
+        // Delete tasks via DB (no API endpoint for task deletion)
+        for (const id of this.createdTaskIds) {
+          try { await client.query(`DELETE FROM agent_task_queue WHERE id = $1`, [id]); } catch { /* ignore */ }
+        }
+        // Delete runs via DB (cascades to steps, artifacts, etc.)
+        for (const id of this.createdRunIds) {
+          try { await client.query(`DELETE FROM runs WHERE id = $1`, [id]); } catch { /* ignore */ }
+        }
+        // Delete agents via DB (cascading)
+        for (const id of this.createdAgentIds) {
+          try { await client.query(`DELETE FROM agent WHERE id = $1`, [id]); } catch { /* ignore */ }
+        }
+        // Delete test runtimes via DB
+        for (const id of this.createdRuntimeIds) {
+          try { await client.query(`DELETE FROM agent_runtime WHERE id = $1`, [id]); } catch { /* ignore */ }
+        }
+      } finally {
+        await client.end();
+      }
+    }
+
+    // Delete policies via API
+    for (const id of this.createdPolicyIds) {
+      try { await this.authedFetch(`/api/runtime-policies/${id}`, { method: "DELETE" }); } catch { /* ignore */ }
+    }
+    // Delete teams via API (archive first, then delete if endpoint exists)
+    for (const id of this.createdTeamIds) {
+      try { await this.authedFetch(`/api/teams/${id}/archive`, { method: "POST" }); } catch { /* ignore */ }
     }
     // Delete issues via API
     for (const id of this.createdIssueIds) {
@@ -258,6 +363,8 @@ export class TestApiClient {
     this.createdRuntimeIds = [];
     this.createdPolicyIds = [];
     this.createdTaskIds = [];
+    this.createdRunIds = [];
+    this.createdTeamIds = [];
   }
 
   setToken(token: string) {
@@ -266,6 +373,15 @@ export class TestApiClient {
 
   getToken() {
     return this.token;
+  }
+
+  getWorkspaceId() {
+    return this.workspaceId;
+  }
+
+  /** Public wrapper around authedFetch for direct API calls in tests. */
+  async apiFetch(path: string, init?: RequestInit) {
+    return this.authedFetch(path, init);
   }
 
   private async authedFetch(path: string, init?: RequestInit) {

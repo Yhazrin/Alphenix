@@ -715,3 +715,172 @@ func TestEnsureSymlinkRepairsBrokenLink(t *testing.T) {
 		t.Errorf("content = %q, want %q", data, "real")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// sanitizeRepoFileName
+// ---------------------------------------------------------------------------
+
+func TestSanitizeRepoFileName_HTTPS(t *testing.T) {
+	got := sanitizeRepoFileName("https://github.com/owner/my-repo.git")
+	if got != "my-repo" {
+		t.Errorf("got %q, want %q", got, "my-repo")
+	}
+}
+
+func TestSanitizeRepoFileName_NoGitSuffix(t *testing.T) {
+	got := sanitizeRepoFileName("https://github.com/owner/my-repo")
+	if got != "my-repo" {
+		t.Errorf("got %q, want %q", got, "my-repo")
+	}
+}
+
+func TestSanitizeRepoFileName_TrailingSlash(t *testing.T) {
+	got := sanitizeRepoFileName("https://github.com/owner/my-repo/")
+	if got != "my-repo" {
+		t.Errorf("got %q, want %q", got, "my-repo")
+	}
+}
+
+func TestSanitizeRepoFileName_SSH(t *testing.T) {
+	got := sanitizeRepoFileName("git@github.com:owner/my-repo.git")
+	if got != "my-repo" {
+		t.Errorf("got %q, want %q", got, "my-repo")
+	}
+}
+
+func TestSanitizeRepoFileName_CapitalLetters(t *testing.T) {
+	got := sanitizeRepoFileName("https://github.com/owner/My-Repo.git")
+	if got != "my-repo" {
+		t.Errorf("got %q, want %q (should lowercase)", got, "my-repo")
+	}
+}
+
+func TestSanitizeRepoFileName_SpecialChars(t *testing.T) {
+	got := sanitizeRepoFileName("https://github.com/owner/my_repo.git")
+	if got != "my-repo" {
+		t.Errorf("got %q, want %q (underscores become hyphens)", got, "my-repo")
+	}
+}
+
+func TestSanitizeRepoFileName_BareName(t *testing.T) {
+	got := sanitizeRepoFileName("my-repo")
+	if got != "my-repo" {
+		t.Errorf("got %q, want %q", got, "my-repo")
+	}
+}
+
+func TestSanitizeRepoFileName_EmptyInput(t *testing.T) {
+	got := sanitizeRepoFileName("")
+	if got != "repo" {
+		t.Errorf("got %q, want %q (empty falls back to repo)", got, "repo")
+	}
+}
+
+func TestSanitizeRepoFileName_OnlySpecialChars(t *testing.T) {
+	got := sanitizeRepoFileName("...///")
+	if got != "repo" {
+		t.Errorf("got %q, want %q (only special chars falls back)", got, "repo")
+	}
+}
+
+func TestSanitizeRepoFileName_MultipleSlashes(t *testing.T) {
+	got := sanitizeRepoFileName("https://gitlab.com/group/subgroup/project.git")
+	if got != "project" {
+		t.Errorf("got %q, want %q", got, "project")
+	}
+}
+
+func TestSanitizeRepoFileName_DotGitTrailing(t *testing.T) {
+	got := sanitizeRepoFileName("https://github.com/owner/repo.git/")
+	if got != "repo" {
+		t.Errorf("got %q, want %q (.git + trailing slash)", got, "repo")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// sanitizeSkillName
+// ---------------------------------------------------------------------------
+
+func TestSanitizeSkillName(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input, want string
+	}{
+		{"Code Review", "code-review"},
+		{"Go Conventions", "go-conventions"},
+		{"  PR Review  ", "pr-review"},
+		{"MY_SKILL!@#", "my-skill"},
+		{"", "skill"},
+		{"---", "skill"},
+		{"UPPERCASE", "uppercase"},
+		{"日本語テスト", "skill"},
+	}
+	for _, tt := range tests {
+		if got := sanitizeSkillName(tt.input); got != tt.want {
+			t.Errorf("sanitizeSkillName(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Reuse
+// ---------------------------------------------------------------------------
+
+func TestReuse_ExistingWorkDir(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	workDir := filepath.Join(dir, "workdir")
+	os.MkdirAll(workDir, 0o755)
+
+	task := TaskContextForEnv{
+		IssueID:   "issue-1",
+		AgentName: "agent-a",
+	}
+	env := Reuse(workDir, "claude", task, testLogger())
+	if env == nil {
+		t.Fatal("expected non-nil env for existing workdir")
+	}
+	if env.WorkDir != workDir {
+		t.Errorf("WorkDir = %q, want %q", env.WorkDir, workDir)
+	}
+	if env.RootDir != filepath.Dir(workDir) {
+		t.Errorf("RootDir = %q, want %q", env.RootDir, filepath.Dir(workDir))
+	}
+}
+
+func TestReuse_NonExistentWorkDir(t *testing.T) {
+	t.Parallel()
+	task := TaskContextForEnv{IssueID: "issue-1"}
+	env := Reuse("/nonexistent/path/workdir", "claude", task, testLogger())
+	if env != nil {
+		t.Error("expected nil env for nonexistent workdir")
+	}
+}
+
+func TestReuse_RefreshesContextFiles(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	workDir := filepath.Join(dir, "workdir")
+	os.MkdirAll(workDir, 0o755)
+
+	task := TaskContextForEnv{
+		IssueID:           "issue-42",
+		AgentName:         "agent-b",
+		AgentInstructions: "Be helpful",
+		TriggerCommentID:  "comment-1", // non-empty triggers issue_context.md write
+	}
+	env := Reuse(workDir, "claude", task, testLogger())
+	if env == nil {
+		t.Fatal("expected non-nil env")
+	}
+
+	// Verify context file was written during refresh.
+	ctxFile := filepath.Join(workDir, ".agent_context", "issue_context.md")
+	data, err := os.ReadFile(ctxFile)
+	if err != nil {
+		t.Fatalf("expected .agent_context/issue_context.md to exist: %v", err)
+	}
+	if !strings.Contains(string(data), "issue-42") {
+		t.Errorf("expected context file to contain issue-42")
+	}
+}

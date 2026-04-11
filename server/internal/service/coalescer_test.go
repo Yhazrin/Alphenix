@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -218,6 +219,237 @@ func TestSummarizer_Basic(t *testing.T) {
 	// Should contain both messages.
 	if !contains(result, "hello") || !contains(result, "world") {
 		t.Errorf("summary missing expected content: %q", result)
+	}
+}
+
+func TestSummarizer_SingleMessage(t *testing.T) {
+	s := &Summarizer{}
+	result, err := s.Summarize([]string{"only one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(result, "only one") {
+		t.Errorf("expected single message in summary, got %q", result)
+	}
+	if !contains(result, "1 messages") {
+		t.Errorf("expected '1 messages' prefix, got %q", result)
+	}
+}
+
+func TestSummarizer_WhitespaceFiltered(t *testing.T) {
+	s := &Summarizer{}
+	result, err := s.Summarize([]string{"", "   ", "\t\n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// All whitespace/empty → should return empty (no valid parts).
+	if result != "" {
+		t.Errorf("expected empty for all-whitespace input, got %q", result)
+	}
+}
+
+func TestSummarizer_WhitespaceMixedWithContent(t *testing.T) {
+	s := &Summarizer{}
+	result, err := s.Summarize([]string{"", "real message", "  "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(result, "real message") {
+		t.Errorf("expected 'real message' in summary, got %q", result)
+	}
+	// Only 1 valid message, so "1 messages".
+	if !contains(result, "1 messages") {
+		t.Errorf("expected '1 messages', got %q", result)
+	}
+}
+
+func TestSummarizer_LongMessageTruncated(t *testing.T) {
+	s := &Summarizer{}
+	long := strings.Repeat("x", 300)
+	result, err := s.Summarize([]string{long})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Should be truncated to 200 chars + "..." in the summary.
+	if !contains(result, strings.Repeat("x", 200)+"...") {
+		t.Error("long message should be truncated to 200 + '...'")
+	}
+	if contains(result, strings.Repeat("x", 300)) {
+		t.Error("full 300-char message should not appear in summary")
+	}
+}
+
+func TestSummarizer_ExactBoundary(t *testing.T) {
+	s := &Summarizer{}
+	exact := strings.Repeat("a", 200)
+	result, err := s.Summarize([]string{exact})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Exactly 200 chars — no truncation, no "...".
+	if !contains(result, exact) {
+		t.Error("200-char message should appear untruncated")
+	}
+}
+
+func TestSummarizer_MessageIndexing(t *testing.T) {
+	s := &Summarizer{}
+	result, err := s.Summarize([]string{"first", "second", "third"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Messages should be numbered [1], [2], [3].
+	if !contains(result, "[1]") || !contains(result, "[2]") || !contains(result, "[3]") {
+		t.Errorf("expected numbered messages [1][2][3], got %q", result)
+	}
+}
+
+func TestSummarizer_201CharTruncation(t *testing.T) {
+	s := &Summarizer{}
+	msg := strings.Repeat("a", 201)
+	result, err := s.Summarize([]string{msg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 201 chars > 200, so should be truncated with "..."
+	if !contains(result, "...") {
+		t.Error("201-char message should be truncated with ...")
+	}
+	// Should contain exactly 200 'a's before the "..."
+	if !contains(result, strings.Repeat("a", 200)+"...") {
+		t.Error("truncated message should have 200 chars + ...")
+	}
+}
+
+func TestSummarizer_MixedWhitespaceInterleaved(t *testing.T) {
+	s := &Summarizer{}
+	result, err := s.Summarize([]string{"", "real", "", "another", ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(result, "2 messages") {
+		t.Errorf("expected 2 messages, got %q", result)
+	}
+	if !contains(result, "real") || !contains(result, "another") {
+		t.Error("content should be preserved")
+	}
+	// Indexing should skip blanks: "real" was msg #2, "another" was msg #4.
+	if !contains(result, "[2] real") {
+		t.Errorf("expected [2] real, got %q", result)
+	}
+	if !contains(result, "[4] another") {
+		t.Errorf("expected [4] another, got %q", result)
+	}
+}
+
+func TestSummarizer_200CharIsUnicodeSafe(t *testing.T) {
+	s := &Summarizer{}
+	// 100 Chinese chars = 300 bytes but 100 runes. Truncation uses byte-length,
+	// so this should NOT be truncated (100 runes < 200 bytes? no — 300 bytes > 200).
+	msg := strings.Repeat("中", 100)
+	result, err := s.Summarize([]string{msg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 100 * 3 bytes = 300 bytes > 200 bytes → truncated. Should have "..."
+	if !contains(result, "...") {
+		t.Errorf("100 Chinese chars (300 bytes) should trigger truncation, got %q", result)
+	}
+}
+
+func TestSummarizer_AllWhitespaceAfterContent(t *testing.T) {
+	s := &Summarizer{}
+	result, err := s.Summarize([]string{"keep", "   ", "\t", "  \n  "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(result, "1 messages") {
+		t.Errorf("expected 1 message, got %q", result)
+	}
+	if !contains(result, "keep") {
+		t.Error("content should be preserved")
+	}
+}
+
+// --- Post-close guard tests ---
+
+func TestCoalescer_PushToolUseAfterClose(t *testing.T) {
+	var mu sync.Mutex
+	var events []CoalescedEvent
+
+	c := NewCoalescer(50*time.Millisecond, func(ev CoalescedEvent) {
+		mu.Lock()
+		events = append(events, ev)
+		mu.Unlock()
+	})
+
+	c.Close()
+	c.PushToolUse("call-1", "read_file", nil)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(events) != 0 {
+		t.Errorf("expected 0 events after Close + PushToolUse, got %d", len(events))
+	}
+}
+
+func TestCoalescer_PushToolResultAfterClose(t *testing.T) {
+	var mu sync.Mutex
+	var events []CoalescedEvent
+
+	c := NewCoalescer(50*time.Millisecond, func(ev CoalescedEvent) {
+		mu.Lock()
+		events = append(events, ev)
+		mu.Unlock()
+	})
+
+	c.Close()
+	c.PushToolResult("call-1", "read_file", "output")
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(events) != 0 {
+		t.Errorf("expected 0 events after Close + PushToolResult, got %d", len(events))
+	}
+}
+
+func TestStepCoalescer_FlushToolUseAfterClose(t *testing.T) {
+	var mu sync.Mutex
+	var writes []stepWrite
+
+	sc := NewStepCoalescer(50*time.Millisecond, func(stepType, toolName, callID, content string) {
+		mu.Lock()
+		writes = append(writes, stepWrite{stepType, toolName, callID, content})
+		mu.Unlock()
+	})
+
+	sc.Close()
+	sc.FlushToolUse("call-1", "read_file", nil)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(writes) != 0 {
+		t.Errorf("expected 0 writes after Close + FlushToolUse, got %d", len(writes))
+	}
+}
+
+func TestStepCoalescer_FlushToolResultAfterClose(t *testing.T) {
+	var mu sync.Mutex
+	var writes []stepWrite
+
+	sc := NewStepCoalescer(50*time.Millisecond, func(stepType, toolName, callID, content string) {
+		mu.Lock()
+		writes = append(writes, stepWrite{stepType, toolName, callID, content})
+		mu.Unlock()
+	})
+
+	sc.Close()
+	sc.FlushToolResult("call-1", "read_file", "output")
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(writes) != 0 {
+		t.Errorf("expected 0 writes after Close + FlushToolResult, got %d", len(writes))
 	}
 }
 

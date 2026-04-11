@@ -734,6 +734,31 @@ func (h *Handler) DeleteIssue(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// validateBatchIssueIDs checks that the batch ID list is non-empty and within
+// the 500-item limit. Returns an error message suitable for a 400 response.
+func validateBatchIssueIDs(ids []string) string {
+	if len(ids) == 0 {
+		return "issue_ids is required"
+	}
+	if len(ids) > 500 {
+		return "too many issue IDs (max 500)"
+	}
+	return ""
+}
+
+// parseSearchLimit parses the "limit" query parameter for SearchIssues.
+// Returns a value between 1 and 50; defaults to 20.
+func parseSearchLimit(limitStr string) int {
+	if limitStr == "" {
+		return 20
+	}
+	v, err := strconv.Atoi(limitStr)
+	if err != nil || v <= 0 || v > 50 {
+		return 20
+	}
+	return v
+}
+
 // ---------------------------------------------------------------------------
 // Batch operations
 // ---------------------------------------------------------------------------
@@ -756,8 +781,8 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.IssueIDs) == 0 {
-		writeError(w, http.StatusBadRequest, "issue_ids is required")
+	if msg := validateBatchIssueIDs(req.IssueIDs); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
 
@@ -901,8 +926,8 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.IssueIDs) == 0 {
-		writeError(w, http.StatusBadRequest, "issue_ids is required")
+	if msg := validateBatchIssueIDs(req.IssueIDs); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
 

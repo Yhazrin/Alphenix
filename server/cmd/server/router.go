@@ -264,7 +264,11 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, toolReg *
 				r.Post("/{id}/read", h.MarkInboxRead)
 				r.Post("/{id}/archive", h.ArchiveInboxItem)
 			})
+
 		})
+
+		// Webhook routes (workspace ID from URL param {workspaceID})
+		registerWebhookRoutes(r, h, queries)
 	})
 
 	return r

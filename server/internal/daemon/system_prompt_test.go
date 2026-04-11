@@ -422,6 +422,196 @@ func TestCoordinatorForkGuidance(t *testing.T) {
 	})
 }
 
+func TestSharedRegistry(t *testing.T) {
+	t.Run("singleton returns same instance", func(t *testing.T) {
+		r1 := SharedRegistry()
+		r2 := SharedRegistry()
+		if r1 != r2 {
+			t.Error("SharedRegistry should return the same instance on multiple calls")
+		}
+	})
+
+	t.Run("singleton is non-nil", func(t *testing.T) {
+		r := SharedRegistry()
+		if r == nil {
+			t.Error("SharedRegistry should never return nil")
+		}
+	})
+}
+
+func TestExportSections(t *testing.T) {
+	r := NewPromptRegistry()
+	r.Register(PromptSection{
+		Name:  "alpha",
+		Phase: PhaseStatic,
+		Order: 10,
+		Compute: func() string {
+			return "Alpha content"
+		},
+	})
+	r.Register(PromptSection{
+		Name:  "beta",
+		Phase: PhaseDynamic,
+		Order: 20,
+		Compute: func() string {
+			return "Beta content"
+		},
+	})
+
+	exported := r.ExportSections()
+	if len(exported) != 2 {
+		t.Fatalf("expected 2 exported sections, got %d", len(exported))
+	}
+
+	// First section
+	if exported[0].Name != "alpha" {
+		t.Errorf("expected name 'alpha', got %q", exported[0].Name)
+	}
+	if exported[0].Phase != "static" {
+		t.Errorf("expected phase 'static', got %q", exported[0].Phase)
+	}
+	if exported[0].Order != 10 {
+		t.Errorf("expected order 10, got %d", exported[0].Order)
+	}
+	if exported[0].Content != "Alpha content" {
+		t.Errorf("expected content 'Alpha content', got %q", exported[0].Content)
+	}
+
+	// Second section
+	if exported[1].Name != "beta" {
+		t.Errorf("expected name 'beta', got %q", exported[1].Name)
+	}
+	if exported[1].Phase != "dynamic" {
+		t.Errorf("expected phase 'dynamic', got %q", exported[1].Phase)
+	}
+	if exported[1].Content != "Beta content" {
+		t.Errorf("expected content 'Beta content', got %q", exported[1].Content)
+	}
+}
+
+func TestExportSections_Empty(t *testing.T) {
+	r := NewPromptRegistry()
+	exported := r.ExportSections()
+	if len(exported) != 0 {
+		t.Errorf("expected 0 sections from empty registry, got %d", len(exported))
+	}
+}
+
+func TestExportSections_NilCompute(t *testing.T) {
+	r := NewPromptRegistry()
+	r.Register(PromptSection{
+		Name:    "nil-section",
+		Phase:   PhaseStatic,
+		Order:   10,
+		Compute: nil,
+	})
+
+	exported := r.ExportSections()
+	if len(exported) != 1 {
+		t.Fatalf("expected 1 exported section, got %d", len(exported))
+	}
+	if exported[0].Content != "" {
+		t.Errorf("nil compute should produce empty content, got %q", exported[0].Content)
+	}
+}
+
+func TestAssembleWithRegistry(t *testing.T) {
+	t.Run("uses external registry sections", func(t *testing.T) {
+		r := NewPromptRegistry()
+		r.Register(PromptSection{
+			Name:  "custom-section",
+			Phase: PhaseStatic,
+			Order: 10,
+			Compute: func() string {
+				return "Custom external section"
+			},
+		})
+
+		prompt := AssembleWithRegistry(r, SystemPromptConfig{
+			AgentName: "test-agent",
+		})
+		if !strings.Contains(prompt, "Custom external section") {
+			t.Error("prompt should contain custom external section")
+		}
+	})
+
+	t.Run("override replaces prompt", func(t *testing.T) {
+		r := NewPromptRegistry()
+		r.Register(PromptSection{
+			Name:  "section",
+			Phase: PhaseStatic,
+			Order: 10,
+			Compute: func() string {
+				return "SHOULD NOT APPEAR"
+			},
+		})
+
+		prompt := AssembleWithRegistry(r, SystemPromptConfig{
+			OverridePrompt: "OVERRIDE",
+		})
+		if prompt != "OVERRIDE" {
+			t.Errorf("override should replace entire prompt, got %q", prompt)
+		}
+	})
+
+	t.Run("append adds to end", func(t *testing.T) {
+		r := NewPromptRegistry()
+		r.Register(PromptSection{
+			Name:  "section",
+			Phase: PhaseStatic,
+			Order: 10,
+			Compute: func() string {
+				return "Base content"
+			},
+		})
+
+		prompt := AssembleWithRegistry(r, SystemPromptConfig{
+			AppendPrompt: "APPENDED",
+		})
+		if !strings.Contains(prompt, "APPENDED") {
+			t.Error("append should be present")
+		}
+		idxBase := strings.Index(prompt, "Base content")
+		idxAppend := strings.Index(prompt, "APPENDED")
+		if idxAppend < idxBase {
+			t.Error("append should come after base content")
+		}
+	})
+
+	t.Run("empty registry returns minimal prompt", func(t *testing.T) {
+		r := NewPromptRegistry()
+		prompt := AssembleWithRegistry(r, SystemPromptConfig{})
+		// Empty registry resolves to empty string, append is empty too.
+		if prompt != "" {
+			t.Errorf("empty registry with no append should return empty string, got %q", prompt)
+		}
+	})
+}
+
+func TestRegisterDefaultSectionsForPreview(t *testing.T) {
+	r := NewPromptRegistry()
+	RegisterDefaultSectionsForPreview(r, SystemPromptConfig{
+		AgentName: "preview-agent",
+	})
+
+	exported := r.ExportSections()
+	if len(exported) == 0 {
+		t.Fatal("RegisterDefaultSectionsForPreview should populate the registry")
+	}
+
+	// Check for known default section names.
+	names := make(map[string]bool)
+	for _, s := range exported {
+		names[s.Name] = true
+	}
+
+	for _, expected := range []string{"identity", "core-rules", "execution-protocol", "tool-guidance"} {
+		if !names[expected] {
+			t.Errorf("expected default section %q to be registered", expected)
+		}
+	}
+}
+
 func TestDefaultToolPermissions(t *testing.T) {
 	t.Run("executor gets nil", func(t *testing.T) {
 		perms := DefaultToolPermissions("executor")

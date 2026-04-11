@@ -123,3 +123,55 @@ func TestMemoryTicketStore_Cleanup(t *testing.T) {
 		t.Error("valid ticket should survive cleanup")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// InitTicketStore / StopTicketStore lifecycle
+// ---------------------------------------------------------------------------
+
+func TestInitAndStopTicketStore(t *testing.T) {
+	InitTicketStore()
+	defer StopTicketStore()
+
+	store := TicketStoreFor()
+	if store == nil {
+		t.Fatal("TicketStoreFor() returned nil after InitTicketStore")
+	}
+
+	// Verify it works end-to-end
+	ticket := store.Generate("ws-1", "user-1")
+	wsID, uid, ok := store.Validate(ticket, "ws-1")
+	if !ok {
+		t.Fatal("Validate failed for ticket from global store")
+	}
+	if wsID != "ws-1" || uid != "user-1" {
+		t.Errorf("got ws=%q user=%q, want ws=ws-1 user=user-1", wsID, uid)
+	}
+}
+
+func TestStopTicketStore_BeforeInit(t *testing.T) {
+	// Calling StopTicketStore when no store is initialized should not panic.
+	// Save and restore global state.
+	saved := globalTicketStore
+	globalTicketStore = nil
+	defer func() { globalTicketStore = saved }()
+
+	StopTicketStore() // should not panic
+}
+
+func TestCleanupLoop_StopsOnChannelClose(t *testing.T) {
+	store := &MemoryTicketStore{stopCh: make(chan struct{})}
+
+	done := make(chan struct{})
+	go func() {
+		store.cleanupLoop()
+		close(done)
+	}()
+
+	close(store.stopCh)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cleanupLoop did not exit after stopCh closed")
+	}
+}

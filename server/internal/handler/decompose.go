@@ -183,6 +183,7 @@ func (h *Handler) Decompose(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			slog.Error("decompose: execute failed", "error", err, "run_id", run.ID.String())
+			h.RunOrchestrator.FailRun(ctx, run.ID.String(), err.Error())
 			return
 		}
 
@@ -351,8 +352,9 @@ func (h *Handler) ConfirmDecompose(w http.ResponseWriter, r *http.Request) {
 				Type:             "blocked_by",
 			})
 			if err != nil {
-				slog.Warn("create dependency failed", "error", err, "subtask", i, "dep", depIdx)
-				// Non-fatal: continue creating remaining dependencies.
+				slog.Error("create dependency failed", "error", err, "subtask", i, "dep", depIdx)
+				writeError(w, http.StatusInternalServerError, "failed to create subtask dependency")
+				return
 			}
 		}
 	}

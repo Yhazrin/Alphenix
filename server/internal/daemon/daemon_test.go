@@ -195,3 +195,209 @@ func TestBuildPromptWithEmptySharedContext(t *testing.T) {
 		t.Fatal("prompt should not have collaboration context when SharedContext is empty")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Pure helper tests
+// ---------------------------------------------------------------------------
+
+func TestShortID(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+		want string
+	}{
+		{"shorter than 8", "abc", "abc"},
+		{"exactly 8", "12345678", "12345678"},
+		{"longer than 8", "1234567890abcdef", "12345678"},
+		{"empty", "", ""},
+		{"single char", "x", "x"},
+		{"uuid format", "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "a1b2c3d4"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shortID(tt.id)
+			if got != tt.want {
+				t.Errorf("shortID(%q) = %q, want %q", tt.id, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTruncateLog(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		maxLen int
+		want   string
+	}{
+		{
+			name:   "under limit",
+			input:  "short string",
+			maxLen: 50,
+			want:   "short string",
+		},
+		{
+			name:   "at limit",
+			input:  "exact",
+			maxLen: 5,
+			want:   "exact",
+		},
+		{
+			name:   "over limit",
+			input:  "this is a very long string that exceeds the limit",
+			maxLen: 10,
+			want:   "this is a …",
+		},
+		{
+			name:   "newlines collapsed",
+			input:  "line1\nline2\nline3",
+			maxLen: 50,
+			want:   "line1 line2 line3",
+		},
+		{
+			name:   "newlines and whitespace trimmed",
+			input:  "  line1\nline2  \n",
+			maxLen: 50,
+			want:   "line1 line2",
+		},
+		{
+			name:   "empty string",
+			input:  "",
+			maxLen: 10,
+			want:   "",
+		},
+		{
+			name:   "newlines then truncated",
+			input:  "first\nsecond\nthird fourth fifth",
+			maxLen: 10,
+			want:   "first seco…",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := truncateLog(tt.input, tt.maxLen)
+			if got != tt.want {
+				t.Errorf("truncateLog(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConvertReposForEnv(t *testing.T) {
+	t.Run("nil returns nil", func(t *testing.T) {
+		got := convertReposForEnv(nil)
+		if got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+
+	t.Run("empty returns nil", func(t *testing.T) {
+		got := convertReposForEnv([]RepoData{})
+		if got != nil {
+			t.Errorf("expected nil for empty slice, got %v", got)
+		}
+	})
+
+	t.Run("populated converts fields", func(t *testing.T) {
+		repos := []RepoData{
+			{URL: "https://github.com/example/repo1", Description: "Main repo"},
+			{URL: "https://github.com/example/repo2", Description: "Lib repo"},
+		}
+		got := convertReposForEnv(repos)
+		if len(got) != 2 {
+			t.Fatalf("expected 2, got %d", len(got))
+		}
+		if got[0].URL != "https://github.com/example/repo1" {
+			t.Errorf("URL = %q, want %q", got[0].URL, "https://github.com/example/repo1")
+		}
+		if got[0].Description != "Main repo" {
+			t.Errorf("Description = %q, want %q", got[0].Description, "Main repo")
+		}
+		if got[1].URL != "https://github.com/example/repo2" {
+			t.Errorf("URL = %q, want %q", got[1].URL, "https://github.com/example/repo2")
+		}
+	})
+}
+
+func TestConvertSkillsForEnv(t *testing.T) {
+	t.Run("nil returns nil", func(t *testing.T) {
+		got := convertSkillsForEnv(nil)
+		if got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+
+	t.Run("empty returns nil", func(t *testing.T) {
+		got := convertSkillsForEnv([]SkillData{})
+		if got != nil {
+			t.Errorf("expected nil for empty slice, got %v", got)
+		}
+	})
+
+	t.Run("populated converts fields", func(t *testing.T) {
+		skills := []SkillData{
+			{
+				Name:    "lint",
+				Content: "Run linters",
+				Files: []SkillFileData{
+					{Path: "lint.sh", Content: "#!/bin/bash\nlint"},
+					{Path: "config.yml", Content: "rules: strict"},
+				},
+			},
+			{
+				Name:    "test",
+				Content: "Run tests",
+			},
+		}
+		got := convertSkillsForEnv(skills)
+		if len(got) != 2 {
+			t.Fatalf("expected 2 skills, got %d", len(got))
+		}
+		if got[0].Name != "lint" {
+			t.Errorf("Name = %q, want %q", got[0].Name, "lint")
+		}
+		if got[0].Content != "Run linters" {
+			t.Errorf("Content = %q, want %q", got[0].Content, "Run linters")
+		}
+		if len(got[0].Files) != 2 {
+			t.Fatalf("expected 2 files, got %d", len(got[0].Files))
+		}
+		if got[0].Files[0].Path != "lint.sh" {
+			t.Errorf("File Path = %q, want %q", got[0].Files[0].Path, "lint.sh")
+		}
+		if got[0].Files[1].Content != "rules: strict" {
+			t.Errorf("File Content = %q, want %q", got[0].Files[1].Content, "rules: strict")
+		}
+		if got[1].Name != "test" {
+			t.Errorf("Name = %q, want %q", got[1].Name, "test")
+		}
+		if len(got[1].Files) != 0 {
+			t.Errorf("expected 0 files for skill without files, got %d", len(got[1].Files))
+		}
+	})
+}
+
+func TestRepoDataToInfo(t *testing.T) {
+	t.Run("nil returns empty", func(t *testing.T) {
+		got := repoDataToInfo(nil)
+		if len(got) != 0 {
+			t.Errorf("expected empty slice, got %d", len(got))
+		}
+	})
+
+	t.Run("converts fields", func(t *testing.T) {
+		repos := []RepoData{
+			{URL: "https://github.com/example/repo", Description: "My repo"},
+		}
+		got := repoDataToInfo(repos)
+		if len(got) != 1 {
+			t.Fatalf("expected 1, got %d", len(got))
+		}
+		if got[0].URL != "https://github.com/example/repo" {
+			t.Errorf("URL = %q, want %q", got[0].URL, "https://github.com/example/repo")
+		}
+		if got[0].Description != "My repo" {
+			t.Errorf("Description = %q, want %q", got[0].Description, "My repo")
+		}
+	})
+}

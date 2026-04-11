@@ -63,9 +63,9 @@ func (q *Queries) CountRunSteps(ctx context.Context, runID pgtype.UUID) (int64, 
 
 const createRunStep = `-- name: CreateRunStep :one
 INSERT INTO run_steps (
-    run_id, seq, tool_name, tool_input, tool_output, is_error, started_at
+    run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, step_type, call_id
 ) VALUES (
-    $1, $2, $3, $6, $7, $4, $5
+    $1, $2, $3, $7, $8, $4, $5, $6, $9
 )
 RETURNING id, run_id, seq, tool_name, tool_input, tool_output, is_error, started_at, completed_at, step_type, call_id, error_category, error_subcategory, error_severity, exclusion_reason
 `
@@ -76,8 +76,10 @@ type CreateRunStepParams struct {
 	ToolName   string             `json:"tool_name"`
 	IsError    bool               `json:"is_error"`
 	StartedAt  pgtype.Timestamptz `json:"started_at"`
+	StepType   string             `json:"step_type"`
 	ToolInput  []byte             `json:"tool_input"`
 	ToolOutput pgtype.Text        `json:"tool_output"`
+	CallID     pgtype.Text        `json:"call_id"`
 }
 
 func (q *Queries) CreateRunStep(ctx context.Context, arg CreateRunStepParams) (RunStep, error) {
@@ -87,8 +89,10 @@ func (q *Queries) CreateRunStep(ctx context.Context, arg CreateRunStepParams) (R
 		arg.ToolName,
 		arg.IsError,
 		arg.StartedAt,
+		arg.StepType,
 		arg.ToolInput,
 		arg.ToolOutput,
+		arg.CallID,
 	)
 	var i RunStep
 	err := row.Scan(

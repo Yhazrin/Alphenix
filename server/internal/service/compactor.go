@@ -171,10 +171,12 @@ func (c *Compactor) snipCompact(messages []Message, originalLen int) (*Compactio
 	recentMsgs = messages[start:]
 
 	// Build summary of removed section
-	removed := messages[len(systemMsgs):start]
 	summary := ""
-	if len(removed) > 0 {
-		summary = fmt.Sprintf("[Compacted: %d messages removed]", len(removed))
+	if start > len(systemMsgs) {
+		removed := messages[len(systemMsgs):start]
+		if len(removed) > 0 {
+			summary = fmt.Sprintf("[Compacted: %d messages removed]", len(removed))
+		}
 	}
 
 	result := make([]Message, 0, len(systemMsgs)+len(recentMsgs))
@@ -182,7 +184,12 @@ func (c *Compactor) snipCompact(messages []Message, originalLen int) (*Compactio
 	if summary != "" {
 		result = append(result, Message{Role: "system", Content: summary})
 	}
-	result = append(result, recentMsgs...)
+	// Only append recent messages that aren't already included as system messages.
+	for _, m := range recentMsgs {
+		if m.Role != "system" {
+			result = append(result, m)
+		}
+	}
 
 	return &CompactionResult{
 		Messages:     result,

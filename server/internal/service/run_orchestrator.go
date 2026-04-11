@@ -261,6 +261,11 @@ func (o *RunOrchestrator) RecordStep(ctx context.Context, runID string, stepType
 		outputVal = util.StrToText(toolOutput)
 	}
 
+	var callIDVal pgtype.Text
+	if callID != "" {
+		callIDVal = util.StrToText(callID)
+	}
+
 	step, err := o.Queries.CreateRunStep(ctx, db.CreateRunStepParams{
 		RunID:      util.ParseUUID(runID),
 		Seq:        seq,
@@ -269,6 +274,8 @@ func (o *RunOrchestrator) RecordStep(ctx context.Context, runID string, stepType
 		ToolOutput: outputVal,
 		IsError:    isError,
 		StartedAt:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		StepType:   stepType,
+		CallID:     callIDVal,
 	})
 	if err != nil {
 		return db.RunStep{}, fmt.Errorf("create run step: %w", err)

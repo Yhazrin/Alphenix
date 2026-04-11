@@ -15,3 +15,5 @@ ALTER TABLE outbox_messages DROP COLUMN IF EXISTS dead_lettered_at;
 ALTER TABLE outbox_messages DROP COLUMN IF EXISTS dead_letter_reason;
 
 DROP INDEX IF EXISTS idx_outbox_next_attempt;
+
+-- Team columns deferred to team migration

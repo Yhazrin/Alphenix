@@ -1,6 +1,7 @@
 package redact
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -99,7 +100,7 @@ func TestRedactHomeDirectory(t *testing.T) {
 	if homeDir == "" || username == "" {
 		t.Skip("cannot determine home dir or username")
 	}
-	input := "Reading file at " + homeDir + "/Documents/secret.txt"
+	input := "Reading file at " + filepath.Join(homeDir, "Documents", "secret.txt")
 	got := Text(input)
 	if strings.Contains(got, username) {
 		t.Fatalf("home directory username not redacted: %s", got)

@@ -326,3 +326,189 @@ func TestToolDef_NamespacedName(t *testing.T) {
 		})
 	}
 }
+
+// --- PermissionLevel.String ---
+
+func TestPermissionLevel_String(t *testing.T) {
+	tests := []struct {
+		level PermissionLevel
+		want  string
+	}{
+		{PermissionRead, "read"},
+		{PermissionWrite, "write"},
+		{PermissionDangerous, "dangerous"},
+		{PermissionNetwork, "network"},
+		{PermissionLevel(99), "unknown"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.level.String(); got != tt.want {
+			t.Errorf("PermissionLevel(%d).String() = %q, want %q", tt.level, got, tt.want)
+		}
+	}
+}
+
+// --- SortedTools ---
+
+func TestSortedTools_ReturnsSortedByName(t *testing.T) {
+	r := NewRegistry()
+	r.Register(ToolDef{Name: "zebra"})
+	r.Register(ToolDef{Name: "alpha"})
+	r.Register(ToolDef{Name: "middle"})
+
+	sorted := r.SortedTools()
+	if len(sorted) != 3 {
+		t.Fatalf("expected 3 tools, got %d", len(sorted))
+	}
+	if sorted[0].Name != "alpha" || sorted[1].Name != "middle" || sorted[2].Name != "zebra" {
+		t.Errorf("tools not sorted: %v", []string{sorted[0].Name, sorted[1].Name, sorted[2].Name})
+	}
+}
+
+func TestSortedTools_EmptyRegistry(t *testing.T) {
+	r := NewRegistry()
+	sorted := r.SortedTools()
+	if len(sorted) != 0 {
+		t.Errorf("empty registry should return empty slice, got %d", len(sorted))
+	}
+}
+
+func TestSortedTools_StableOrder(t *testing.T) {
+	r := NewRegistry()
+	r.Register(ToolDef{Name: "read", Source: SourceMCP, SourceConfig: map[string]any{"server_name": "srv1"}})
+	r.Register(ToolDef{Name: "write", Source: SourceBuiltin})
+	r.Register(ToolDef{Name: "exec", Source: SourceMCP, SourceConfig: map[string]any{"server_name": "aaa"}})
+
+	sorted := r.SortedTools()
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i-1].NamespacedName() > sorted[i].NamespacedName() {
+			t.Errorf("tools not sorted at index %d: %q > %q",
+				i, sorted[i-1].NamespacedName(), sorted[i].NamespacedName())
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// MCPSourceConfig / SkillSourceConfig
+// ---------------------------------------------------------------------------
+
+func TestMCPSourceConfig_ReturnsCorrectMap(t *testing.T) {
+	cfg := MCPSourceConfig("postgres", "query", "uuid-1")
+	if cfg["server_name"] != "postgres" {
+		t.Errorf("server_name = %q, want %q", cfg["server_name"], "postgres")
+	}
+	if cfg["original_tool_name"] != "query" {
+		t.Errorf("original_tool_name = %q, want %q", cfg["original_tool_name"], "query")
+	}
+	if cfg["server_id"] != "uuid-1" {
+		t.Errorf("server_id = %q, want %q", cfg["server_id"], "uuid-1")
+	}
+}
+
+func TestSkillSourceConfig_ReturnsCorrectMap(t *testing.T) {
+	cfg := SkillSourceConfig("golang", "lint")
+	if cfg["skill_name"] != "golang" {
+		t.Errorf("skill_name = %q, want %q", cfg["skill_name"], "golang")
+	}
+	if cfg["skill_id"] != "lint" {
+		t.Errorf("skill_id = %q, want %q", cfg["skill_id"], "lint")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Registry.List
+// ---------------------------------------------------------------------------
+
+func TestRegistry_List_ReturnsAllTools(t *testing.T) {
+	r := NewRegistry()
+	r.Register(ToolDef{Name: "a"})
+	r.Register(ToolDef{Name: "b"})
+	r.Register(ToolDef{Name: "c"})
+
+	list := r.List()
+	if len(list) != 3 {
+		t.Fatalf("List() returned %d tools, want 3", len(list))
+	}
+}
+
+func TestRegistry_List_EmptyRegistry(t *testing.T) {
+	r := NewRegistry()
+	list := r.List()
+	if len(list) != 0 {
+		t.Errorf("empty registry List() returned %d, want 0", len(list))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Register overwrite
+// ---------------------------------------------------------------------------
+
+func TestRegistry_RegisterOverwrite(t *testing.T) {
+	r := NewRegistry()
+	_ = r.Register(ToolDef{Name: "tool1", Description: "v1"})
+	_ = r.Register(ToolDef{Name: "tool1", Description: "v2"})
+
+	def, ok := r.Get("tool1")
+	if !ok {
+		t.Fatal("Get(\"tool1\") returned false")
+	}
+	if def.Description != "v2" {
+		t.Errorf("Description = %q, want %q", def.Description, "v2")
+	}
+	if r.Count() != 1 {
+		t.Errorf("Count() = %d, want 1 after overwrite", r.Count())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Get missing
+// ---------------------------------------------------------------------------
+
+func TestRegistry_GetMissing(t *testing.T) {
+	r := NewRegistry()
+	_, ok := r.Get("nonexistent")
+	if ok {
+		t.Error("Get(\"nonexistent\") should return false")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UnregisterBySource triggers OnChange
+// ---------------------------------------------------------------------------
+
+func TestRegistry_UnregisterBySource_TriggersOnChange(t *testing.T) {
+	r := NewRegistry()
+	_ = r.RegisterDynamic(ToolDef{Name: "q1", Source: SourceMCP, SourceConfig: map[string]any{"server_name": "srv1"}})
+	_ = r.RegisterDynamic(ToolDef{Name: "q2", Source: SourceMCP, SourceConfig: map[string]any{"server_name": "srv2"}})
+
+	var events []ChangeEvent
+	r.OnChange = func(e ChangeEvent) {
+		events = append(events, e)
+	}
+
+	n := r.UnregisterBySource(SourceMCP)
+	if n != 2 {
+		t.Fatalf("UnregisterBySource removed %d, want 2", n)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 OnChange event, got %d", len(events))
+	}
+	if events[0].Action != "unregister" {
+		t.Errorf("expected action 'unregister', got %q", events[0].Action)
+	}
+	if len(events[0].Names) != 2 {
+		t.Errorf("expected 2 names in event, got %d", len(events[0].Names))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListBySource no match
+// ---------------------------------------------------------------------------
+
+func TestRegistry_ListBySource_NoMatch(t *testing.T) {
+	r := DefaultRegistry()
+	tools := r.ListBySource("nonexistent_source")
+	if len(tools) != 0 {
+		t.Errorf("expected 0 tools for nonexistent source, got %d", len(tools))
+	}
+}
