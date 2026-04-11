@@ -143,12 +143,12 @@ func broadcastFailedTasks(ctx context.Context, queries *db.Queries, bus *events.
 		issueIDs = append(issueIDs, id)
 	}
 	issueWorkspaceMap := make(map[string]string)
-	if len(issueIDs) > 0 {
-		if issues, err := queries.GetIssuesByIDs(ctx, issueIDs); err == nil {
-			for _, iss := range issues {
-				issueWorkspaceMap[util.UUIDToString(iss.ID)] = util.UUIDToString(iss.WorkspaceID)
-			}
+	for _, id := range issueIDs {
+		iss, err := queries.GetIssue(ctx, id)
+		if err != nil {
+			continue
 		}
+		issueWorkspaceMap[util.UUIDToString(iss.ID)] = util.UUIDToString(iss.WorkspaceID)
 	}
 
 	affectedAgents := make(map[string]pgtype.UUID)

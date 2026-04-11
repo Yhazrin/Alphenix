@@ -19,7 +19,11 @@ export interface IssueFilters {
  * - When both → show matching assignees + unassigned
  */
 export function filterIssues(issues: Issue[], filters: IssueFilters): Issue[] {
-  const { statusFilters, priorityFilters, assigneeFilters, includeNoAssignee, creatorFilters } = filters;
+  const statusFilters = filters.statusFilters ?? [];
+  const priorityFilters = filters.priorityFilters ?? [];
+  const assigneeFilters = filters.assigneeFilters ?? [];
+  const includeNoAssignee = filters.includeNoAssignee ?? false;
+  const creatorFilters = filters.creatorFilters ?? [];
   const hasAssigneeFilter = assigneeFilters.length > 0 || includeNoAssignee;
 
   return issues.filter((issue) => {

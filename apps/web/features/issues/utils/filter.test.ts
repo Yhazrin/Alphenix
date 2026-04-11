@@ -14,6 +14,7 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
   return {
     id: "i-1",
     workspace_id: "ws-1",
+    channel_id: "ch-1",
     number: 1,
     identifier: "MUL-1",
     title: "Test",

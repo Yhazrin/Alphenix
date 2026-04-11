@@ -55,7 +55,8 @@ export function AgentLiveCard({ issueId, agentName, scrollContainerRef }: AgentL
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]) setIsStuck(!entries[0].isIntersecting);
+        const first = entries[0];
+        if (first) setIsStuck(!first.isIntersecting);
       },
       { root, threshold: 0, rootMargin: "-40px 0px 0px 0px" },
     );

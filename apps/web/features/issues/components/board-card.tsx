@@ -16,8 +16,10 @@ import { PriorityPicker, AssigneePicker, DueDatePicker } from "./pickers";
 import { PRIORITY_CONFIG } from "@/features/issues/config";
 import { AgentStatusDot, getAgentIssueStatus } from "./agent-status-dot";
 import { useViewStore } from "@/features/issues/stores/view-store-context";
+import { ChannelBadge } from "@/features/channels";
+import { cn } from "@/lib/utils";
 
-const PRIORITY_BORDER: Record<string, string> = {
+export const PRIORITY_BORDER: Record<string, string> = {
   urgent: "border-destructive/30",
   high: "border-warning/30",
   medium: "border-warning/20",
@@ -69,121 +71,133 @@ export const BoardCardContent = memo(function BoardCardContent({
   const showDescription = storeProperties.description && issue.description;
   const showAssignee = storeProperties.assignee && issue.assignee_type && issue.assignee_id;
   const showDueDate = storeProperties.dueDate && issue.due_date;
+  const hasFooterRow = showAssignee || showPriority || showDueDate;
+  const showFooterStrip = hasFooterRow || editable;
 
   const borderClass = PRIORITY_BORDER[issue.priority] ?? "border-border/20";
   const agentStatus = issue.assignee_type === "agent" ? getAgentIssueStatus(issue) : "idle";
   const isAgentActive = agentStatus === "working" || agentStatus === "queued";
 
   return (
-    <div className={`rounded-xl border bg-card p-3.5 shadow-apple transition-all group-hover:shadow-apple-hover group-hover:-translate-y-0.5 ${borderClass} ${isAgentActive ? "board-agent-active-card" : ""}`}>
+    <div
+      className={`flex min-h-[10rem] flex-col rounded-xl border bg-card p-3.5 shadow-apple transition-all group-hover:shadow-apple-hover group-hover:-translate-y-0.5 ${borderClass} ${isAgentActive ? "board-agent-active-card" : ""}`}
+    >
       {/* Row 1: Identifier + agent activity indicator */}
-      <div className="flex items-center gap-1.5">
-        <p className="text-xs text-muted-foreground">{issue.identifier}</p>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <p className="shrink-0 text-xs text-muted-foreground">{issue.identifier}</p>
+        <ChannelBadge channelId={issue.channel_id} className="min-w-0 max-w-[min(100%,7.5rem)] shrink font-sans" />
         {issue.assignee_type === "agent" && (
           <AgentStatusDot status={getAgentIssueStatus(issue)} />
         )}
       </div>
 
-      {/* Row 2: Title */}
-      <p className="mt-1 text-sm font-medium leading-snug line-clamp-2">
-        {issue.title}
-      </p>
+      {/* Row 2: Title — two-line slot */}
+      <div className="mt-1 min-h-[2.75rem]">
+        <p className="text-sm font-medium leading-snug line-clamp-2">{issue.title}</p>
+      </div>
 
-      {/* Description */}
-      {showDescription && (
-        <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
-          {issue.description}
-        </p>
-      )}
+      {/* Description — one-line slot */}
+      <div className="mt-1 min-h-[1.125rem]">
+        {showDescription ? (
+          <p className="text-xs text-muted-foreground line-clamp-1">{issue.description}</p>
+        ) : null}
+      </div>
 
       {/* Row 3: Assignee, priority badge, due date */}
-      {(showAssignee || showPriority || showDueDate) && (
-        <div className="mt-3 flex items-center gap-2">
-          {editable ? (
-            <PickerWrapper>
-              <AssigneePicker
-                assigneeType={issue.assignee_type}
-                assigneeId={issue.assignee_id}
-                onUpdate={handleUpdate}
-                trigger={
-                  issue.assignee_type && issue.assignee_id ? (
-                    <ActorAvatar
-                      actorType={issue.assignee_type}
-                      actorId={issue.assignee_id}
-                      size={22}
-                    />
-                  ) : (
-                    <span className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      Assign to...
-                    </span>
-                  )
-                }
-              />
-            </PickerWrapper>
-          ) : showAssignee ? (
-            <ActorAvatar
-              actorType={issue.assignee_type!}
-              actorId={issue.assignee_id!}
-              size={22}
-            />
-          ) : null}
-          {showPriority &&
-            (editable ? (
+      <div
+        className={cn(
+          "mt-auto flex min-h-[44px] flex-wrap items-center gap-2 pt-3",
+          showFooterStrip && "border-t border-border/30",
+        )}
+      >
+        {showFooterStrip ? (
+          <>
+            {editable ? (
               <PickerWrapper>
-                <PriorityPicker
-                  priority={issue.priority}
+                <AssigneePicker
+                  assigneeType={issue.assignee_type}
+                  assigneeId={issue.assignee_id}
                   onUpdate={handleUpdate}
                   trigger={
-                    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium ${priorityCfg.badgeBg} ${priorityCfg.badgeText}`}>
-                      <PriorityIcon priority={issue.priority} className="h-3 w-3" inheritColor />
-                      {priorityCfg.label}
-                    </span>
+                    issue.assignee_type && issue.assignee_id ? (
+                      <ActorAvatar
+                        actorType={issue.assignee_type}
+                        actorId={issue.assignee_id}
+                        size={22}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        Assign to...
+                      </span>
+                    )
                   }
                 />
               </PickerWrapper>
-            ) : (
-              <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium ${priorityCfg.badgeBg} ${priorityCfg.badgeText}`}>
-                <PriorityIcon priority={issue.priority} className="h-3 w-3" inheritColor />
-                {priorityCfg.label}
-              </span>
-            ))}
-          {showDueDate && (
-            <div className="ml-auto">
-              {editable ? (
+            ) : showAssignee ? (
+              <ActorAvatar
+                actorType={issue.assignee_type!}
+                actorId={issue.assignee_id!}
+                size={22}
+              />
+            ) : null}
+            {showPriority &&
+              (editable ? (
                 <PickerWrapper>
-                  <DueDatePicker
-                    dueDate={issue.due_date}
+                  <PriorityPicker
+                    priority={issue.priority}
                     onUpdate={handleUpdate}
                     trigger={
-                      <span
-                        className={`flex items-center gap-1 text-xs ${
-                          isOverdue(issue.due_date!)
-                            ? "text-destructive"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        <CalendarDays className="size-3" aria-hidden="true" />
-                        {shortDate(issue.due_date!)}
+                      <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium ${priorityCfg.badgeBg} ${priorityCfg.badgeText}`}>
+                        <PriorityIcon priority={issue.priority} className="h-3 w-3" inheritColor />
+                        {priorityCfg.label}
                       </span>
                     }
                   />
                 </PickerWrapper>
               ) : (
-                <span
-                  className={`flex items-center gap-1 text-xs ${
-                    isOverdue(issue.due_date!)
-                      ? "text-destructive"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  <CalendarDays className="size-3" aria-hidden="true" />
-                  {shortDate(issue.due_date!)}
+                <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium ${priorityCfg.badgeBg} ${priorityCfg.badgeText}`}>
+                  <PriorityIcon priority={issue.priority} className="h-3 w-3" inheritColor />
+                  {priorityCfg.label}
                 </span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+              ))}
+            {showDueDate && (
+              <div className="ml-auto">
+                {editable ? (
+                  <PickerWrapper>
+                    <DueDatePicker
+                      dueDate={issue.due_date}
+                      onUpdate={handleUpdate}
+                      trigger={
+                        <span
+                          className={`flex items-center gap-1 text-xs ${
+                            isOverdue(issue.due_date!)
+                              ? "text-destructive"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          <CalendarDays className="size-3" aria-hidden="true" />
+                          {shortDate(issue.due_date!)}
+                        </span>
+                      }
+                    />
+                  </PickerWrapper>
+                ) : (
+                  <span
+                    className={`flex items-center gap-1 text-xs ${
+                      isOverdue(issue.due_date!)
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <CalendarDays className="size-3" aria-hidden="true" />
+                    {shortDate(issue.due_date!)}
+                  </span>
+                )}
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 });

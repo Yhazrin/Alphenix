@@ -207,6 +207,7 @@ func (h *Handler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create team: "+err.Error())
 		return
 	}
+	h.addParticipantToDefaultChannel(r.Context(), parseUUID(workspaceID), "team", team.ID)
 
 	// Add members
 	for _, agentIDStr := range req.MemberAgentIDs {

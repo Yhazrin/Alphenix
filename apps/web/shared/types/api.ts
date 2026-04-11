@@ -1,4 +1,5 @@
 import type { Issue, IssueStatus, IssuePriority, IssueAssigneeType } from "./issue";
+import type { Channel, ChannelParticipant } from "./channel";
 import type { MemberRole } from "./workspace";
 
 // Issue API
@@ -12,6 +13,7 @@ export interface CreateIssueRequest {
   parent_issue_id?: string;
   repo_id?: string;
   due_date?: string;
+  channel_id?: string;
 }
 
 export interface UpdateIssueRequest {
@@ -24,6 +26,7 @@ export interface UpdateIssueRequest {
   position?: number;
   repo_id?: string | null;
   due_date?: string | null;
+  channel_id?: string;
 }
 
 export interface ListIssuesParams {
@@ -35,6 +38,7 @@ export interface ListIssuesParams {
   priority?: IssuePriority;
   assignee_id?: string;
   open_only?: boolean;
+  channel_id?: string;
 }
 
 export interface ListIssuesResponse {
@@ -75,6 +79,26 @@ export interface CreatePersonalAccessTokenRequest {
 
 export interface CreatePersonalAccessTokenResponse extends PersonalAccessToken {
   token: string;
+}
+
+// Channels (workspace projects)
+export interface CreateChannelRequest {
+  name: string;
+  slug?: string;
+  description?: string;
+}
+
+export interface ListChannelsResponse {
+  channels: Channel[];
+}
+
+export interface ListChannelParticipantsResponse {
+  participants: ChannelParticipant[];
+}
+
+export interface AddChannelParticipantRequest {
+  participant_type: "member" | "agent" | "team";
+  participant_id: string;
 }
 
 // Pagination

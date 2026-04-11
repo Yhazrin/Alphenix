@@ -1,4 +1,5 @@
 import { createLogger } from "@/shared/logger";
+import { readStoredWorkspaceId } from "@/shared/constants/workspace-storage";
 import { ApiClient } from "./client";
 
 export { ApiClient } from "./client";
@@ -23,7 +24,7 @@ export const api = new ApiClient(API_BASE_URL, { logger: createLogger("api") });
 // Auth uses HttpOnly cookie — no token stored in localStorage.
 if (typeof window !== "undefined") {
   try {
-    const wsId = localStorage.getItem("alphenix_workspace_id");
+    const wsId = readStoredWorkspaceId();
     if (wsId) {
       api.setWorkspaceId(wsId);
     }

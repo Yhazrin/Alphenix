@@ -325,7 +325,9 @@ func (h *Handler) ConfirmDecompose(w http.ResponseWriter, r *http.Request) {
 			CreatorID:     parseUUID(userID),
 			ParentIssueID: issue.ID,
 			Position:      float64(i),
+			DueDate:       pgtype.Timestamptz{},
 			Number:        issueNumber,
+			ChannelID:     issue.ChannelID,
 		})
 		if err != nil {
 			slog.Warn("create sub-issue failed", "error", err)

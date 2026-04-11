@@ -121,7 +121,7 @@ func (q *Queries) GetIssueDependents(ctx context.Context, dependsOnIssueID pgtyp
 }
 
 const listReadySubIssues = `-- name: ListReadySubIssues :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.assignee_type, i.assignee_id, i.creator_type, i.creator_id, i.parent_issue_id, i.acceptance_criteria, i.context_refs, i.position, i.due_date, i.created_at, i.updated_at, i.number, i.issue_kind, i.repo_id FROM issue i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.assignee_type, i.assignee_id, i.creator_type, i.creator_id, i.parent_issue_id, i.acceptance_criteria, i.context_refs, i.position, i.due_date, i.created_at, i.updated_at, i.number, i.issue_kind, i.repo_id, i.channel_id FROM issue i
 WHERE i.parent_issue_id = $1
   AND i.status IN ('backlog', 'todo')
   AND NOT EXISTS (
@@ -165,6 +165,7 @@ func (q *Queries) ListReadySubIssues(ctx context.Context, parentIssueID pgtype.U
 			&i.Number,
 			&i.IssueKind,
 			&i.RepoID,
+			&i.ChannelID,
 		); err != nil {
 			return nil, err
 		}

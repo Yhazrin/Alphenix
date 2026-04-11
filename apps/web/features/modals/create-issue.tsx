@@ -133,6 +133,8 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
     setTitleError(null);
     setSubmitting(true);
     try {
+      const { useChannelStore } = await import("@/features/channels/store");
+      const filterCh = useChannelStore.getState().filterChannelId;
       const issue = await api.createIssue({
         title: title.trim(),
         description: descEditorRef.current?.getMarkdown()?.trim() || undefined,
@@ -141,6 +143,7 @@ export function CreateIssueModal({ onClose, data }: { onClose: () => void; data?
         assignee_type: assigneeType,
         assignee_id: assigneeId,
         due_date: dueDate || undefined,
+        ...(filterCh ? { channel_id: filterCh } : {}),
       });
       useIssueStore.getState().addIssue(issue);
       clearDraft();

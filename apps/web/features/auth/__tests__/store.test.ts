@@ -26,7 +26,7 @@ vi.mock("../auth-cookie", () => ({
   clearLoggedInCookie: vi.fn(),
 }));
 
-import { api, authApi } from "@/shared/api";
+import { api } from "@/shared/api";
 import { setLoggedInCookie, clearLoggedInCookie } from "../auth-cookie";
 
 describe("auth store", () => {
@@ -39,17 +39,19 @@ describe("auth store", () => {
   describe("initialize", () => {
     it("loads user from cookie-based session", async () => {
       const mockUser = { id: "u-1", email: "test@example.com", name: "Test" };
-      vi.mocked(authApi.getMe).mockResolvedValueOnce(mockUser as any);
+      localStorage.setItem("multica_token", "session-token");
+      vi.mocked(api.getMe).mockResolvedValueOnce(mockUser as any);
 
       await useAuthStore.getState().initialize();
 
-      expect(authApi.getMe).toHaveBeenCalled();
+      expect(api.getMe).toHaveBeenCalled();
       expect(useAuthStore.getState().user).toEqual(mockUser);
       expect(useAuthStore.getState().isLoading).toBe(false);
     });
 
     it("sets isLoading false on failed getMe", async () => {
-      vi.mocked(authApi.getMe).mockRejectedValueOnce(new Error("unauthorized"));
+      localStorage.setItem("multica_token", "session-token");
+      vi.mocked(api.getMe).mockRejectedValueOnce(new Error("unauthorized"));
 
       await useAuthStore.getState().initialize();
 
@@ -61,11 +63,11 @@ describe("auth store", () => {
   describe("verifyCode", () => {
     it("sets user after successful verification", async () => {
       const mockUser = { id: "u-1", email: "test@example.com", name: "Test" };
-      vi.mocked(authApi.verifyCode).mockResolvedValueOnce({ token: "new-token", user: mockUser } as any);
+      vi.mocked(api.verifyCode).mockResolvedValueOnce({ token: "new-token", user: mockUser } as any);
 
       const user = await useAuthStore.getState().verifyCode("test@example.com", "123456");
 
-      expect(authApi.verifyCode).toHaveBeenCalledWith("test@example.com", "123456");
+      expect(api.verifyCode).toHaveBeenCalledWith("test@example.com", "123456");
       expect(user).toEqual(mockUser);
       expect(useAuthStore.getState().user).toEqual(mockUser);
     });

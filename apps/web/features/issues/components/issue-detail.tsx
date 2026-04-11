@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronLeft,
-  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,11 +15,6 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { ContentEditor, type ContentEditorRef } from "@/features/editor";
 import { FileUploadButton } from "@/components/common/file-upload-button";
 import { TitleEditor } from "@/features/editor";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar";
-import { ActorAvatar } from "@/components/common/actor-avatar";
 import type { UpdateIssueRequest } from "@/shared/types";
 import { AgentLiveCard, TaskRunHistory } from "./agent-live-card";
 import { CollaborationPanel } from "./collaboration-panel";
@@ -65,7 +59,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
   const currentMemberRole = members.find((m) => m.user_id === user?.id)?.role;
 
   // Issue navigation
-  const allIssues = useIssueStore((s) => s.issues);
+  const allIssues = useIssueStore((s) => s.issues ?? []);
   const currentIndex = allIssues.findIndex((i) => i.id === id);
   const prevIssue = currentIndex > 0 ? allIssues[currentIndex - 1] : null;
   const nextIssue = currentIndex < allIssues.length - 1 ? allIssues[currentIndex + 1] : null;
@@ -167,6 +161,10 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
 
   const scrollToBottom = useCallback(() => {
     scrollContainerRef.current?.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: "smooth" });
+  }, []);
+
+  const scrollToAgentCollab = useCallback(() => {
+    document.getElementById("issue-agent-collab-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   // Issue field updates — write directly to the global store (single source of truth)
@@ -291,169 +289,75 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
 
         {/* Content — scrollable */}
         <div ref={scrollContainerRef} className="relative flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl px-8 py-8">
-          <TitleEditor
-            key={`title-${id}`}
-            defaultValue={issue.title}
-            placeholder="Issue title"
-            className="w-full text-balance text-2xl font-bold leading-snug tracking-tight"
-            onBlur={(value) => {
-              const trimmed = value.trim();
-              if (trimmed && trimmed !== issue.title) handleUpdateField({ title: trimmed });
-            }}
-          />
-
-          <ContentEditor
-            ref={descEditorRef}
-            key={id}
-            defaultValue={issue.description || ""}
-            placeholder="Add description..."
-            onUpdate={(md) => handleUpdateField({ description: md || undefined })}
-            onUploadFile={handleDescriptionUpload}
-            debounceMs={1500}
-            className="mt-5"
-          />
-
-          <div className="flex items-center gap-1 mt-3">
-            {reactionsLoading ? (
-              <div className="flex items-center gap-1">
-                <Skeleton className="h-7 w-14 rounded-full" />
-                <Skeleton className="h-7 w-14 rounded-full" />
-              </div>
-            ) : (
-              <ReactionBar
-                reactions={issueReactions}
-                currentUserId={user?.id}
-                onToggle={handleToggleIssueReaction}
-              />
-            )}
-            <FileUploadButton
-              size="sm"
-              onSelect={(file) => descEditorRef.current?.uploadFile(file)}
+        <div className="mx-auto w-full max-w-4xl space-y-8 px-6 py-6 sm:px-8 sm:py-8">
+          <section className="rounded-2xl border border-border/60 bg-card/50 p-6 shadow-sm sm:p-8">
+            <TitleEditor
+              key={`title-${id}`}
+              defaultValue={issue.title}
+              placeholder="Issue title"
+              className="w-full text-balance text-2xl font-bold leading-snug tracking-tight"
+              onBlur={(value) => {
+                const trimmed = value.trim();
+                if (trimmed && trimmed !== issue.title) handleUpdateField({ title: trimmed });
+              }}
             />
-          </div>
 
-          <div className="my-8 border-t" />
+            <ContentEditor
+              ref={descEditorRef}
+              key={id}
+              defaultValue={issue.description || ""}
+              placeholder="Add description..."
+              onUpdate={(md) => handleUpdateField({ description: md || undefined })}
+              onUploadFile={handleDescriptionUpload}
+              debounceMs={1500}
+              className="mt-5"
+            />
+
+            <div className="mt-3 flex items-center gap-1">
+              {reactionsLoading ? (
+                <div className="flex items-center gap-1">
+                  <Skeleton className="h-7 w-14 rounded-full" />
+                  <Skeleton className="h-7 w-14 rounded-full" />
+                </div>
+              ) : (
+                <ReactionBar
+                  reactions={issueReactions}
+                  currentUserId={user?.id}
+                  onToggle={handleToggleIssueReaction}
+                />
+              )}
+              <FileUploadButton
+                size="sm"
+                onSelect={(file) => descEditorRef.current?.uploadFile(file)}
+              />
+            </div>
+          </section>
 
           {/* Activity / Comments */}
           <div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="text-base font-semibold">Activity</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                {subscribersLoading ? (
-                  <div className="flex items-center gap-1">
-                    <Skeleton className="h-4 w-16" />
-                    <div className="flex -space-x-1">
-                      <Skeleton className="h-6 w-6 rounded-full" />
-                      <Skeleton className="h-6 w-6 rounded-full" />
-                    </div>
-                  </div>
-                ) : (<>
-                <button
-                  onClick={handleToggleSubscribe}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {isSubscribed ? "Unsubscribe" : "Subscribe"}
-                </button>
-                <Popover>
-                  <PopoverTrigger className="cursor-pointer hover:opacity-80 transition-opacity" aria-label="Manage subscribers">
-                    {subscribers.length > 0 ? (
-                      <AvatarGroup>
-                        {subscribers.slice(0, 4).map((sub) => (
-                          <ActorAvatar
-                            key={`${sub.user_type}-${sub.user_id}`}
-                            actorType={sub.user_type}
-                            actorId={sub.user_id}
-                            size={24}
-                          />
-                        ))}
-                        {subscribers.length > 4 && (
-                          <AvatarGroupCount>+{subscribers.length - 4}</AvatarGroupCount>
-                        )}
-                      </AvatarGroup>
-                    ) : (
-                      <span className="flex items-center justify-center h-6 w-6 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground">
-                        <Users className="h-3 w-3" aria-hidden="true" />
-                      </span>
-                    )}
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-64 p-0">
-                    <Command>
-                      <CommandInput placeholder="Change subscribers..." />
-                      <CommandList className="max-h-64">
-                        <CommandEmpty>No results found</CommandEmpty>
-                        {members.length > 0 && (
-                          <CommandGroup heading="Members">
-                            {members.filter((m, i, arr) => arr.findIndex((x) => x.user_id === m.user_id) === i).map((m) => {
-                              const sub = subscribers.find((s) => s.user_type === "member" && s.user_id === m.user_id);
-                              const isSubbed = !!sub;
-                              return (
-                                <CommandItem
-                                  key={`member-${m.user_id}`}
-                                  onSelect={() => toggleSubscriber(m.user_id, "member", isSubbed)}
-                                  className="flex items-center gap-2.5"
-                                >
-                                  <Checkbox checked={isSubbed} className="pointer-events-none" />
-                                  <ActorAvatar actorType="member" actorId={m.user_id} size={22} />
-                                  <span className="truncate flex-1">{m.name}</span>
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        )}
-                        {(() => {
-                          const activeAgents = agents.filter((a) => !a.archived_at);
-                          return activeAgents.length > 0 ? (
-                            <CommandGroup heading="Agents">
-                              {activeAgents.map((a) => {
-                              const sub = subscribers.find((s) => s.user_type === "agent" && s.user_id === a.id);
-                              const isSubbed = !!sub;
-                              return (
-                                <CommandItem
-                                  key={`agent-${a.id}`}
-                                  onSelect={() => toggleSubscriber(a.id, "agent", isSubbed)}
-                                  className="flex items-center gap-2.5"
-                                >
-                                  <Checkbox checked={isSubbed} className="pointer-events-none" />
-                                  <ActorAvatar actorType="agent" actorId={a.id} size={22} />
-                                  <span className="truncate flex-1">{a.name}</span>
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        ) : null;
-                        })()}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                </>)}
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold tracking-tight">Activity</h2>
             </div>
 
-            {/* Agent live output */}
-            <AgentLiveCard
-              issueId={id}
-              agentName={issue.assignee_type === "agent" && issue.assignee_id ? getActorName("agent", issue.assignee_id) : undefined}
-              scrollContainerRef={scrollContainerRef}
-            />
-
-            {/* Agent execution history */}
-            <div className="mt-3">
+            <section
+              id="issue-agent-collab-anchor"
+              className="mt-5 space-y-3 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5"
+              aria-label="Agent task and collaboration"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Live task & collaboration
+                </h3>
+              </div>
+              <AgentLiveCard
+                issueId={id}
+                agentName={issue.assignee_type === "agent" && issue.assignee_id ? getActorName("agent", issue.assignee_id) : undefined}
+                scrollContainerRef={scrollContainerRef}
+              />
               <TaskRunHistory issueId={id} />
-            </div>
-
-            {/* Agent run timeline */}
-            <div className="mt-3">
               <RunTimeline issueId={id} />
-            </div>
-
-            {/* Collaboration panel (messages, dependencies, checkpoints) */}
-            <div className="mt-3">
               <CollaborationPanel issueId={id} />
-            </div>
+            </section>
 
             {/* Timeline entries */}
             <IssueActivityTimeline
@@ -492,9 +396,9 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
       <ResizableHandle />
       <ResizablePanel
         id="sidebar"
-        defaultSize={defaultSidebarOpen ? 320 : 0}
-        minSize={260}
-        maxSize={420}
+        defaultSize={defaultSidebarOpen ? 340 : 0}
+        minSize={280}
+        maxSize={460}
         collapsible
         groupResizeBehavior="preserve-pixel-size"
         panelRef={sidebarRef}
@@ -504,6 +408,14 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
           issue={issue}
           getActorName={getActorName}
           onUpdateField={handleUpdateField}
+          subscribers={subscribers}
+          subscribersLoading={subscribersLoading}
+          isSubscribed={isSubscribed}
+          onToggleSubscribe={handleToggleSubscribe}
+          toggleSubscriber={toggleSubscriber}
+          members={members}
+          agents={agents}
+          onScrollToAgentSection={scrollToAgentCollab}
         />
       </ResizablePanel>
     </ResizablePanelGroup>

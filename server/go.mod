@@ -15,7 +15,6 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/lmittmann/tint v1.1.3
-	github.com/multica-ai/multica/server v0.0.0-20260408131954-2e5b8b9a8764
 	github.com/pgvector/pgvector-go v0.3.0
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/resend/resend-go/v2 v2.28.0

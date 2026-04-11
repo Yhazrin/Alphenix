@@ -17,6 +17,10 @@ type codexBackend struct {
 	cfg Config
 }
 
+func (b *codexBackend) Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error) {
+	return forkDelegatesToExecute(b.Execute, ctx, prompt, opts)
+}
+
 func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOptions) (*Session, error) {
 	execPath := b.cfg.ExecutablePath
 	if execPath == "" {

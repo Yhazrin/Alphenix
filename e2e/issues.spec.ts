@@ -14,35 +14,21 @@ test.describe("Issues", () => {
     await api.cleanup();
   });
 
-  test("issues page loads with board view", async ({ page }) => {
-    // Create a test issue so board columns render (empty board shows no columns)
-    await api.createIssue("E2E Board Fixture " + Date.now());
+  test("issues page loads with card grid", async ({ page }) => {
+    await api.createIssue("E2E Card Grid " + Date.now());
     await page.reload();
 
     await expect(page.locator("text=Issues").first()).toBeVisible();
-
-    // Board columns use div[role="region"] with aria-label containing column name
-    await expect(page.locator('[role="region"][aria-label*="Backlog column"]')).toBeVisible();
-    await expect(page.locator('[role="region"][aria-label*="Todo column"]')).toBeVisible();
-    await expect(page.locator('[role="region"][aria-label*="In Progress column"]')).toBeVisible();
+    await expect(page.getByTestId("issues-card-grid")).toBeVisible();
   });
 
-  test("can switch between board and list view", async ({ page }) => {
-    // Create a test issue so board columns render
-    await api.createIssue("E2E View Fixture " + Date.now());
+  test("issue titles appear as card tiles", async ({ page }) => {
+    const title = "E2E Tile " + Date.now();
+    await api.createIssue(title);
     await page.reload();
 
     await expect(page.locator("text=Issues").first()).toBeVisible();
-
-    // Switch to list view — open dropdown then click List option
-    await page.getByTestId("issues-view-toggle").click();
-    await page.locator('[role="menuitem"]', { hasText: "List" }).click();
-    await expect(page.locator("text=Issues").first()).toBeVisible();
-
-    // Switch back to board view
-    await page.getByTestId("issues-view-toggle").click();
-    await page.locator('[role="menuitem"]', { hasText: "Board" }).click();
-    await expect(page.locator('[role="region"][aria-label*="Backlog column"]')).toBeVisible();
+    await expect(page.getByText(title).first()).toBeVisible({ timeout: 10000 });
   });
 
   test("can create a new issue", async ({ page }) => {

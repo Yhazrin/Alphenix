@@ -12,14 +12,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/multica-ai/multica/server/internal/auth"
-	"github.com/multica-ai/multica/server/internal/events"
-	"github.com/multica-ai/multica/server/internal/handler"
-	"github.com/multica-ai/multica/server/internal/middleware"
-	"github.com/multica-ai/multica/server/internal/realtime"
-	"github.com/multica-ai/multica/server/internal/service"
-	"github.com/multica-ai/multica/server/internal/storage"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/internal/auth"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	"github.com/multica-ai/alphenix/server/internal/handler"
+	"github.com/multica-ai/alphenix/server/internal/middleware"
+	"github.com/multica-ai/alphenix/server/internal/realtime"
+	"github.com/multica-ai/alphenix/server/internal/service"
+	"github.com/multica-ai/alphenix/server/internal/storage"
+	"github.com/multica-ai/alphenix/server/internal/tool"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
 )
 
 func allowedOrigins() []string {
@@ -46,12 +47,12 @@ func allowedOrigins() []string {
 }
 
 // NewRouter creates the fully-configured Chi router with all middleware and routes.
-func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus) chi.Router {
+func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, toolReg *tool.Registry) chi.Router {
 	queries := db.New(pool)
 	emailSvc := service.NewEmailService()
 	s3 := storage.NewS3StorageFromEnv()
 	cfSigner := auth.NewCloudFrontSignerFromEnv()
-	h := handler.New(queries, pool, hub, bus, emailSvc, s3, cfSigner)
+	h := handler.New(queries, pool, hub, bus, emailSvc, s3, cfSigner, toolReg)
 
 	r := chi.NewRouter()
 
@@ -238,6 +239,18 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus) chi.Route
 				r.Get("/{runtimeId}/ping/{pingId}", h.GetPing)
 				r.Post("/{runtimeId}/update", h.InitiateUpdate)
 				r.Get("/{runtimeId}/update/{updateId}", h.GetUpdate)
+			})
+
+			// Channels (workspace projects — isolated issue + participant scope)
+			r.Route("/api/channels", func(r chi.Router) {
+				r.Get("/", h.ListChannels)
+				r.Post("/", h.CreateChannel)
+				r.Route("/{channelId}", func(r chi.Router) {
+					r.Get("/", h.GetChannel)
+					r.Get("/participants", h.ListChannelParticipants)
+					r.Post("/participants", h.AddChannelParticipant)
+					r.Delete("/participants/{participantType}/{participantId}", h.RemoveChannelParticipant)
+				})
 			})
 
 			// Inbox

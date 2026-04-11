@@ -12,9 +12,10 @@ export function useTaskAndAgent(issueId: string) {
     setError(null);
     api
       .getActiveTasksForIssue(issueId)
-      .then(({ tasks }) => {
+      .then((res) => {
         if (!cancelled) {
-          setActiveTask(tasks[0] ?? null);
+          const list = res?.tasks;
+          setActiveTask(Array.isArray(list) ? (list[0] ?? null) : null);
         }
       })
       .catch((e: unknown) => {

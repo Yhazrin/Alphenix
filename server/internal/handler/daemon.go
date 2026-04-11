@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/protocol"
-	"github.com/multica-ai/multica/server/pkg/redact"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/pkg/redact"
 )
 
 // ---------------------------------------------------------------------------

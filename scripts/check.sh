@@ -36,6 +36,12 @@ EXIT_CODE=0
 # Cleanup: kill only services this script started
 # --------------------------------------------------------------------------
 cleanup() {
+  # Preserve non-zero status from `set -e` failures (EXIT_CODE may still be 0).
+  local trap_rc=$?
+  local final=$EXIT_CODE
+  if [ "$final" -eq 0 ] && [ "$trap_rc" -ne 0 ]; then
+    final=$trap_rc
+  fi
   echo ""
   if [ "$STARTED_BACKEND" = true ] && [ -n "$BACKEND_PID" ]; then
     kill "$BACKEND_PID" 2>/dev/null && wait "$BACKEND_PID" 2>/dev/null || true
@@ -46,12 +52,12 @@ cleanup() {
     echo "    Stopped frontend (PID $FRONTEND_PID)"
   fi
   echo ""
-  if [ "$EXIT_CODE" -eq 0 ]; then
+  if [ "$final" -eq 0 ]; then
     echo "✓ All checks passed."
   else
     echo "✗ Checks FAILED."
   fi
-  exit "$EXIT_CODE"
+  exit "$final"
 }
 trap cleanup EXIT
 

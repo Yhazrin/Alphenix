@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
 import { api } from "@/shared/api";
+import { readStoredWorkspaceId } from "@/shared/constants/workspace-storage";
 import {
   Card,
   CardHeader,
@@ -39,7 +40,7 @@ function CallbackContent() {
     loginWithGoogle(code, redirectUri)
       .then(async () => {
         const wsList = await api.listWorkspaces();
-        const lastWsId = localStorage.getItem("multica_workspace_id");
+        const lastWsId = readStoredWorkspaceId();
         await hydrateWorkspace(wsList, lastWsId);
         router.push("/issues");
       })

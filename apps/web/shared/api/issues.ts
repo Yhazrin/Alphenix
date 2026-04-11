@@ -95,6 +95,8 @@ export const issuesApi = {
     if (params?.status) search.set("status", params.status);
     if (params?.priority) search.set("priority", params.priority);
     if (params?.assignee_id) search.set("assignee_id", params.assignee_id);
+    if (params?.open_only) search.set("open_only", "true");
+    if (params?.channel_id) search.set("channel_id", params.channel_id);
     return apiFetch(`/api/issues?${search}`);
   },
 

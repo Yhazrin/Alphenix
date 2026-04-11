@@ -55,6 +55,11 @@ import type {
   DecomposeResponse,
   ConfirmDecomposeRequest,
   ConfirmDecomposeResponse,
+  Channel,
+  CreateChannelRequest,
+  ListChannelsResponse,
+  ListChannelParticipantsResponse,
+  AddChannelParticipantRequest,
 } from "@/shared/types";
 import { type Logger, noopLogger } from "@/shared/logger";
 
@@ -97,6 +102,20 @@ export class ApiClient {
         window.location.href = "/";
       }
     }
+  }
+
+  /** Normalizes `/api/issues/:id/active-task` payloads (always `{ tasks }`, but tolerate bare arrays or missing keys). */
+  private normalizeActiveTasksPayload(raw: unknown): { tasks: AgentTask[] } {
+    if (Array.isArray(raw)) {
+      return { tasks: raw as AgentTask[] };
+    }
+    if (raw !== null && typeof raw === "object" && "tasks" in raw) {
+      const t = (raw as { tasks: unknown }).tasks;
+      if (Array.isArray(t)) {
+        return { tasks: t as AgentTask[] };
+      }
+    }
+    return { tasks: [] };
   }
 
   private async parseErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -233,7 +252,46 @@ export class ApiClient {
     if (params?.priority) search.set("priority", params.priority);
     if (params?.assignee_id) search.set("assignee_id", params.assignee_id);
     if (params?.open_only) search.set("open_only", "true");
+    if (params?.channel_id) search.set("channel_id", params.channel_id);
     return this.fetch(`/api/issues?${search}`);
+  }
+
+  // Channels
+  async listChannels(): Promise<ListChannelsResponse> {
+    return this.fetch("/api/channels");
+  }
+
+  async createChannel(data: CreateChannelRequest): Promise<Channel> {
+    return this.fetch("/api/channels", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getChannel(channelId: string): Promise<Channel> {
+    return this.fetch(`/api/channels/${channelId}`);
+  }
+
+  async listChannelParticipants(channelId: string): Promise<ListChannelParticipantsResponse> {
+    return this.fetch(`/api/channels/${channelId}/participants`);
+  }
+
+  async addChannelParticipant(channelId: string, data: AddChannelParticipantRequest): Promise<void> {
+    await this.fetch(`/api/channels/${channelId}/participants`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeChannelParticipant(
+    channelId: string,
+    participantType: "member" | "agent" | "team",
+    participantId: string,
+  ): Promise<void> {
+    await this.fetch(
+      `/api/channels/${channelId}/participants/${participantType}/${participantId}`,
+      { method: "DELETE" },
+    );
   }
 
   async getIssue(id: string): Promise<Issue> {
@@ -445,7 +503,8 @@ export class ApiClient {
   }
 
   async getActiveTasksForIssue(issueId: string): Promise<{ tasks: AgentTask[] }> {
-    return this.fetch(`/api/issues/${issueId}/active-task`);
+    const raw = await this.fetch<unknown>(`/api/issues/${issueId}/active-task`);
+    return this.normalizeActiveTasksPayload(raw);
   }
 
   async listTaskMessages(taskId: string): Promise<TaskMessagePayload[]> {

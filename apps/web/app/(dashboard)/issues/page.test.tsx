@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Issue } from "@/shared/types";
+import { useIssueStore } from "@/features/issues/store";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -71,43 +72,35 @@ vi.mock("@/shared/api", () => ({
   },
 }));
 
-// Mock issue store — only client state remains
-const mockIssueClientState = { activeIssueId: null, setActiveIssue: vi.fn() };
-vi.mock("@/features/issues/store", () => ({
-  useIssueStore: Object.assign(
-    (selector?: any) => (selector ? selector(mockIssueClientState) : mockIssueClientState),
-    { getState: () => mockIssueClientState },
-  ),
-}));
-
-vi.mock("@/features/issues", () => ({
-  useIssueStore: Object.assign(
-    (selector?: any) => (selector ? selector(mockIssueClientState) : mockIssueClientState),
-    { getState: () => mockIssueClientState },
-  ),
-  StatusIcon: () => null,
-  PriorityIcon: () => null,
-  StatusPicker: ({ value, onChange }: any) => (
-    <button onClick={() => onChange?.("todo")}>{value || "todo"}</button>
-  ),
-  PriorityPicker: ({ value, onChange }: any) => (
-    <button onClick={() => onChange?.("none")}>{value || "none"}</button>
-  ),
-}));
+vi.mock("@/features/issues", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/issues")>();
+  return {
+    ...actual,
+    StatusIcon: () => null,
+    PriorityIcon: () => null,
+    StatusPicker: ({ value, onChange }: any) => (
+      <button type="button" onClick={() => onChange?.("todo")}>
+        {value || "todo"}
+      </button>
+    ),
+    PriorityPicker: ({ value, onChange }: any) => (
+      <button type="button" onClick={() => onChange?.("none")}>
+        {value || "none"}
+      </button>
+    ),
+  };
+});
 
 // Mock view store
 const mockViewState = {
-  viewMode: "board" as const,
   statusFilters: [] as string[],
   priorityFilters: [] as string[],
   assigneeFilters: [] as { type: string; id: string }[],
   includeNoAssignee: false,
   creatorFilters: [] as { type: string; id: string }[],
-  sortBy: "position" as const,
-  sortDirection: "asc" as const,
+  sortBy: "updated_at" as const,
+  sortDirection: "desc" as const,
   cardProperties: { priority: true, description: true, assignee: true, dueDate: true },
-  listCollapsedStatuses: [] as string[],
-  setViewMode: vi.fn(),
   toggleStatusFilter: vi.fn(),
   togglePriorityFilter: vi.fn(),
   toggleAssigneeFilter: vi.fn(),
@@ -119,7 +112,6 @@ const mockViewState = {
   setSortBy: vi.fn(),
   setSortDirection: vi.fn(),
   toggleCardProperty: vi.fn(),
-  toggleListCollapsed: vi.fn(),
 };
 
 vi.mock("@/features/issues/stores/view-store", () => ({
@@ -129,11 +121,14 @@ vi.mock("@/features/issues/stores/view-store", () => ({
     { getState: () => mockViewState, setState: vi.fn() },
   ),
   SORT_OPTIONS: [
-    { value: "position", label: "Manual" },
+    { value: "updated_at", label: "Last updated" },
+    { value: "created_at", label: "Created" },
     { value: "priority", label: "Priority" },
     { value: "due_date", label: "Due date" },
-    { value: "created_at", label: "Created date" },
+    { value: "status", label: "Status" },
     { value: "title", label: "Title" },
+    { value: "identifier", label: "ID" },
+    { value: "position", label: "Manual" },
   ],
   CARD_PROPERTY_OPTIONS: [
     { key: "priority", label: "Priority" },
@@ -156,21 +151,21 @@ vi.mock("@/features/issues/config", () => ({
   BOARD_STATUSES: ["backlog", "todo", "in_progress", "in_review", "done", "blocked"],
   STATUS_ORDER: ["backlog", "todo", "in_progress", "in_review", "done", "blocked", "cancelled"],
   STATUS_CONFIG: {
-    backlog: { label: "Backlog", iconColor: "text-muted-foreground", hoverBg: "hover:bg-accent" },
-    todo: { label: "Todo", iconColor: "text-muted-foreground", hoverBg: "hover:bg-accent" },
-    in_progress: { label: "In Progress", iconColor: "text-warning", hoverBg: "hover:bg-warning/10" },
-    in_review: { label: "In Review", iconColor: "text-success", hoverBg: "hover:bg-success/10" },
-    done: { label: "Done", iconColor: "text-info", hoverBg: "hover:bg-info/10" },
-    blocked: { label: "Blocked", iconColor: "text-destructive", hoverBg: "hover:bg-destructive/10" },
-    cancelled: { label: "Cancelled", iconColor: "text-muted-foreground", hoverBg: "hover:bg-accent" },
+    backlog: { label: "Backlog", iconColor: "text-muted-foreground", hoverBg: "hover:bg-accent", badgeBg: "bg-muted", badgeText: "text-muted-foreground", dividerColor: "", columnBg: "" },
+    todo: { label: "Todo", iconColor: "text-muted-foreground", hoverBg: "hover:bg-accent", badgeBg: "bg-muted", badgeText: "text-muted-foreground", dividerColor: "", columnBg: "" },
+    in_progress: { label: "In Progress", iconColor: "text-warning", hoverBg: "hover:bg-warning/10", badgeBg: "bg-warning", badgeText: "text-warning-foreground", dividerColor: "", columnBg: "" },
+    in_review: { label: "In Review", iconColor: "text-success", hoverBg: "hover:bg-success/10", badgeBg: "bg-success", badgeText: "text-success-foreground", dividerColor: "", columnBg: "" },
+    done: { label: "Done", iconColor: "text-info", hoverBg: "hover:bg-info/10", badgeBg: "bg-info", badgeText: "text-info-foreground", dividerColor: "", columnBg: "" },
+    blocked: { label: "Blocked", iconColor: "text-destructive", hoverBg: "hover:bg-destructive/10", badgeBg: "bg-destructive", badgeText: "text-destructive-foreground", dividerColor: "", columnBg: "" },
+    cancelled: { label: "Cancelled", iconColor: "text-muted-foreground", hoverBg: "hover:bg-accent", badgeBg: "bg-muted", badgeText: "text-muted-foreground", dividerColor: "", columnBg: "" },
   },
   PRIORITY_ORDER: ["urgent", "high", "medium", "low", "none"],
   PRIORITY_CONFIG: {
-    urgent: { label: "Urgent", bars: 4, color: "text-destructive" },
-    high: { label: "High", bars: 3, color: "text-warning" },
-    medium: { label: "Medium", bars: 2, color: "text-warning" },
-    low: { label: "Low", bars: 1, color: "text-info" },
-    none: { label: "No priority", bars: 0, color: "text-muted-foreground" },
+    urgent: { label: "Urgent", bars: 4, color: "text-destructive", badgeBg: "bg-destructive", badgeText: "text-destructive-foreground" },
+    high: { label: "High", bars: 3, color: "text-warning", badgeBg: "bg-warning", badgeText: "text-warning-foreground" },
+    medium: { label: "Medium", bars: 2, color: "text-warning", badgeBg: "bg-warning", badgeText: "text-warning-foreground" },
+    low: { label: "Low", bars: 1, color: "text-info", badgeBg: "bg-info", badgeText: "text-info-foreground" },
+    none: { label: "No priority", bars: 0, color: "text-muted-foreground", badgeBg: "bg-muted", badgeText: "text-muted-foreground" },
   },
 }));
 
@@ -216,6 +211,7 @@ const issueDefaults = {
   parent_issue_id: null,
   position: 0,
   repo_id: null,
+  channel_id: "ch-general",
 };
 
 const mockIssues: Issue[] = [
@@ -286,9 +282,16 @@ describe("IssuesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockListIssues.mockResolvedValue({ issues: [], total: 0 });
-    mockViewState.viewMode = "board";
     mockViewState.statusFilters = [];
     mockViewState.priorityFilters = [];
+    useIssueStore.setState({
+      issues: [],
+      loading: false,
+      loadingMore: false,
+      hasMore: false,
+      error: null,
+      activeIssueId: null,
+    });
   });
 
   it("shows loading state initially", () => {
@@ -296,7 +299,7 @@ describe("IssuesPage", () => {
     expect(screen.getAllByRole("generic").some(el => el.getAttribute("data-slot") === "skeleton")).toBe(true);
   });
 
-  it("renders issues in board view after loading", async () => {
+  it("renders issues in card grid after loading", async () => {
     // issueListOptions makes 2 calls: open_only + closed page. Return issues for open, empty for closed.
     mockListIssues.mockImplementation((params: any) =>
       Promise.resolve(params?.open_only ? { issues: mockIssues, total: mockIssues.length } : { issues: [], total: 0 }),
@@ -309,18 +312,17 @@ describe("IssuesPage", () => {
     expect(screen.getByText("Write tests")).toBeInTheDocument();
   });
 
-  it("renders board columns", async () => {
+  it("renders card grid with status on tiles", async () => {
     mockListIssues.mockImplementation((params: any) =>
       Promise.resolve(params?.open_only ? { issues: mockIssues, total: mockIssues.length } : { issues: [], total: 0 }),
     );
 
     renderWithQuery(<IssuesPage />);
 
-    await screen.findByText("Backlog");
-    expect(screen.getAllByText("Todo").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("In Progress").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("In Review").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Done").length).toBeGreaterThanOrEqual(1);
+    await screen.findByTestId("issues-card-grid");
+    expect(screen.getByText("Todo")).toBeInTheDocument();
+    expect(screen.getByText("In Progress")).toBeInTheDocument();
+    expect(screen.getByText("Backlog")).toBeInTheDocument();
   });
 
   it("shows workspace breadcrumb", async () => {
@@ -349,10 +351,9 @@ describe("IssuesPage", () => {
     expect(buttons.length).toBeGreaterThan(0);
   });
 
-  it("shows empty board view when no issues exist", () => {
+  it("shows create-first empty state when no issues exist", async () => {
     renderWithQuery(<IssuesPage />);
 
-    // Should still render the board/list view, not a "no issues" message
-    expect(screen.queryByText("No matching issues")).not.toBeInTheDocument();
+    expect(await screen.findByText("Create your first task")).toBeInTheDocument();
   });
 });

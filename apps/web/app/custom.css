@@ -41,7 +41,7 @@
   background: color-mix(in oklch, var(--sidebar) 72%, transparent);
   border: 1px solid var(--sidebar-border);
   box-shadow: var(--shadow-card);
-  border-radius: var(--radius-lg);
+  border-radius: 1.375rem;
 }
 
 @supports (backdrop-filter: blur(1px)) {
@@ -52,9 +52,15 @@
   }
 }
 
-/* Active nav item — subtle glass inset accent */
+/* Active nav — tinted pill (capsule segment), not solid fill */
 [data-sidebar="menu-button"][data-active="true"] {
-  background: color-mix(in oklch, var(--sidebar-accent) 60%, transparent);
+  background: color-mix(in oklch, var(--primary) 15%, transparent);
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.dark [data-sidebar="menu-button"][data-active="true"] {
+  background: color-mix(in oklch, var(--primary) 22%, transparent);
 }
 
 /* =============================================================================
@@ -144,4 +150,21 @@
 
 [data-sonner-toast] [data-icon] {
   margin-top: 2.5px;
+}
+
+/* Respect reduced motion: drop looping / bouncy-feel animations */
+@media (prefers-reduced-motion: reduce) {
+  .active-run-card,
+  .board-agent-active-card {
+    animation: none !important;
+  }
+
+  .animate-shimmer,
+  .animate-slide-up-fade {
+    animation: none !important;
+  }
+
+  .alphenix-grain {
+    opacity: 0.02 !important;
+  }
 }

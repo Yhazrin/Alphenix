@@ -107,7 +107,7 @@ func (q *Queries) GetWorkspaceRepo(ctx context.Context, id pgtype.UUID) (Workspa
 }
 
 const listIssuesByRepoID = `-- name: ListIssuesByRepoID :many
-SELECT id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, issue_kind, repo_id FROM issue WHERE repo_id = $1 ORDER BY position ASC, created_at DESC
+SELECT id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, issue_kind, repo_id, channel_id FROM issue WHERE repo_id = $1 ORDER BY position ASC, created_at DESC
 `
 
 func (q *Queries) ListIssuesByRepoID(ctx context.Context, repoID pgtype.UUID) ([]Issue, error) {
@@ -140,6 +140,7 @@ func (q *Queries) ListIssuesByRepoID(ctx context.Context, repoID pgtype.UUID) ([
 			&i.Number,
 			&i.IssueKind,
 			&i.RepoID,
+			&i.ChannelID,
 		); err != nil {
 			return nil, err
 		}

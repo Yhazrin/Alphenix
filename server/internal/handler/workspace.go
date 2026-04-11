@@ -190,6 +190,12 @@ func (h *Handler) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.SeedDefaultChannelForWorkspace(r.Context(), qtx, ws.ID, parseUUID(userID)); err != nil {
+		slog.Warn("seed default channel failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", uuidToString(ws.ID))...)
+		writeError(w, http.StatusInternalServerError, "failed to initialize workspace channel")
+		return
+	}
+
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create workspace")
 		return
@@ -421,6 +427,7 @@ func (h *Handler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create member")
 		return
 	}
+	h.addParticipantToDefaultChannel(r.Context(), parseUUID(workspaceID), "member", user.ID)
 
 	slog.Info("member added", append(logger.RequestAttrs(r), "member_id", uuidToString(member.ID), "workspace_id", workspaceID, "email", email, "role", role)...)
 	userID := requestUserID(r)

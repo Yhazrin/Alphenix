@@ -67,6 +67,7 @@ export type {
   SharedContext,
   TaskDependencyInfo,
 } from "./collaboration";
+export type { Channel, ChannelParticipant } from "./channel";
 export type { Run, RunPhase, StepType, RunStep, RunTodo, RunArtifact } from "./run";
 export type {
   PromptSection,

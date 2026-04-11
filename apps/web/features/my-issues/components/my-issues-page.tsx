@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useStore } from "zustand";
-import { toast } from "sonner";
 import { ListTodo } from "lucide-react";
-import type { IssueStatus } from "@/shared/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/features/auth";
 import { useWorkspaceStore, WorkspaceAvatar } from "@/features/workspace";
@@ -12,14 +10,11 @@ import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbSeparator, Breadc
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { useIssueStore } from "@/features/issues/store";
 import { filterIssues } from "@/features/issues/utils/filter";
-import { BOARD_STATUSES } from "@/features/issues/config";
 import { ViewStoreProvider } from "@/features/issues/stores/view-store-context";
 import { useIssueSelectionStore } from "@/features/issues/stores/selection-store";
-import { BoardView } from "@/features/issues/components/board-view";
-import { ListView } from "@/features/issues/components/list-view";
+import { IssuesCardGrid } from "@/features/issues/components/issues-card-grid";
 import { BatchActionToolbar } from "@/features/issues/components/batch-action-toolbar";
 import { registerViewStoreForWorkspaceSync } from "@/features/issues/stores/view-store";
-import { api } from "@/shared/api";
 import { myIssuesViewStore } from "../stores/my-issues-view-store";
 import { MyIssuesHeader } from "./my-issues-header";
 
@@ -30,7 +25,6 @@ export function MyIssuesPage() {
   const allIssues = useIssueStore((s) => s.issues);
   const loading = useIssueStore((s) => s.loading);
 
-  const viewMode = useStore(myIssuesViewStore, (s) => s.viewMode);
   const statusFilters = useStore(myIssuesViewStore, (s) => s.statusFilters);
   const priorityFilters = useStore(myIssuesViewStore, (s) => s.priorityFilters);
   const scope = useStore(myIssuesViewStore, (s) => s.scope);
@@ -39,9 +33,14 @@ export function MyIssuesPage() {
     registerViewStoreForWorkspaceSync(myIssuesViewStore);
   }, []);
 
+  useLayoutEffect(() => {
+    if (!workspace?.id) return;
+    void useIssueStore.getState().fetch();
+  }, [workspace?.id]);
+
   useEffect(() => {
     useIssueSelectionStore.getState().clear();
-  }, [viewMode, scope]);
+  }, [scope]);
 
   const myAgentIds = useMemo(() => {
     if (!user) return new Set<string>();
@@ -50,7 +49,6 @@ export function MyIssuesPage() {
     );
   }, [agents, user]);
 
-  // Per-scope issue lists
   const assignedToMe = useMemo(() => {
     if (!user) return [];
     return allIssues.filter(
@@ -84,7 +82,6 @@ export function MyIssuesPage() {
     }
   }, [scope, assignedToMe, myAgentIssues, createdByMe]);
 
-  // Apply status/priority filters from view store
   const issues = useMemo(
     () =>
       filterIssues(myIssues, {
@@ -95,44 +92,6 @@ export function MyIssuesPage() {
         creatorFilters: [],
       }),
     [myIssues, statusFilters, priorityFilters],
-  );
-
-  const visibleStatuses = useMemo(() => {
-    if (statusFilters.length > 0)
-      return BOARD_STATUSES.filter((s) => statusFilters.includes(s));
-    return BOARD_STATUSES;
-  }, [statusFilters]);
-
-  const hiddenStatuses = useMemo(() => {
-    return BOARD_STATUSES.filter((s) => !visibleStatuses.includes(s));
-  }, [visibleStatuses]);
-
-  const handleMoveIssue = useCallback(
-    (issueId: string, newStatus: IssueStatus, newPosition?: number) => {
-      const viewState = myIssuesViewStore.getState();
-      if (viewState.sortBy !== "position") {
-        viewState.setSortBy("position");
-        viewState.setSortDirection("asc");
-      }
-
-      const updates: Partial<{ status: IssueStatus; position: number }> = {
-        status: newStatus,
-      };
-      if (newPosition !== undefined) updates.position = newPosition;
-
-      useIssueStore.getState().updateIssue(issueId, updates);
-
-      api.updateIssue(issueId, updates).catch(() => {
-        toast.error("Failed to move issue");
-        api.listIssues({ limit: 200 }).then((res) => {
-          useIssueStore.getState().setIssues(res.issues);
-        }).catch((e) => {
-            console.error(e);
-            toast.error("Failed to restore issue list");
-          });
-      });
-    },
-    [],
   );
 
   if (loading) {
@@ -146,13 +105,9 @@ export function MyIssuesPage() {
           <Skeleton className="h-5 w-24" />
           <Skeleton className="h-8 w-24" />
         </div>
-        <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto p-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex min-w-52 flex-1 flex-col gap-2">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-24 w-full rounded-lg" />
-              <Skeleton className="h-24 w-full rounded-lg" />
-            </div>
+        <div className="mx-auto grid w-full max-w-[1680px] flex-1 grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -161,13 +116,12 @@ export function MyIssuesPage() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      {/* Header 1: Workspace breadcrumb */}
       <div className="flex h-12 shrink-0 items-center gap-1.5 border-b px-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
               <WorkspaceAvatar name={workspace?.name ?? "W"} size="sm" />
-              <span className="text-sm text-muted-foreground ml-1.5">
+              <span className="ml-1.5 text-sm text-muted-foreground">
                 {workspace?.name ?? "Workspace"}
               </span>
             </BreadcrumbItem>
@@ -179,10 +133,8 @@ export function MyIssuesPage() {
         </Breadcrumb>
       </div>
 
-      {/* Header: scope tabs (left) + controls (right) */}
       <MyIssuesHeader allIssues={myIssues} />
 
-      {/* Content: scrollable */}
       <ViewStoreProvider store={myIssuesViewStore}>
         {myIssues.length === 0 ? (
           <Empty className="flex-1 border-0">
@@ -195,21 +147,11 @@ export function MyIssuesPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="flex flex-col flex-1 min-h-0">
-            {viewMode === "board" ? (
-              <BoardView
-                issues={issues}
-                allIssues={myIssues}
-                visibleStatuses={visibleStatuses}
-                hiddenStatuses={hiddenStatuses}
-                onMoveIssue={handleMoveIssue}
-              />
-            ) : (
-              <ListView issues={issues} visibleStatuses={visibleStatuses} />
-            )}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <IssuesCardGrid issues={issues} />
           </div>
         )}
-        {viewMode === "list" && <BatchActionToolbar />}
+        <BatchActionToolbar />
       </ViewStoreProvider>
     </div>
   );

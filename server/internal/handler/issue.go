@@ -7,19 +7,21 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multica/server/internal/logger"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/internal/logger"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
 )
 
 // IssueResponse is the JSON response for an issue.
 type IssueResponse struct {
 	ID                 string                  `json:"id"`
 	WorkspaceID        string                  `json:"workspace_id"`
+	ChannelID          string                  `json:"channel_id"`
 	Number             int32                   `json:"number"`
 	Identifier         string                  `json:"identifier"`
 	Title              string                  `json:"title"`
@@ -44,6 +46,7 @@ func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 	return IssueResponse{
 		ID:            uuidToString(i.ID),
 		WorkspaceID:   uuidToString(i.WorkspaceID),
+		ChannelID:     uuidToString(i.ChannelID),
 		Number:        i.Number,
 		Identifier:    identifier,
 		Title:         i.Title,
@@ -78,12 +81,30 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		assigneeFilter = parseUUID(a)
 	}
 
+	var channelFilter pgtype.UUID
+	if ch := r.URL.Query().Get("channel_id"); ch != "" {
+		cid := parseUUID(ch)
+		if !cid.Valid {
+			writeError(w, http.StatusBadRequest, "invalid channel_id")
+			return
+		}
+		if _, err := h.Queries.GetChannelInWorkspace(ctx, db.GetChannelInWorkspaceParams{
+			ID:          cid,
+			WorkspaceID: wsUUID,
+		}); err != nil {
+			writeError(w, http.StatusBadRequest, "channel not found in this workspace")
+			return
+		}
+		channelFilter = cid
+	}
+
 	// open_only=true returns all non-done/cancelled issues (no limit).
 	if r.URL.Query().Get("open_only") == "true" {
 		issues, err := h.Queries.ListOpenIssues(ctx, db.ListOpenIssuesParams{
 			WorkspaceID: wsUUID,
 			Priority:    priorityFilter,
 			AssigneeID:  assigneeFilter,
+			ChannelID:   channelFilter,
 		})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to list issues")
@@ -128,6 +149,7 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		Status:      statusFilter,
 		Priority:    priorityFilter,
 		AssigneeID:  assigneeFilter,
+		ChannelID:   channelFilter,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list issues")
@@ -140,6 +162,7 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		Status:      statusFilter,
 		Priority:    priorityFilter,
 		AssigneeID:  assigneeFilter,
+		ChannelID:   channelFilter,
 	})
 	if err != nil {
 		total = int64(len(issues))
@@ -220,6 +243,7 @@ type CreateIssueRequest struct {
 	AssigneeID         *string  `json:"assignee_id"`
 	ParentIssueID      *string  `json:"parent_issue_id"`
 	DueDate            *string  `json:"due_date"`
+	ChannelID          *string  `json:"channel_id"`
 	AttachmentIDs      []string `json:"attachment_ids,omitempty"`
 }
 
@@ -270,17 +294,43 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var parentIssueID pgtype.UUID
+	var parentIssue db.Issue
+	parentOK := false
 	if req.ParentIssueID != nil {
 		parentIssueID = parseUUID(*req.ParentIssueID)
-		// Validate parent exists in the same workspace.
-		parent, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
+		p, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{
 			ID:          parentIssueID,
 			WorkspaceID: parseUUID(workspaceID),
 		})
-		if err != nil || !parent.ID.Valid {
+		if err != nil || !p.ID.Valid {
 			writeError(w, http.StatusBadRequest, "parent issue not found in this workspace")
 			return
 		}
+		parentIssue = p
+		parentOK = true
+	}
+
+	wsUUID := parseUUID(workspaceID)
+	var channelID pgtype.UUID
+	if req.ChannelID != nil && strings.TrimSpace(*req.ChannelID) != "" {
+		ch, err := h.Queries.GetChannelInWorkspace(r.Context(), db.GetChannelInWorkspaceParams{
+			ID:          parseUUID(strings.TrimSpace(*req.ChannelID)),
+			WorkspaceID: wsUUID,
+		})
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid channel_id")
+			return
+		}
+		channelID = ch.ID
+	} else if parentOK {
+		channelID = parentIssue.ChannelID
+	} else {
+		def, err := h.Queries.GetDefaultChannelByWorkspace(r.Context(), wsUUID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "workspace has no default channel")
+			return
+		}
+		channelID = def.ID
 	}
 
 	var dueDate pgtype.Timestamptz
@@ -327,6 +377,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		Position:           0,
 		DueDate:            dueDate,
 		Number:             issueNumber,
+		ChannelID:          channelID,
 	})
 	if err != nil {
 		slog.Warn("create issue failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", workspaceID)...)
@@ -384,6 +435,7 @@ type UpdateIssueRequest struct {
 	Position           *float64 `json:"position"`
 	DueDate            *string  `json:"due_date"`
 	ParentIssueID      *string  `json:"parent_issue_id"`
+	ChannelID          *string  `json:"channel_id"`
 }
 
 func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
@@ -419,6 +471,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 		AssigneeID:    prevIssue.AssigneeID,
 		DueDate:       prevIssue.DueDate,
 		ParentIssueID: prevIssue.ParentIssueID,
+		ChannelID:     prevIssue.ChannelID,
 	}
 
 	// COALESCE fields — only set when explicitly provided
@@ -496,6 +549,19 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 			params.ParentIssueID = newParentID
 		} else {
 			params.ParentIssueID = pgtype.UUID{Valid: false} // explicit null = remove parent
+		}
+	}
+	if _, ok := rawFields["channel_id"]; ok {
+		if req.ChannelID != nil && strings.TrimSpace(*req.ChannelID) != "" {
+			ch, err := h.Queries.GetChannelInWorkspace(r.Context(), db.GetChannelInWorkspaceParams{
+				ID:          parseUUID(strings.TrimSpace(*req.ChannelID)),
+				WorkspaceID: prevIssue.WorkspaceID,
+			})
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid channel_id")
+				return
+			}
+			params.ChannelID = ch.ID
 		}
 	}
 
@@ -725,6 +791,7 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 			AssigneeID:    prevIssue.AssigneeID,
 			DueDate:       prevIssue.DueDate,
 			ParentIssueID: prevIssue.ParentIssueID,
+			ChannelID:     prevIssue.ChannelID,
 		}
 
 		if req.Updates.Title != nil {
@@ -765,6 +832,18 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 				params.DueDate = pgtype.Timestamptz{Time: t, Valid: true}
 			} else {
 				params.DueDate = pgtype.Timestamptz{Valid: false}
+			}
+		}
+		if _, ok := rawUpdates["channel_id"]; ok {
+			if req.Updates.ChannelID != nil && strings.TrimSpace(*req.Updates.ChannelID) != "" {
+				ch, err := h.Queries.GetChannelInWorkspace(r.Context(), db.GetChannelInWorkspaceParams{
+					ID:          parseUUID(strings.TrimSpace(*req.Updates.ChannelID)),
+					WorkspaceID: prevIssue.WorkspaceID,
+				})
+				if err != nil {
+					continue
+				}
+				params.ChannelID = ch.ID
 			}
 		}
 

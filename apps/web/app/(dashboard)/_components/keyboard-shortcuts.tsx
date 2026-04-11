@@ -37,10 +37,6 @@ export function KeyboardShortcuts() {
           break;
         case "2":
           e.preventDefault();
-          router.push("/my-issues");
-          break;
-        case "3":
-          e.preventDefault();
           router.push("/issues");
           break;
       }

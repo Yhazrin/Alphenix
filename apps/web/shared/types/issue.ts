@@ -62,6 +62,8 @@ export interface ConfirmDecomposeResponse {
 export interface Issue {
   id: string;
   workspace_id: string;
+  /** Workspace channel (project) this issue belongs to */
+  channel_id: string;
   number: number;
   identifier: string;
   title: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   ArrowDown,
@@ -8,9 +8,7 @@ import {
   Check,
   ChevronDown,
   CircleDot,
-  Columns3,
   Filter,
-  List,
   SignalHigh,
   SlidersHorizontal,
   User,
@@ -58,7 +56,13 @@ import {
   useIssuesScopeStore,
   type IssuesScope,
 } from "@/features/issues/stores/issues-scope-store";
+import {
+  useIssuesMeFilterStore,
+  type IssuesMeFilter,
+} from "@/features/issues/stores/me-filter-store";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { ScopePillRail } from "@/components/common/scope-pill-rail";
+import { cn } from "@/lib/utils";
 import type { Issue } from "@/shared/types";
 
 // ---------------------------------------------------------------------------
@@ -133,6 +137,13 @@ const SCOPES: { value: IssuesScope; label: string; description: string }[] = [
   { value: "all", label: "All", description: "All issues in this workspace" },
   { value: "members", label: "Members", description: "Issues assigned to team members" },
   { value: "agents", label: "Agents", description: "Issues assigned to AI agents" },
+];
+
+const ME_FILTERS: { value: IssuesMeFilter; label: string; description: string }[] = [
+  { value: "off", label: "Everyone", description: "All issues in the workspace (with channel filter)" },
+  { value: "assigned", label: "Assigned to me", description: "Issues assigned to you" },
+  { value: "created", label: "Created by me", description: "Issues you created" },
+  { value: "my_agents", label: "My agents", description: "Issues assigned to agents you own" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -275,12 +286,20 @@ function ActorSubContent({
 // IssuesHeader
 // ---------------------------------------------------------------------------
 
-export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
+export function IssuesHeader({
+  scopedIssues,
+  leadingSlot,
+}: {
+  scopedIssues: Issue[];
+  /** Workspace breadcrumb — when set, scope pills center in remaining space */
+  leadingSlot?: ReactNode;
+}) {
   const scope = useIssuesScopeStore((s) => s.scope);
   const setScope = useIssuesScopeStore((s) => s.setScope);
+  const meFilter = useIssuesMeFilterStore((s) => s.meFilter);
+  const setMeFilter = useIssuesMeFilterStore((s) => s.setMeFilter);
 
   const {
-    viewMode,
     statusFilters,
     priorityFilters,
     assigneeFilters,
@@ -290,7 +309,6 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
     sortDirection,
     cardProperties,
   } = useIssueViewStore(useShallow((s) => ({
-    viewMode: s.viewMode,
     statusFilters: s.statusFilters,
     priorityFilters: s.priorityFilters,
     assigneeFilters: s.assigneeFilters,
@@ -315,6 +333,7 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
   }, [scopedIssues]);
 
   const hasActiveFilters =
+    meFilter !== "off" ||
     getActiveFilterCount({
       statusFilters,
       priorityFilters,
@@ -324,41 +343,84 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
     }) > 0;
 
   const sortLabel =
-    SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Manual";
+    SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Last updated";
+
+  const meFilterLabel =
+    ME_FILTERS.find((f) => f.value === meFilter)?.label ?? "Everyone";
 
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between px-4">
-      {/* Left: scope buttons */}
-      <div className="flex items-center gap-1">
-        {SCOPES.map((s) => {
-          const count = scopeCounts[s.value];
-          return (
-            <Tooltip key={s.value}>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={
-                      scope === s.value
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                        : "text-muted-foreground hover:bg-muted"
-                    }
-                    onClick={() => setScope(s.value)}
-                  >
-                    <span>{s.label}</span>
-                    <span className="text-xs opacity-60">{count}</span>
-                  </Button>
-                }
-              />
-              <TooltipContent side="bottom">{s.description}</TooltipContent>
-            </Tooltip>
-          );
-        })}
+    <div className="flex h-14 min-h-14 shrink-0 items-center gap-3 border-b px-4">
+      {leadingSlot ? (
+        <div className="min-w-0 max-w-[min(44vw,300px)] shrink-0 overflow-hidden">
+          {leadingSlot}
+        </div>
+      ) : null}
+      <div
+        className={cn(
+          "flex min-h-9 min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+          leadingSlot ? "justify-center" : "justify-start",
+        )}
+      >
+        <DropdownMenu>
+          <Tooltip>
+            <DropdownMenuTrigger
+              render={
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="relative mr-2 shrink-0 gap-1 rounded-full px-2.5 text-xs font-medium"
+                      aria-label="Focus: whose issues to show"
+                      data-testid="issues-focus-filter"
+                    >
+                      {meFilterLabel}
+                      <ChevronDown className="size-3 opacity-60" aria-hidden="true" />
+                      {meFilter !== "off" && (
+                        <span
+                          className="absolute top-0.5 right-1 size-1.5 rounded-full bg-primary"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </Button>
+                  }
+                />
+              }
+            />
+            <TooltipContent side="bottom">Narrow to your work</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Focus</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              {ME_FILTERS.map((f) => (
+                <DropdownMenuItem
+                  key={f.value}
+                  onClick={() => setMeFilter(f.value)}
+                  title={f.description}
+                >
+                  <span className="flex-1">{f.label}</span>
+                  {meFilter === f.value ? (
+                    <Check className="ml-auto size-3.5 shrink-0" aria-hidden="true" />
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <ScopePillRail
+          items={SCOPES.map((s) => ({
+            value: s.value,
+            label: s.label,
+            description: s.description,
+            badge: scopeCounts[s.value],
+          }))}
+          value={scope}
+          onChange={setScope}
+          className="shrink-0"
+        />
       </div>
 
-      {/* Right: filter + display + view toggle */}
-      <div className="flex items-center gap-1 border-l border-border/50 pl-2 ml-1">
+      <div className="flex shrink-0 items-center gap-1 border-l border-border/50 pl-2">
         {/* Filter */}
         <DropdownMenu>
           <Tooltip>
@@ -366,7 +428,7 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
               render={
                 <TooltipTrigger
                   render={
-                    <Button variant="outline" size="icon-sm" className="relative text-muted-foreground" aria-label="Filter issues">
+                    <Button variant="outline" size="icon-sm" className="relative rounded-full text-muted-foreground transition-colors duration-200 ease-out" aria-label="Filter issues">
                       <Filter className="size-4" aria-hidden="true" />
                       {hasActiveFilters && (
                         <span className="absolute top-0 right-0 size-1.5 rounded-full bg-brand" />
@@ -379,6 +441,22 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
             <TooltipContent side="bottom">Filter</TooltipContent>
           </Tooltip>
           <DropdownMenuContent align="end" className="w-auto">
+            <DropdownMenuLabel>Focus</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              {ME_FILTERS.map((f) => (
+                <DropdownMenuItem
+                  key={f.value}
+                  onClick={() => setMeFilter(f.value)}
+                  title={f.description}
+                >
+                  <span className="flex-1">{f.label}</span>
+                  {meFilter === f.value ? (
+                    <Check className="ml-auto size-3.5 shrink-0" aria-hidden="true" />
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
             {/* Status */}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
@@ -514,7 +592,7 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
               render={
                 <TooltipTrigger
                   render={
-                    <Button variant="outline" size="icon-sm" className="text-muted-foreground" aria-label="Display settings">
+                    <Button variant="outline" size="icon-sm" className="rounded-full text-muted-foreground transition-colors duration-200 ease-out" aria-label="Display settings">
                       <SlidersHorizontal className="size-4" aria-hidden="true" />
                     </Button>
                   }
@@ -556,6 +634,7 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
                 <Button
                   variant="outline"
                   size="icon-sm"
+                  className="rounded-full transition-colors duration-200 ease-out"
                   onClick={() =>
                     act.setSortDirection(sortDirection === "asc" ? "desc" : "asc")
                   }
@@ -594,43 +673,6 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
             </div>
           </PopoverContent>
         </Popover>
-
-        {/* View toggle */}
-        <DropdownMenu>
-          <Tooltip>
-            <DropdownMenuTrigger
-              render={
-                <TooltipTrigger
-                  render={
-                    <Button variant="outline" size="icon-sm" className="text-muted-foreground" aria-label={viewMode === "board" ? "Board view" : "List view"} data-testid="issues-view-toggle">
-                      {viewMode === "board" ? (
-                        <Columns3 className="size-4" aria-hidden="true" />
-                      ) : (
-                        <List className="size-4" aria-hidden="true" />
-                      )}
-                    </Button>
-                  }
-                />
-              }
-            />
-            <TooltipContent side="bottom">
-              {viewMode === "board" ? "Board view" : "List view"}
-            </TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" className="w-auto">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>View</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => act.setViewMode("board")}>
-                <Columns3 aria-hidden="true" />
-                Board
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => act.setViewMode("list")}>
-                <List aria-hidden="true" />
-                List
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   );

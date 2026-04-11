@@ -1,7 +1,7 @@
 -- Webhooks for outbox event delivery.
 CREATE TABLE IF NOT EXISTS webhooks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
     secret TEXT NOT NULL,
     event_types TEXT[] NOT NULL DEFAULT '{}',

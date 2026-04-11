@@ -231,6 +231,40 @@ type Config struct {
 	Logger         *slog.Logger
 }
 
+// forkDelegatesToExecute implements Fork for CLIs without native fork by reusing Execute
+// and mapping ParentSessionID to ResumeSessionID where supported.
+func forkDelegatesToExecute(
+	execute func(context.Context, string, ExecOptions) (*Session, error),
+	ctx context.Context,
+	prompt string,
+	opts ForkOptions,
+) (*ForkSession, error) {
+	execOpts := ExecOptions{
+		Cwd:             opts.Cwd,
+		Model:           opts.Model,
+		MaxTurns:        opts.MaxTurns,
+		Timeout:         opts.Timeout,
+		ResumeSessionID: opts.ParentSessionID,
+		ToolPermissions: opts.ToolPermissions,
+		ToolHooks:       opts.ToolHooks,
+	}
+	session, err := execute(ctx, prompt, execOpts)
+	if err != nil {
+		return nil, err
+	}
+	resCh := make(chan ForkResult, 1)
+	go func() {
+		result := <-session.Result
+		resCh <- ForkResult{
+			Status:     result.Status,
+			Output:     result.Output,
+			Error:      result.Error,
+			DurationMs: result.DurationMs,
+		}
+	}()
+	return &ForkSession{Result: resCh, OutputFile: opts.OutputFile}, nil
+}
+
 // New creates a Backend for the given agent type.
 // Supported types: "claude", "codex", "opencode", "openclaw".
 func New(agentType string, cfg Config) (Backend, error) {

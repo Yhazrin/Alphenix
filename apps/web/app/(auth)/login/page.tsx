@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore, setLoggedInCookie } from "@/features/auth";
 import { useWorkspaceStore } from "@/features/workspace";
 import { api } from "@/shared/api";
+import { readStoredWorkspaceId } from "@/shared/constants/workspace-storage";
 import { AlphenixIcon } from "@/components/alphenix-icon";
 import {
   Card,
@@ -123,7 +124,7 @@ function LoginPageContent() {
 
         await verifyCode(email, value);
         const wsList = await api.listWorkspaces();
-        const lastWsId = localStorage.getItem("multica_workspace_id");
+        const lastWsId = readStoredWorkspaceId();
         await hydrateWorkspace(wsList, lastWsId);
         router.push(searchParams.get("next") || "/issues");
       } catch (err) {

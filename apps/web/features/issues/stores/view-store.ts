@@ -6,8 +6,15 @@ import { persist } from "zustand/middleware";
 import type { IssueStatus, IssuePriority } from "@/shared/types";
 import { ALL_STATUSES } from "@/features/issues/config";
 
-export type ViewMode = "board" | "list";
-export type SortField = "position" | "priority" | "due_date" | "created_at" | "title";
+export type SortField =
+  | "updated_at"
+  | "created_at"
+  | "position"
+  | "priority"
+  | "due_date"
+  | "title"
+  | "status"
+  | "identifier";
 export type SortDirection = "asc" | "desc";
 
 export interface CardProperties {
@@ -23,12 +30,17 @@ export interface ActorFilterValue {
 }
 
 export const SORT_OPTIONS: { value: SortField; label: string }[] = [
-  { value: "position", label: "Manual" },
+  { value: "updated_at", label: "Last updated" },
+  { value: "created_at", label: "Created" },
   { value: "priority", label: "Priority" },
   { value: "due_date", label: "Due date" },
-  { value: "created_at", label: "Created date" },
+  { value: "status", label: "Status" },
   { value: "title", label: "Title" },
+  { value: "identifier", label: "ID" },
+  { value: "position", label: "Manual" },
 ];
+
+const VALID_SORT = new Set(SORT_OPTIONS.map((o) => o.value));
 
 export const CARD_PROPERTY_OPTIONS: { key: keyof CardProperties; label: string }[] = [
   { key: "priority", label: "Priority" },
@@ -38,7 +50,6 @@ export const CARD_PROPERTY_OPTIONS: { key: keyof CardProperties; label: string }
 ];
 
 export interface IssueViewState {
-  viewMode: ViewMode;
   statusFilters: IssueStatus[];
   priorityFilters: IssuePriority[];
   assigneeFilters: ActorFilterValue[];
@@ -47,8 +58,6 @@ export interface IssueViewState {
   sortBy: SortField;
   sortDirection: SortDirection;
   cardProperties: CardProperties;
-  listCollapsedStatuses: IssueStatus[];
-  setViewMode: (mode: ViewMode) => void;
   toggleStatusFilter: (status: IssueStatus) => void;
   togglePriorityFilter: (priority: IssuePriority) => void;
   toggleAssigneeFilter: (value: ActorFilterValue) => void;
@@ -60,27 +69,23 @@ export interface IssueViewState {
   setSortBy: (field: SortField) => void;
   setSortDirection: (dir: SortDirection) => void;
   toggleCardProperty: (key: keyof CardProperties) => void;
-  toggleListCollapsed: (status: IssueStatus) => void;
 }
 
 export const viewStoreSlice = (set: StoreApi<IssueViewState>["setState"]): IssueViewState => ({
-  viewMode: "board",
   statusFilters: [],
   priorityFilters: [],
   assigneeFilters: [],
   includeNoAssignee: false,
   creatorFilters: [],
-  sortBy: "position",
-  sortDirection: "asc",
+  sortBy: "updated_at",
+  sortDirection: "desc",
   cardProperties: {
     priority: true,
     description: true,
     assignee: true,
     dueDate: true,
   },
-  listCollapsedStatuses: [],
 
-  setViewMode: (mode) => set({ viewMode: mode }),
   toggleStatusFilter: (status) =>
     set((state) => ({
       statusFilters: state.statusFilters.includes(status)
@@ -123,7 +128,6 @@ export const viewStoreSlice = (set: StoreApi<IssueViewState>["setState"]): Issue
     }),
   hideStatus: (status) =>
     set((state) => {
-      // If no filter active, activate filter with all EXCEPT this one
       if (state.statusFilters.length === 0) {
         return { statusFilters: ALL_STATUSES.filter((s) => s !== status) };
       }
@@ -154,18 +158,52 @@ export const viewStoreSlice = (set: StoreApi<IssueViewState>["setState"]): Issue
         [key]: !state.cardProperties[key],
       },
     })),
-  toggleListCollapsed: (status) =>
-    set((state) => ({
-      listCollapsedStatuses: state.listCollapsedStatuses.includes(status)
-        ? state.listCollapsedStatuses.filter((s) => s !== status)
-        : [...state.listCollapsedStatuses, status],
-    })),
 });
+
+export type PersistedIssueView = Pick<
+  IssueViewState,
+  | "statusFilters"
+  | "priorityFilters"
+  | "assigneeFilters"
+  | "includeNoAssignee"
+  | "creatorFilters"
+  | "sortBy"
+  | "sortDirection"
+  | "cardProperties"
+>;
 
 export const viewStorePersistOptions = (name: string) => ({
   name,
-  partialize: (state: IssueViewState) => ({
-    viewMode: state.viewMode,
+  version: 3,
+  migrate: (persisted: unknown, _fromVersion: number) => {
+    if (!persisted || typeof persisted !== "object") return persisted;
+    const wrap = persisted as { state?: Record<string, unknown> };
+    if (wrap.state) {
+      delete wrap.state.viewMode;
+      delete wrap.state.listCollapsedStatuses;
+      const sb = wrap.state.sortBy;
+      if (typeof sb !== "string" || !VALID_SORT.has(sb as SortField)) {
+        wrap.state.sortBy = "updated_at";
+        wrap.state.sortDirection = "desc";
+      }
+    }
+    return persisted;
+  },
+  merge: (persisted: unknown, current: IssueViewState): IssueViewState => {
+    if (!persisted || typeof persisted !== "object") return current;
+    const p = { ...(persisted as Record<string, unknown>) };
+    delete p.viewMode;
+    delete p.listCollapsedStatuses;
+    delete p.setViewMode;
+    delete p.toggleListCollapsed;
+    const next = { ...current, ...p } as IssueViewState;
+    if (!VALID_SORT.has(next.sortBy)) {
+      next.sortBy = "updated_at";
+      next.sortDirection = "desc";
+    }
+    return next;
+  },
+  partialize: (state: IssueViewState): PersistedIssueView => ({
     statusFilters: state.statusFilters,
     priorityFilters: state.priorityFilters,
     assigneeFilters: state.assigneeFilters,
@@ -174,7 +212,6 @@ export const viewStorePersistOptions = (name: string) => ({
     sortBy: state.sortBy,
     sortDirection: state.sortDirection,
     cardProperties: state.cardProperties,
-    listCollapsedStatuses: state.listCollapsedStatuses,
   }),
 });
 
@@ -190,8 +227,6 @@ export const useIssueViewStore = create<IssueViewState>()(
   persist(viewStoreSlice, viewStorePersistOptions("alphenix_issues_view"))
 );
 
-// Clear filters on all registered view stores when workspace switches.
-// Deferred to avoid circular dependency: view-store → workspace → issues → view-store.
 const _syncedStores = new Set<StoreApi<IssueViewState>>();
 let _workspaceSyncInitialized = false;
 
@@ -200,7 +235,6 @@ export function registerViewStoreForWorkspaceSync(store: StoreApi<IssueViewState
   if (_workspaceSyncInitialized) return;
   _workspaceSyncInitialized = true;
 
-  // Dynamic import breaks the circular module evaluation chain.
   import("@/features/workspace")
     .then(({ useWorkspaceStore }) => {
       let prevId: string | undefined;
@@ -217,6 +251,5 @@ export function registerViewStoreForWorkspaceSync(store: StoreApi<IssueViewState
     });
 }
 
-/** Backward-compatible alias — registers the global singleton for workspace sync. */
 export const initFilterWorkspaceSync = () =>
   registerViewStoreForWorkspaceSync(useIssueViewStore);

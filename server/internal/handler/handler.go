@@ -263,3 +263,45 @@ func (h *Handler) requireWorkspaceRole(w http.ResponseWriter, r *http.Request, w
 	return member, true
 }
 
+// getIssuePrefix returns the workspace issue key prefix (cached per process).
+func (h *Handler) getIssuePrefix(ctx context.Context, workspaceID pgtype.UUID) string {
+	if !workspaceID.Valid {
+		return ""
+	}
+	key := uuidToString(workspaceID)
+	if v, ok := h.prefixCache.Load(key); ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	ws, err := h.Queries.GetWorkspace(ctx, workspaceID)
+	if err != nil {
+		return ""
+	}
+	h.prefixCache.Store(key, ws.IssuePrefix)
+	return ws.IssuePrefix
+}
+
+// loadIssueForUser loads an issue and ensures the caller is a member of its workspace.
+func (h *Handler) loadIssueForUser(w http.ResponseWriter, r *http.Request, issueID string) (db.Issue, bool) {
+	id := parseUUID(issueID)
+	if !id.Valid {
+		writeError(w, http.StatusBadRequest, "invalid issue id")
+		return db.Issue{}, false
+	}
+	issue, err := h.Queries.GetIssue(r.Context(), id)
+	if err != nil {
+		if isNotFound(err) {
+			writeError(w, http.StatusNotFound, "issue not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to load issue")
+		}
+		return db.Issue{}, false
+	}
+	wsID := uuidToString(issue.WorkspaceID)
+	if _, ok := h.workspaceMember(w, r, wsID); !ok {
+		return db.Issue{}, false
+	}
+	return issue, true
+}
+

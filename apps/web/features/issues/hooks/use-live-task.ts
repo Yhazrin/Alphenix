@@ -90,9 +90,10 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    api.getActiveTasksForIssue(issueId).then(({ tasks }) => {
+    api.getActiveTasksForIssue(issueId).then((res) => {
       if (!cancelled) {
-        const task = tasks[0] ?? null;
+        const list = res?.tasks;
+        const task = Array.isArray(list) ? (list[0] ?? null) : null;
         setActiveTask(task);
         if (task) {
           api.listTaskMessages(task.id).then((msgs) => {
@@ -219,9 +220,10 @@ export function useLiveTask(issueId: string): UseLiveTaskResult {
     "task:dispatch",
     useCallback(() => {
       if (activeTaskRef.current) return;
-      api.getActiveTasksForIssue(issueId).then(({ tasks }) => {
+      api.getActiveTasksForIssue(issueId).then((res) => {
         if (unmountedRef.current) return;
-        const task = tasks[0] ?? null;
+        const list = res?.tasks;
+        const task = Array.isArray(list) ? (list[0] ?? null) : null;
         if (task) {
           setActiveTask(task);
           setItems([]);

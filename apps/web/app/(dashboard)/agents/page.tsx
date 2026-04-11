@@ -84,6 +84,7 @@ import { useWorkspaceStore } from "@/features/workspace";
 import { useRuntimeStore } from "@/features/runtimes";
 import { useIssueStore } from "@/features/issues";
 import { EmptyState } from "@/components/common/empty-state";
+import { AutomationSubnav } from "@/features/workspace";
 import { ActorAvatar } from "@/components/common/actor-avatar";
 import { useFileUpload } from "@/shared/hooks/use-file-upload";
 
@@ -1799,7 +1800,9 @@ export default function AgentsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <AutomationSubnav />
+        <div className="flex min-h-0 flex-1">
         {/* List skeleton */}
         <div className="w-72 border-r">
           <div className="flex h-12 items-center justify-between border-b px-4">
@@ -1833,14 +1836,17 @@ export default function AgentsPage() {
             <Skeleton className="h-8 w-3/4 rounded-lg" />
           </div>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <ResizablePanelGroup
+    <div className="flex min-h-0 flex-1 flex-col">
+      <AutomationSubnav />
+      <ResizablePanelGroup
       orientation="horizontal"
-      className="flex-1 min-h-0"
+      className="min-h-0 flex-1"
       defaultLayout={defaultLayout}
       onLayoutChanged={onLayoutChanged}
     >
@@ -1934,5 +1940,6 @@ export default function AgentsPage() {
         />
       )}
     </ResizablePanelGroup>
+    </div>
   );
 }

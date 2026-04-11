@@ -6,7 +6,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { AuthInitializer } from "@/features/auth";
 import { WSProvider } from "@/features/realtime";
+import { QueryProvider } from "@core/provider";
 import { ModalRegistry } from "@/features/modals";
+import { GrainOverlay } from "@/components/grain-overlay";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -66,13 +68,18 @@ export default async function RootLayout({
       className={cn("antialiased font-sans h-full", geist.variable, geistMono.variable)}
     >
       <body className="h-full overflow-hidden">
-        <ThemeProvider>
-          <AuthInitializer>
-            <WSProvider>{children}</WSProvider>
-          </AuthInitializer>
-          <ModalRegistry />
-          <Toaster />
-        </ThemeProvider>
+        <GrainOverlay />
+        <div className="relative z-10 h-full min-h-0">
+          <ThemeProvider>
+            <QueryProvider>
+              <AuthInitializer>
+                <WSProvider>{children}</WSProvider>
+              </AuthInitializer>
+              <ModalRegistry />
+              <Toaster />
+            </QueryProvider>
+          </ThemeProvider>
+        </div>
       </body>
     </html>
   );

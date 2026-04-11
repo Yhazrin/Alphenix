@@ -45,6 +45,7 @@ import type { UpdateIssueRequest } from "@/shared/types";
 import { ALL_STATUSES, STATUS_CONFIG, PRIORITY_ORDER, PRIORITY_CONFIG } from "@/features/issues/config";
 import { StatusIcon, PriorityIcon, canAssignAgent } from "@/features/issues/components";
 import type { Issue, MemberWithUser, Agent } from "@/shared/types";
+import { ChannelBadge } from "@/features/channels";
 
 export interface IssueDetailHeaderProps {
   issue: Issue;
@@ -94,7 +95,7 @@ function IssueDetailHeaderImpl({
   };
 
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between border-b bg-background px-4 text-sm">
+    <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/80 bg-background/95 px-4 text-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
       <div className="flex items-center gap-1.5 min-w-0">
         {workspaceName && (
           <>
@@ -110,6 +111,13 @@ function IssueDetailHeaderImpl({
         <span className="truncate text-muted-foreground">
           {issue.identifier}
         </span>
+        <Link
+          href={`/channels/${issue.channel_id}`}
+          className="inline-flex shrink-0 rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title="Channel settings"
+        >
+          <ChannelBadge channelId={issue.channel_id} />
+        </Link>
         <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
         <span className="truncate">{issue.title}</span>
       </div>

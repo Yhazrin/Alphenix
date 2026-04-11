@@ -4,6 +4,7 @@ import { render, screen, waitFor, act, fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Issue, Comment, TimelineEntry } from "@/shared/types";
+import { useIssueStore } from "@/features/issues/store";
 
 // Mock next/dynamic — resolve dynamic() imports synchronously in tests
 // We use vi.hoisted() to create a mutable holder, then populate it after all mocks
@@ -53,15 +54,25 @@ vi.mock("@/features/auth", () => ({
     }),
 }));
 
+const hoistedWorkspace = vi.hoisted(() => ({
+  state: {
+    workspace: { id: "ws-1", name: "Test WS" },
+    workspaces: [{ id: "ws-1", name: "Test WS" }],
+    members: [{ user_id: "user-1", name: "Test User", email: "test@alphenix.ai" }],
+    agents: [{ id: "agent-1", name: "Claude Agent" }],
+  },
+}));
+
 // Mock workspace feature
 vi.mock("@/features/workspace", () => ({
-  useWorkspaceStore: (selector: (s: any) => any) =>
-    selector({
-      workspace: { id: "ws-1", name: "Test WS" },
-      workspaces: [{ id: "ws-1", name: "Test WS" }],
-      members: [{ user_id: "user-1", name: "Test User", email: "test@alphenix.ai" }],
-      agents: [{ id: "agent-1", name: "Claude Agent" }],
-    }),
+  useWorkspaceStore: Object.assign(
+    (selector?: (s: any) => any) =>
+      selector ? selector(hoistedWorkspace.state) : hoistedWorkspace.state,
+    {
+      getState: () => hoistedWorkspace.state,
+      subscribe: vi.fn(() => () => {}),
+    },
+  ),
   useActorName: () => ({
     getMemberName: (id: string) => (id === "user-1" ? "Test User" : "Unknown"),
     getAgentName: (id: string) => (id === "agent-1" ? "Claude Agent" : "Unknown Agent"),
@@ -79,13 +90,14 @@ vi.mock("@/features/workspace", () => ({
   }),
 }));
 
-// Mock issue store — only client state remains (activeIssueId)
-vi.mock("@/features/issues", () => ({
-  useIssueStore: Object.assign(
-    (selector: (s: any) => any) => selector({ activeIssueId: null }),
-    { getState: () => ({ activeIssueId: null, setActiveIssue: vi.fn() }) },
-  ),
-}));
+vi.mock("@/features/issues", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/issues")>();
+  return {
+    ...actual,
+    StatusIcon: () => null,
+    PriorityIcon: () => null,
+  };
+});
 
 // Mock ws-context
 vi.mock("@/features/realtime", () => ({
@@ -179,6 +191,20 @@ vi.mock("@/shared/api", () => ({
     listIssueSubscribers: vi.fn().mockResolvedValue([]),
     subscribeToIssue: vi.fn().mockResolvedValue(undefined),
     unsubscribeFromIssue: vi.fn().mockResolvedValue(undefined),
+    listChannels: vi.fn().mockResolvedValue({
+      channels: [
+        {
+          id: "ch-general",
+          workspace_id: "ws-1",
+          name: "General",
+          slug: "general",
+          description: null,
+          is_default: true,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        },
+      ],
+    }),
     getActiveTasksForIssue: vi.fn().mockResolvedValue({ tasks: [] }),
     listTasksByIssue: vi.fn().mockResolvedValue([]),
     listTaskMessages: vi.fn().mockResolvedValue([]),
@@ -196,6 +222,7 @@ vi.mock("@/shared/api", () => ({
 const mockIssue: Issue = {
   id: "issue-1",
   workspace_id: "ws-1",
+  channel_id: "ch-general",
   number: 1,
   identifier: "TES-1",
   title: "Implement authentication",
@@ -273,6 +300,14 @@ async function renderPage(id = "issue-1") {
 describe("IssueDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useIssueStore.setState({
+      issues: [mockIssue],
+      loading: false,
+      loadingMore: false,
+      hasMore: false,
+      error: null,
+      activeIssueId: null,
+    });
   });
 
   it("renders issue details after loading", async () => {
@@ -297,11 +332,13 @@ describe("IssueDetailPage", () => {
     await renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Properties")).toBeInTheDocument();
+      expect(screen.getByTestId("issue-detail-sidebar")).toBeInTheDocument();
     });
 
     expect(screen.getByText("In Progress")).toBeInTheDocument();
     expect(screen.getByText("High")).toBeInTheDocument();
+    expect(screen.getByText("Subscribers")).toBeInTheDocument();
+    expect(screen.getByText("Copy link")).toBeInTheDocument();
   });
 
   it("renders comments", async () => {

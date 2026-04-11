@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { MyIssuesPage } from "@/features/my-issues";
-
-export default function Page() {
-  return <MyIssuesPage />;
+/** Legacy URL — personal views live under Issues → Focus. */
+export default function MyIssuesRedirectPage() {
+  redirect("/issues");
 }

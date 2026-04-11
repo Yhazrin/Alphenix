@@ -8,9 +8,7 @@ import {
   Check,
   ChevronDown,
   CircleDot,
-  Columns3,
   Filter,
-  List,
   SignalHigh,
   SlidersHorizontal,
 } from "lucide-react";
@@ -19,7 +17,6 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
@@ -46,6 +43,7 @@ import {
   CARD_PROPERTY_OPTIONS,
 } from "@/features/issues/stores/view-store";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { ScopePillRail } from "@/components/common/scope-pill-rail";
 import type { Issue } from "@/shared/types";
 import { myIssuesViewStore, type MyIssuesScope } from "../stores/my-issues-view-store";
 
@@ -110,7 +108,6 @@ const SCOPES: { value: MyIssuesScope; label: string; description: string }[] = [
 // ---------------------------------------------------------------------------
 
 export function MyIssuesHeader({ allIssues }: { allIssues: Issue[] }) {
-  const viewMode = useStore(myIssuesViewStore, (s) => s.viewMode);
   const statusFilters = useStore(myIssuesViewStore, (s) => s.statusFilters);
   const priorityFilters = useStore(myIssuesViewStore, (s) => s.priorityFilters);
   const sortBy = useStore(myIssuesViewStore, (s) => s.sortBy);
@@ -125,34 +122,15 @@ export function MyIssuesHeader({ allIssues }: { allIssues: Issue[] }) {
     getActiveFilterCount({ statusFilters, priorityFilters }) > 0;
 
   const sortLabel =
-    SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Manual";
+    SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Last updated";
 
   return (
     <div className="flex h-12 shrink-0 items-center justify-between px-4">
-      {/* Left: scope buttons */}
-      <div className="flex items-center gap-1">
-        {SCOPES.map((s) => (
-          <Tooltip key={s.value}>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={
-                    scope === s.value
-                      ? "bg-accent text-accent-foreground hover:bg-accent/80"
-                      : "text-muted-foreground"
-                  }
-                  onClick={() => act.setScope(s.value)}
-                >
-                  {s.label}
-                </Button>
-              }
-            />
-            <TooltipContent side="bottom">{s.description}</TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
+      <ScopePillRail
+        items={SCOPES}
+        value={scope}
+        onChange={(v) => act.setScope(v)}
+      />
 
       {/* Right: filter + display + view toggle */}
       <div className="flex items-center gap-1">
@@ -163,7 +141,7 @@ export function MyIssuesHeader({ allIssues }: { allIssues: Issue[] }) {
               render={
                 <TooltipTrigger
                   render={
-                    <Button variant="outline" size="icon-sm" className="relative text-muted-foreground">
+                    <Button variant="outline" size="icon-sm" className="relative rounded-full text-muted-foreground transition-colors duration-200 ease-out">
                       <Filter className="size-4" />
                       {hasActiveFilters && (
                         <span className="absolute top-0 right-0 size-1.5 rounded-full bg-brand" />
@@ -267,7 +245,7 @@ export function MyIssuesHeader({ allIssues }: { allIssues: Issue[] }) {
               render={
                 <TooltipTrigger
                   render={
-                    <Button variant="outline" size="icon-sm" className="text-muted-foreground">
+                    <Button variant="outline" size="icon-sm" className="rounded-full text-muted-foreground transition-colors duration-200 ease-out">
                       <SlidersHorizontal className="size-4" />
                     </Button>
                   }
@@ -309,6 +287,7 @@ export function MyIssuesHeader({ allIssues }: { allIssues: Issue[] }) {
                 <Button
                   variant="outline"
                   size="icon-sm"
+                  className="rounded-full transition-colors duration-200 ease-out"
                   onClick={() =>
                     act.setSortDirection(
                       sortDirection === "asc" ? "desc" : "asc",
@@ -347,43 +326,6 @@ export function MyIssuesHeader({ allIssues }: { allIssues: Issue[] }) {
             </div>
           </PopoverContent>
         </Popover>
-
-        {/* View toggle */}
-        <DropdownMenu>
-          <Tooltip>
-            <DropdownMenuTrigger
-              render={
-                <TooltipTrigger
-                  render={
-                    <Button variant="outline" size="icon-sm" className="text-muted-foreground">
-                      {viewMode === "board" ? (
-                        <Columns3 className="size-4" />
-                      ) : (
-                        <List className="size-4" />
-                      )}
-                    </Button>
-                  }
-                />
-              }
-            />
-            <TooltipContent side="bottom">
-              {viewMode === "board" ? "Board view" : "List view"}
-            </TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" className="w-auto">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>View</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => act.setViewMode("board")}>
-                <Columns3 />
-                Board
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => act.setViewMode("list")}>
-                <List />
-                List
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   );

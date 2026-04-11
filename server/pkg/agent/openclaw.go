@@ -18,6 +18,10 @@ type openclawBackend struct {
 	cfg Config
 }
 
+func (b *openclawBackend) Fork(ctx context.Context, prompt string, opts ForkOptions) (*ForkSession, error) {
+	return forkDelegatesToExecute(b.Execute, ctx, prompt, opts)
+}
+
 func (b *openclawBackend) Execute(ctx context.Context, prompt string, opts ExecOptions) (*Session, error) {
 	execPath := b.cfg.ExecutablePath
 	if execPath == "" {

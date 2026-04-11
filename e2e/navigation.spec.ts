@@ -7,20 +7,17 @@ test.describe("Navigation", () => {
   });
 
   test("sidebar navigation works", async ({ page }) => {
-    // Click Inbox
-    await page.getByTestId("sidebar-nav-inbox").click();
+    await page.getByTestId("header-inbox-link").click();
     await page.waitForURL("**/inbox");
     await expect(page).toHaveURL(/\/inbox/);
 
-    // Click Agents
-    await page.getByTestId("sidebar-nav-agents").click();
-    await page.waitForURL("**/agents");
-    await expect(page).toHaveURL(/\/agents/);
-
-    // Click Issues
     await page.getByTestId("sidebar-nav-issues").click();
     await page.waitForURL("**/issues");
     await expect(page).toHaveURL(/\/issues/);
+
+    await page.getByTestId("sidebar-nav-agents").click();
+    await page.waitForURL("**/agents");
+    await expect(page).toHaveURL(/\/agents/);
   });
 
   test("settings page loads via sidebar", async ({ page }) => {

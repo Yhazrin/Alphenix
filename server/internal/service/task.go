@@ -11,13 +11,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/multica-ai/multica/server/internal/events"
-	"github.com/multica-ai/multica/server/internal/mention"
-	"github.com/multica-ai/multica/server/internal/realtime"
-	"github.com/multica-ai/multica/server/internal/util"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/protocol"
-	"github.com/multica-ai/multica/server/pkg/redact"
+	"github.com/multica-ai/alphenix/server/internal/events"
+	"github.com/multica-ai/alphenix/server/internal/mention"
+	"github.com/multica-ai/alphenix/server/internal/realtime"
+	"github.com/multica-ai/alphenix/server/internal/util"
+	db "github.com/multica-ai/alphenix/server/pkg/db/generated"
+	"github.com/multica-ai/alphenix/server/pkg/protocol"
+	"github.com/multica-ai/alphenix/server/pkg/redact"
 )
 
 type TaskService struct {
@@ -106,6 +106,20 @@ func (s *TaskService) EnqueueTaskForMention(ctx context.Context, issue db.Issue,
 
 	slog.Info("mention task enqueued", "task_id", util.UUIDToString(task.ID), "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(agentID))
 	return task, nil
+}
+
+// TryEnqueueReadySubIssues enqueues agent work for sub-issues that are unblocked by issue dependencies.
+func (s *TaskService) TryEnqueueReadySubIssues(ctx context.Context, parentIssueID pgtype.UUID) {
+	ready, err := s.Queries.ListReadySubIssues(ctx, parentIssueID)
+	if err != nil {
+		slog.Warn("list ready sub-issues failed", "parent_issue_id", util.UUIDToString(parentIssueID), "error", err)
+		return
+	}
+	for _, sub := range ready {
+		if _, err := s.EnqueueTaskForIssue(ctx, sub); err != nil {
+			slog.Debug("sub-issue enqueue skipped", "issue_id", util.UUIDToString(sub.ID), "error", err)
+		}
+	}
 }
 
 // CancelTasksForIssue cancels all active tasks for an issue.
@@ -250,6 +264,8 @@ func (s *TaskService) CompleteTask(ctx context.Context, taskID pgtype.UUID, resu
 		}
 	}
 
+	s.checkAndLogReadyDependents(ctx, task.ID)
+
 	// Reconcile agent status
 	s.ReconcileAgentStatus(ctx, task.AgentID)
 
@@ -288,6 +304,9 @@ func (s *TaskService) FailTask(ctx context.Context, taskID pgtype.UUID, errMsg s
 	if errMsg != "" {
 		s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(errMsg), "system", task.TriggerCommentID)
 	}
+
+	s.checkAndLogReadyDependents(ctx, task.ID)
+
 	// Reconcile agent status
 	s.ReconcileAgentStatus(ctx, task.AgentID)
 
@@ -295,6 +314,44 @@ func (s *TaskService) FailTask(ctx context.Context, taskID pgtype.UUID, errMsg s
 	s.broadcastTaskEvent(ctx, protocol.EventTaskFailed, task)
 
 	return &task, nil
+}
+
+// checkAndLogReadyDependents logs when queued tasks become runnable because a dependency finished.
+func (s *TaskService) checkAndLogReadyDependents(ctx context.Context, completedTaskID pgtype.UUID) {
+	deps, err := s.Queries.GetTaskDependents(ctx, completedTaskID)
+	if err != nil {
+		slog.Warn("check ready dependents failed", "completed_task_id", util.UUIDToString(completedTaskID), "error", err)
+		return
+	}
+	for _, d := range deps {
+		dependentID := d.TaskID
+		t, err := s.Queries.GetAgentTask(ctx, dependentID)
+		if err != nil || t.Status != "queued" {
+			continue
+		}
+		blockers, err := s.Queries.GetTaskDependencies(ctx, dependentID)
+		if err != nil {
+			continue
+		}
+		allDone := true
+		for _, b := range blockers {
+			depTask, err := s.Queries.GetAgentTask(ctx, b.DependsOnTaskID)
+			if err != nil {
+				allDone = false
+				break
+			}
+			switch depTask.Status {
+			case "completed", "failed", "cancelled":
+			default:
+				allDone = false
+			}
+		}
+		if allDone {
+			slog.Info("dependent task ready (all dependencies terminal)",
+				"task_id", util.UUIDToString(dependentID),
+				"unblocked_by", util.UUIDToString(completedTaskID))
+		}
+	}
 }
 
 // ReportProgress broadcasts a progress update via the event bus.

@@ -48,6 +48,7 @@ import { PRESET_TEAMS, type PresetTeam } from "@/shared/data/preset-teams";
 import { PRESET_AGENTS } from "@/shared/data/preset-agents";
 import { timeAgo } from "@/shared/utils";
 import { EmptyState } from "@/components/common/empty-state";
+import { AutomationSubnav } from "@/features/workspace";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -738,7 +739,9 @@ export default function TeamsPage() {
 
   if (isLoading || loadingTeams) {
     return (
-      <div className="flex flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <AutomationSubnav />
+        <div className="flex min-h-0 flex-1">
         <div className="w-72 border-r">
           <div className="px-4 py-3 border-b">
             <Skeleton className="h-5 w-20" />
@@ -753,8 +756,9 @@ export default function TeamsPage() {
             </div>
           ))}
         </div>
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-1 items-center justify-center">
           <Skeleton className="h-10 w-10 rounded-lg" />
+        </div>
         </div>
       </div>
     );
@@ -762,20 +766,25 @@ export default function TeamsPage() {
 
   if (error) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <AutomationSubnav />
+        <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center gap-2 text-center">
           <AlertCircle className="h-8 w-8 text-destructive/60" aria-hidden="true" />
           <p className="text-sm font-medium text-destructive">Failed to load teams</p>
           <p className="text-xs text-destructive/70">{error}</p>
+        </div>
         </div>
       </div>
     );
   }
 
   return (
-    <ResizablePanelGroup
+    <div className="flex min-h-0 flex-1 flex-col">
+      <AutomationSubnav />
+      <ResizablePanelGroup
       orientation="horizontal"
-      className="flex-1 min-h-0"
+      className="min-h-0 flex-1"
       defaultLayout={defaultLayout}
       onLayoutChanged={onLayoutChanged}
     >
@@ -870,5 +879,6 @@ export default function TeamsPage() {
         />
       )}
     </ResizablePanelGroup>
+    </div>
   );
 }

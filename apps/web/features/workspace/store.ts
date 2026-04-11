@@ -5,6 +5,11 @@ import type { Workspace, Agent, Skill, MemberWithUser } from "@/shared/types";
 import { toast } from "sonner";
 import { api } from "@/shared/api";
 import { createLogger } from "@/shared/logger";
+import {
+  clearWorkspaceIdFromStorage,
+  persistWorkspaceIdToStorage,
+  readStoredWorkspaceId,
+} from "@/shared/constants/workspace-storage";
 
 const logger = createLogger("workspace-store");
 
@@ -66,13 +71,13 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     if (!nextWorkspace) {
       api.setWorkspaceId(null);
-      localStorage.removeItem("multica_workspace_id");
+      clearWorkspaceIdFromStorage();
       set({ workspace: null, members: [], agents: [], skills: [] });
       return null;
     }
 
     api.setWorkspaceId(nextWorkspace.id);
-    localStorage.setItem("multica_workspace_id", nextWorkspace.id);
+    persistWorkspaceIdToStorage(nextWorkspace.id);
     set({ workspace: nextWorkspace });
     logger.debug("hydrate workspace", nextWorkspace.name, nextWorkspace.id);
 
@@ -89,7 +94,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     if (!ws) return;
 
     api.setWorkspaceId(ws.id);
-    localStorage.setItem("multica_workspace_id", ws.id);
+    persistWorkspaceIdToStorage(ws.id);
 
     // All data caches (issues, inbox, members, agents, skills, runtimes)
     // are managed by TanStack Query, keyed by wsId — auto-refetch on switch.
@@ -100,7 +105,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   refreshWorkspaces: async () => {
     const { workspace, hydrateWorkspace } = get();
-    const storedWorkspaceId = localStorage.getItem("multica_workspace_id");
+    const storedWorkspaceId = readStoredWorkspaceId();
     try {
       const wsList = await api.listWorkspaces();
       hydrateWorkspace(wsList, workspace?.id ?? storedWorkspaceId);
@@ -147,6 +152,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   clearWorkspace: () => {
     api.setWorkspaceId(null);
+    clearWorkspaceIdFromStorage();
     set({ workspace: null, workspaces: [], members: [], agents: [], skills: [] });
   },
 

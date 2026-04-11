@@ -295,6 +295,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create agent")
 		return
 	}
+	h.addParticipantToDefaultChannel(r.Context(), parseUUID(workspaceID), "agent", agent.ID)
 	slog.Info("agent created", append(logger.RequestAttrs(r), "agent_id", uuidToString(agent.ID), "name", agent.Name, "workspace_id", workspaceID)...)
 
 	if runtime.Status == "online" {

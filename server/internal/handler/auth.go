@@ -161,6 +161,10 @@ func (h *Handler) ensureUserWorkspace(ctx context.Context, user db.User) error {
 		return err
 	}
 
+	if err := h.SeedDefaultChannelForWorkspace(ctx, qtx, workspace.ID, user.ID); err != nil {
+		return err
+	}
+
 	return tx.Commit(ctx)
 }
 
